@@ -17,6 +17,9 @@
 /.next/
 /out/
 
+# local report data
+/data/reports.json
+
 # production
 /build
 

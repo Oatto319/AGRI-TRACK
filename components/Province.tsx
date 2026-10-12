@@ -1,0 +1,48 @@
+"use client";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import Shell from "./Shell";
+import MonthPicker from "@/components/MonthPicker";
+import { currentMonth, type Report } from "@/lib/data";
+import { aggregate } from "@/lib/summary";
+
+interface Ctx { reports: Report[] | null; error: string | null; from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; valid: boolean; agg: ReturnType<typeof aggregate> | null }
+const C = createContext<Ctx | null>(null);
+export const useProvince = () => { const v = useContext(C); if (!v) throw new Error("ProvinceFrame missing"); return v; };
+
+// layout คงที่ระหว่างเปลี่ยนหน้า จึงใช้ช่วงเดือนที่เลือกร่วมกันทั้ง 2 หน้า
+export function ProvinceFrame({ children }: { children: ReactNode }) {
+  const [reports, setReports] = useState<Report[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [from, setFrom] = useState(""); const [to, setTo] = useState("");
+  useEffect(() => {
+    fetch("/api/reports").then(response => {
+      if (!response.ok) throw new Error("โหลดรายงานไม่สำเร็จ");
+      return response.json() as Promise<Report[]>;
+    }).then(all => {
+      setReports(all);
+      const ms = all.filter(r => r.status === "submitted").map(r => r.month).sort(), cur = currentMonth();
+      setFrom(ms[0] ?? cur); setTo(ms[ms.length - 1] ?? cur);
+    }).catch(() => setError("ไม่สามารถโหลดรายงานได้ กรุณาลองใหม่อีกครั้ง"));
+  }, []);
+  const valid = !!from && !!to && from <= to;
+  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to) : null), [reports, from, to, valid]);
+  return (
+    <C.Provider value={{ reports, error, from, to, setFrom, setTo, valid, agg }}>
+      <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
+        { href: "/province", label: "หน้า 1: ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ" },
+        { href: "/province/table", label: "หน้า 2: ตารางข้อมูลรายละเอียด", hint: "รายอำเภอ + ดาวน์โหลด Excel" }]}>
+        {children}
+      </Shell>
+    </C.Provider>
+  );
+}
+
+export function FilterBar({ download }: { download?: boolean }) {
+  const { from, to, setFrom, setTo, valid } = useProvince();
+  return (
+    <div className="db-filter">
+      <div className="field"><label htmlFor="f">ตั้งแต่เดือน</label><MonthPicker id="f" value={from} onChange={setFrom} /></div>
+      <div className="field"><label htmlFor="t">ถึงเดือน</label><MonthPicker id="t" value={to} onChange={setTo} /></div>
+      {download && valid && <a className="btn go" href={`/api/export?from=${from}&to=${to}`} download>📥 ดาวน์โหลด Excel</a>}
+    </div>);
+}

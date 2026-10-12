@@ -1,0 +1,52 @@
+import { NextRequest, NextResponse } from "next/server";
+import { DISTRICTS, FIELDS, type Report } from "@/lib/data";
+import { readAll, upsert } from "@/lib/store";
+
+const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
+export async function GET(req: NextRequest) {
+  const q = req.nextUrl.searchParams, d = q.get("district"), m = q.get("month");
+  let all = await readAll();
+  if (d) all = all.filter(r => r.district === d);
+  if (m) all = all.filter(r => r.month === m);
+  return NextResponse.json(all);
+}
+
+export async function PUT(req: NextRequest) {
+  let body: unknown;
+  try { body = await req.json(); } catch { return bad("ข้อมูลไม่ถูกต้อง"); }
+  if (!isRecord(body)) return bad("ข้อมูลไม่ถูกต้อง");
+  if (typeof body.district !== "string" || !DISTRICTS.some(x => x.name === body.district)) return bad("ไม่พบอำเภอ");
+  if (typeof body.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.month)) return bad("เดือนไม่ถูกต้อง");
+  if (body.status !== "draft" && body.status !== "submitted") return bad("สถานะไม่ถูกต้อง");
+
+  const inputValues = body.values === undefined ? {} : isRecord(body.values) ? body.values : null;
+  if (!inputValues) return bad("ข้อมูลตัวเลขไม่ถูกต้อง");
+  const inputReporter = body.reporter === undefined ? {} : isRecord(body.reporter) ? body.reporter : null;
+  if (!inputReporter) return bad("ข้อมูลผู้รายงานไม่ถูกต้อง");
+  const values: Report["values"] = {};
+  for (const f of FIELDS) {
+    const v = inputValues[f.key];
+    if (v === undefined || v === null || v === "") { if (body.status === "submitted") return bad(`กรอก${f.label} (ถ้าไม่มีให้ใส่ 0)`); continue; }
+    if (typeof v !== "number" && typeof v !== "string") return bad(`${f.label}ต้องเป็นตัวเลข`);
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) return bad(`${f.label}ต้องเป็นตัวเลขที่ไม่ติดลบ`);
+    values[f.key] = n;
+  }
+  if (["name", "position", "phone"].some(key => inputReporter[key] !== undefined && typeof inputReporter[key] !== "string")) {
+    return bad("ข้อมูลผู้รายงานไม่ถูกต้อง");
+  }
+  const rp = {
+    name: typeof inputReporter.name === "string" ? inputReporter.name.trim() : "",
+    position: typeof inputReporter.position === "string" ? inputReporter.position.trim() : "",
+    phone: typeof inputReporter.phone === "string" ? inputReporter.phone.trim() : "",
+  };
+  if (body.status === "submitted") {
+    if (!rp.name || !rp.position) return bad("กรอกชื่อและตำแหน่งผู้รายงาน");
+    if (!/^[0-9\- ]{9,12}$/.test(rp.phone)) return bad("เบอร์โทรไม่ถูกต้อง");
+  }
+  const saved = await upsert({ district: body.district, month: body.month, values, reporter: rp, status: body.status, updatedAt: new Date().toISOString() });
+  return NextResponse.json(saved);
+}
