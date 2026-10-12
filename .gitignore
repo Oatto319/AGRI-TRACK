@@ -42,3 +42,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# user accounts / initial passwords
+/data/users.json
+/data/initial-credentials.csv
