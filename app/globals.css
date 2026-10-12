@@ -245,3 +245,10 @@ input[type=text],input[type=number],select,textarea{border-radius:12px;border:1p
 .dt th:first-child,.dt th:nth-child(2){background:#fff}.dt tfoot td,.dt tfoot td:first-child,.dt tfoot td:nth-child(2){background:#f8fafc;color:#0f172a}
 .pill{display:inline-block;padding:.1rem .8rem;border-radius:99px;font-size:.78rem;font-weight:500}
 .pill.ok{background:#ecfdf5;color:#059669}.pill.warn{background:#fffbeb;color:#d97706}.pill.no{background:#fff1f2;color:#e11d48}
+
+/* ตั้งค่ารอบรายงาน / ส่งช้า */
+.db-chip.warn{background:#fffbeb;border-color:#fef3c7;color:#b45309}
+.rseg{display:flex;gap:.4rem;flex-wrap:wrap}.rseg button{padding:.45rem .95rem;border-radius:99px;border:1px solid #cbd5e1;background:#fff;cursor:pointer;font-weight:500}
+.rseg button:hover{background:#eff6ff}.rseg button[aria-pressed=true]{background:var(--blue);color:#fff;border-color:var(--blue)}
+.set-row{display:flex;gap:.7rem;align-items:center;flex-wrap:wrap;padding:.6rem .9rem;border:1px solid #f1f5f9;border-radius:12px;background:#f8fafc}
+.field .lbl{display:block;font-weight:500;margin-bottom:.35rem}

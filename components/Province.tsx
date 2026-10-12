@@ -2,35 +2,36 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Shell from "./Shell";
 import MonthPicker from "@/components/MonthPicker";
-import { currentMonth, type Report } from "@/lib/data";
+import { DEFAULT_SETTINGS, currentMonth, type Report, type Settings } from "@/lib/data";
 import { aggregate } from "@/lib/summary";
 
-interface Ctx { reports: Report[] | null; error: string | null; from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; valid: boolean; agg: ReturnType<typeof aggregate> | null }
+interface Ctx { settings: Settings; setSettings: (s: Settings) => void; reports: Report[] | null; error: string | null; from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; valid: boolean; agg: ReturnType<typeof aggregate> | null }
 const C = createContext<Ctx | null>(null);
+const load = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดไม่สำเร็จ"); return (await r.json()) as T; };
 export const useProvince = () => { const v = useContext(C); if (!v) throw new Error("ProvinceFrame missing"); return v; };
 
 // layout คงที่ระหว่างเปลี่ยนหน้า จึงใช้ช่วงเดือนที่เลือกร่วมกันทั้ง 2 หน้า
 export function ProvinceFrame({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   useEffect(() => {
-    fetch("/api/reports").then(response => {
-      if (!response.ok) throw new Error("โหลดรายงานไม่สำเร็จ");
-      return response.json() as Promise<Report[]>;
-    }).then(all => {
+    Promise.all([load<Report[]>("/api/reports"), load<Settings>("/api/settings")]).then(([all, st]) => {
+      setSettings(st);
       setReports(all);
       const ms = all.filter(r => r.status === "submitted").map(r => r.month).sort(), cur = currentMonth();
       setFrom(ms[0] ?? cur); setTo(ms[ms.length - 1] ?? cur);
     }).catch(() => setError("ไม่สามารถโหลดรายงานได้ กรุณาลองใหม่อีกครั้ง"));
   }, []);
   const valid = !!from && !!to && from <= to;
-  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to) : null), [reports, from, to, valid]);
+  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, settings.dueDays.length) : null), [reports, from, to, valid, settings]);
   return (
-    <C.Provider value={{ reports, error, from, to, setFrom, setTo, valid, agg }}>
+    <C.Provider value={{ settings, setSettings, reports, error, from, to, setFrom, setTo, valid, agg }}>
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
         { href: "/province", label: "หน้า 1: ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ" },
-        { href: "/province/table", label: "หน้า 2: ตารางข้อมูลรายละเอียด", hint: "รายอำเภอ + ดาวน์โหลด Excel" }]}>
+        { href: "/province/table", label: "หน้า 2: ตารางข้อมูลรายละเอียด", hint: "รายอำเภอ + ดาวน์โหลด Excel" },
+        { href: "/province/settings", label: "หน้า 3: ตั้งค่าการรายงาน", hint: "จำนวนครั้งต่อเดือนและวันกำหนดส่ง" }]}>
         {children}
       </Shell>
     </C.Provider>

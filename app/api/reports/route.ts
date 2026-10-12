@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DISTRICTS, FIELDS, type Report } from "@/lib/data";
-import { readAll, upsert } from "@/lib/store";
+import { DISTRICTS, FIELDS, bkkDate, dueDateOf, type Report } from "@/lib/data";
+import { readAll, readSettings, update } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -21,6 +21,8 @@ export async function PUT(req: NextRequest) {
   if (typeof body.district !== "string" || !DISTRICTS.some(x => x.name === body.district)) return bad("ไม่พบอำเภอ");
   if (typeof body.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.month)) return bad("เดือนไม่ถูกต้อง");
   if (body.status !== "draft" && body.status !== "submitted") return bad("สถานะไม่ถูกต้อง");
+  const settings = await readSettings(), round = body.round === undefined ? 1 : body.round;
+  if (typeof round !== "number" || !Number.isInteger(round) || round < 1 || round > settings.dueDays.length) return bad(`รอบต้องอยู่ระหว่าง 1–${settings.dueDays.length}`);
 
   const inputValues = body.values === undefined ? {} : isRecord(body.values) ? body.values : null;
   if (!inputValues) return bad("ข้อมูลตัวเลขไม่ถูกต้อง");
@@ -47,6 +49,18 @@ export async function PUT(req: NextRequest) {
     if (!rp.name || !rp.position) return bad("กรอกชื่อและตำแหน่งผู้รายงาน");
     if (!/^[0-9\- ]{9,12}$/.test(rp.phone)) return bad("เบอร์โทรไม่ถูกต้อง");
   }
-  const saved = await upsert({ district: body.district, month: body.month, values, reporter: rp, status: body.status, updatedAt: new Date().toISOString() });
-  return NextResponse.json(saved);
+  const { district, month, status } = body;
+  try {
+    const saved = await update(district, month, round, old => {
+      if (old?.status === "submitted" && status === "draft") throw new Error("ส่งรายงานแล้ว บันทึกเป็นร่างไม่ได้ (แก้ไขแล้วกดส่งซ้ำ)");
+      const now = new Date();
+      let meta: Partial<Report> = {};
+      if (status === "submitted") {
+        if (old?.submittedAt) meta = { submittedAt: old.submittedAt, dueDate: old.dueDate, late: old.late }; // นับจากวันที่ส่งครั้งแรก
+        else { const due = dueDateOf(month, settings.dueDays[round - 1]); meta = { submittedAt: now.toISOString(), dueDate: due, late: bkkDate(now) > due }; }
+      }
+      return { district, month, round, values, reporter: rp, status, updatedAt: now.toISOString(), ...meta };
+    });
+    return NextResponse.json(saved);
+  } catch (e) { return bad(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
 }

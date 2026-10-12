@@ -6,10 +6,10 @@ import { COLORS, Donut, Kpi, RankRows, Trend } from "@/components/Charts";
 import { FilterBar, useProvince } from "@/components/Province";
 
 export default function ProvinceDashboard() {
-  const { reports, error, from, to, valid, agg } = useProvince();
+  const { reports, error, from, to, valid, agg, settings } = useProvince();
   const rows = agg?.rows ?? [];
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
-  const total = sum(r => r.total), target = sum(r => r.target), sent = rows.filter(r => r.sent).length;
+  const total = sum(r => r.total), target = sum(r => r.target), sent = rows.filter(r => r.any).length;
   const pct = target ? Math.min(100, Math.round((total / target) * 100)) : 0;
 
   return (
@@ -24,7 +24,7 @@ export default function ProvinceDashboard() {
       {reports && !valid && <p className="err">เลือกช่วงเดือนให้ถูกต้อง</p>}
       {agg && <>
         <div className="db-kpis">
-          <Kpi label="อำเภอที่ส่งรายงานแล้ว" value={`${sent} / ${rows.length}`} unit="อำเภอ" color="#2563eb" pct={(sent / rows.length) * 100} tone="blue" note={`ส่งแล้ว ${Math.round((sent / rows.length) * 100)}%`} />
+          <Kpi label="อำเภอที่ส่งรายงานแล้ว" value={`${sent} / ${rows.length}`} unit="อำเภอ" color="#2563eb" pct={(sent / rows.length) * 100} tone="blue" note={`ส่งแล้ว ${Math.round((sent / rows.length) * 100)}% · ส่งช้า ${sum(r => r.late)} ครั้ง`} />
           <Kpi label="ผลรวมทั้งจังหวัด" value={fmt(total)} unit="ตัน" tone="emerald" note={`เฉลี่ย ${fmt(sent ? total / sent : 0)} ตัน/อำเภอที่ส่ง`} />
           <Kpi label={`เทียบเป้าหมาย ${fmt(target)} ตัน`} value={`${pct}%`} color="#f59e0b" tone="amber" pct={pct} note={target > total ? `ยังขาดอีก ${fmt(target - total)} ตัน` : "บรรลุเป้าหมายแล้ว"} />
           <Kpi label="อำเภอที่ยังไม่ส่ง" value={String(rows.length - sent)} unit="อำเภอ" tone="rose" note={rows.length - sent ? "รอดำเนินการ" : "ส่งครบทุกอำเภอ"} />
@@ -40,8 +40,9 @@ export default function ProvinceDashboard() {
           <section className="db-card"><h2>ผลผลิตรายเดือน (ตัน)</h2>
             <Trend data={agg.months.map(m => ({ label: thaiMonth(m), value: sum(r => r.byMonth[m] ?? 0) }))} /></section>
           <section className="db-card"><h2>สถานะการส่งเดือน{thaiMonth(to)}</h2>
-            <div className="db-chips">{rows.map(r => <span key={r.name} className={`db-chip ${r.byMonth[to] != null ? "ok" : "no"}`}>{r.name}</span>)}</div>
-            <p className="hint">เขียว = ส่งแล้ว · แดง = ยังไม่ส่ง</p></section>
+            <div className="db-chips">{rows.map(r => { const g = r.got[to] ?? 0; return (
+              <span key={r.name} className={`db-chip ${g >= agg.rounds ? "ok" : g > 0 ? "warn" : "no"}`}>{r.name}{g > 0 && g < agg.rounds ? ` (${g}/${agg.rounds})` : ""}</span>); })}</div>
+            <p className="hint">ต้องส่ง {settings.dueDays.length} ครั้ง/เดือน · เขียว = ส่งครบ · เหลือง = ส่งบางรอบ · แดง = ยังไม่ส่ง</p></section>
         </div>
         <div style={{ display: "flex", justifyContent: "flex-end" }}>
           <Link className="btn go" href="/province/table">ดูตารางข้อมูลรายละเอียดทั้งหมด (หน้าที่ 2) →</Link></div>

@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { FIELDS, thaiMonth, type Report } from "./data";
+import { FIELDS, thaiDate, thaiDateTime, thaiMonth, type Report } from "./data";
 import { aggregate } from "./summary";
 
 type Agg = ReturnType<typeof aggregate>;
@@ -30,13 +30,20 @@ function buildSheet(workbook: ExcelJS.Workbook, name: string, a: Agg, subtitle: 
   worksheet.columns = head.map((_, i) => ({ width: i === 1 ? 16 : i >= 4 && i < 4 + nf ? 14 : 13 }));
 }
 
-export async function buildWorkbook(reports: Report[], from: string, to: string): Promise<Buffer> {
+export async function buildWorkbook(reports: Report[], from: string, to: string, rounds = 1): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
-  const all = aggregate(reports, from, to);
+  const all = aggregate(reports, from, to, rounds);
   buildSheet(workbook, "สรุปสะสม", all, `ตั้งแต่เดือน ${thaiMonth(from)} ถึง ${thaiMonth(to)}`, true);
   for (const m of all.months) {
-    const one = aggregate(reports, m, m);
+    const one = aggregate(reports, m, m, rounds);
     buildSheet(workbook, thaiMonth(m), one, `ประจำเดือน ${thaiMonth(m)}`, false);
   }
+  const log = reports.filter(r => r.status === "submitted" && r.month >= from && r.month <= to)
+    .sort((a, b) => (a.submittedAt ?? "").localeCompare(b.submittedAt ?? ""));
+  const ws = workbook.addWorksheet("บันทึกการส่ง");
+  ws.addRows([["อำเภอ", "เดือน", "รอบที่", "กำหนดส่ง", "วันที่ส่ง", "สถานะ", "ผู้รายงาน", "ตำแหน่ง", "โทรศัพท์"],
+    ...log.map(r => [r.district, thaiMonth(r.month), r.round, r.dueDate ? thaiDate(r.dueDate) : "", r.submittedAt ? thaiDateTime(r.submittedAt) : "",
+      !r.submittedAt ? "ไม่มีบันทึกวันที่ส่ง" : r.late ? "ส่งช้า" : "ตรงเวลา", r.reporter.name, r.reporter.position, r.reporter.phone])]);
+  ws.columns = [16, 16, 8, 14, 22, 10, 20, 20, 14].map(width => ({ width }));
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }
