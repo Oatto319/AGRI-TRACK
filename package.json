@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed:users": "node --env-file=.env.local scripts/seed-users.mjs",
+    "migrate:json": "node --env-file=.env.local scripts/migrate-json-to-mongo.mjs"
   },
   "dependencies": {
+    "exceljs": "^4.4.0",
+    "mongodb": "^6.10.0",
     "next": "16.4.0",
     "react": "19.3.0",
-    "react-dom": "19.3.0",
-    "exceljs": "^4.4.0"
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

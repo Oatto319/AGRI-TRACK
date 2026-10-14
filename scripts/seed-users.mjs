@@ -1,12 +1,15 @@
 // สร้างบัญชีผู้ใช้ 22 อำเภอ + 1 จังหวัด โดยไม่ต้องผ่านหน้าเว็บ
-//   node scripts/seed-users.mjs          สร้างใหม่ (ถ้ามี data/users.json อยู่แล้วจะไม่ทับ)
-//   node scripts/seed-users.mjs --force  สร้างใหม่ทั้งหมด (รหัสผ่านทุกบัญชีจะถูกเปลี่ยน)
+//   npm run seed:users                   สร้างใหม่ (ถ้ามีบัญชีในตาราง app_users อยู่แล้วจะไม่ทับ)
+//   npm run seed:users -- --force        สร้างใหม่ทั้งหมด (รหัสผ่านทุกบัญชีจะถูกเปลี่ยน)
+//   (คำสั่งอ่าน MONGODB_URI และ MONGODB_DB จาก .env.local)
 // ผลลัพธ์:
-//   data/users.json               รหัสผ่านเก็บเป็น hash (scrypt) — ระบบใช้ไฟล์นี้
+//   คอลเลกชัน app_users บน MongoDB   รหัสผ่านเก็บเป็น hash (scrypt) — ระบบใช้คอลเลกชันนี้
 //   data/initial-credentials.csv  ชื่อผู้ใช้ + รหัสผ่านตัวจริง ไว้แจกให้แต่ละอำเภอ (แจกแล้วควรลบทิ้ง)
 import { promises as fs } from "fs";
 import path from "path";
 import { randomBytes, randomInt, scryptSync } from "crypto";
+import dns from "node:dns";
+import { MongoClient } from "mongodb";
 
 // ชื่ออำเภอต้องตรงกับ DISTRICTS ใน lib/data.ts ทุกตัวอักษร
 const DISTRICT_USERS = [
@@ -22,7 +25,13 @@ const DISTRICT_USERS = [
 const PROVINCE_USER = "province";
 
 const DIR = path.join(process.cwd(), "data");
-const USERS = path.join(DIR, "users.json"), CSV = path.join(DIR, "initial-credentials.csv");
+const CSV = path.join(DIR, "initial-credentials.csv");
+if (process.env.MONGODB_DNS_SERVERS) dns.setServers(process.env.MONGODB_DNS_SERVERS.split(",").map(x => x.trim()).filter(Boolean)); // แก้ querySrv ECONNREFUSED
+if (!process.env.MONGODB_URI) { console.error("ยังไม่ได้ตั้งค่า MONGODB_URI ใน .env.local"); process.exit(1); }
+const client = new MongoClient(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
+try { await client.connect(); } catch (e) { console.error("เชื่อมต่อ MongoDB ไม่ได้:", e.message); process.exit(1); }
+const col = client.db(process.env.MONGODB_DB || "agri_track").collection("app_users");
+await col.createIndex({ username: 1 }, { unique: true });
 
 // ตัดตัวที่สับสนง่าย (0/O, 1/l/I) ออก
 const ALPHABET = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -32,7 +41,8 @@ const hash = pw => { const salt = randomBytes(16); return `scrypt$${salt.toStrin
 
 const force = process.argv.includes("--force");
 if (!force) {
-  try { await fs.access(USERS); console.error("พบ data/users.json อยู่แล้ว — ไม่ทับ (ใช้ --force หากต้องการสร้างใหม่และเปลี่ยนรหัสผ่านทุกบัญชี)"); process.exit(1); } catch {}
+  const count = await col.countDocuments();
+  if (count) { console.error(`พบบัญชีใน app_users อยู่แล้ว ${count} บัญชี — ไม่ทับ (ใช้ --force หากต้องการสร้างใหม่และเปลี่ยนรหัสผ่านทุกบัญชี)`); await client.close(); process.exit(1); }
 }
 
 const rows = [
@@ -45,7 +55,11 @@ for (const r of rows) {
   users.push({ username: r.username, role: r.role, ...(r.district ? { district: r.district } : {}), hash: hash(pw) });
   lines.push(`${r.username},${pw},${r.label}`);
 }
+try {
+  if (force) await col.deleteMany({});
+  await col.bulkWrite(users.map(u => ({ replaceOne: { filter: { username: u.username }, replacement: { username: u.username, role: u.role, district: u.district ?? null, hash: u.hash }, upsert: true } })));
+} catch (e) { console.error("บันทึกบัญชีลง MongoDB ไม่ได้:", e.message); await client.close(); process.exit(1); }
 await fs.mkdir(DIR, { recursive: true });
-await fs.writeFile(USERS, JSON.stringify(users, null, 1));
 await fs.writeFile(CSV, lines.join("\r\n") + "\r\n", { mode: 0o600 });
-console.log(`สร้างบัญชีแล้ว ${users.length} บัญชี (อำเภอ ${DISTRICT_USERS.length} + จังหวัด 1)\n  ${USERS}\n  ${CSV}  <- แจกรหัสผ่านจากไฟล์นี้ แล้วลบทิ้ง`);
+console.log(`สร้างบัญชีแล้ว ${users.length} บัญชี (อำเภอ ${DISTRICT_USERS.length} + จังหวัด 1) ในตาราง app_users\n  ${CSV}  <- แจกรหัสผ่านจากไฟล์นี้ แล้วลบทิ้ง`);
+await client.close();

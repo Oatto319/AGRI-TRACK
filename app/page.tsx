@@ -18,8 +18,8 @@ export default function Login() {
     setBusy(true); setError("");
     try {
       const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: user, password: pass }) });
-      const data = await res.json();
-      if (!res.ok) return setError(data.error ?? "เข้าสู่ระบบไม่สำเร็จ");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return setError(data.error ?? `เข้าสู่ระบบไม่สำเร็จ (เซิร์ฟเวอร์ตอบ ${res.status} — ดู error ใน terminal)`);
       if (data.role === "province") { localStorage.removeItem("district"); return router.push("/province"); }
       localStorage.setItem("district", data.district); // อำเภอมาจากบัญชีผู้ใช้
       router.push("/district");

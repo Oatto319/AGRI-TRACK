@@ -1,10 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, connection } from "next/server";
 import { validateAreaSets, validateAreaTotals, validateDueDays, validateSchedules } from "@/lib/data";
 import { readSettings, writeSettings } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
 
-export async function GET() { return NextResponse.json(await readSettings()); }
+export async function GET() { await connection(); return NextResponse.json(await readSettings()); } // connection(): บังคับให้อ่านฐานข้อมูลทุกครั้งที่เรียก ไม่ถูก prerender ตอน build
 
 // ส่งมาเฉพาะ schedules (รายการที่ต้องรายงานรายปีงบประมาณ) หรือ dueDays (ค่าเริ่มต้น) หรือเฉพาะ areaTotals (พื้นที่ปลูกพืชทั้งหมดรายอำเภอ) หรือทั้งสองอย่างก็ได้ — ค่าที่ไม่ได้ส่งมาคงเดิม
 // หมายเหตุ: ยังไม่มีการตรวจสิทธิ์ (ระบบล็อกอินเป็นตัวอย่าง) — ควรจำกัดให้เฉพาะเจ้าหน้าที่จังหวัดก่อนใช้งานจริง

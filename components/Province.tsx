@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, startTransition, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Shell from "./Shell";
 import MonthPicker from "@/components/MonthPicker";
 import { DEFAULT_SETTINGS, currentMonth, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type Report, type Settings } from "@/lib/data";
@@ -44,12 +44,17 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
 // ตัวกรองแดชบอร์ด: เลือกเป็น "ปีงบประมาณ" (ต.ค. – ก.ย.) แทนการเลือกช่วงเดือน
 export function FilterBar({ download }: { download?: boolean }) {
   const { from, to, setFrom, setTo, valid, reports, area } = useProvince();
-  const curFy = fiscalYearOf(currentMonth());
+  // ห้ามเรียก currentMonth() ตอน render (Next.js prerender ไม่ยอมให้อ่านเวลาปัจจุบันใน Client Component) — อ่านหลัง mount
+  const [cur, setCur] = useState("");
+  useEffect(() => { startTransition(() => setCur(currentMonth())); }, []);
+  const curFy = cur ? fiscalYearOf(cur) : 0;
   const fy = to ? fiscalYearOf(to) : curFy;
   const custom = !!from && !!to && !isFiscalRange(from, to); // ช่วงเดือนที่ตั้งไว้จากหน้าตาราง ไม่ตรงปีงบประมาณ
   const years = useMemo(() => {
     const ms = [...(reports ?? []).map(r => r.month), ...(area ?? []).map(r => r.month)];
-    const lo = Math.min(curFy - 2, fy, ...ms.map(fiscalYearOf)), hi = Math.max(curFy + 1, fy, ...ms.map(fiscalYearOf));
+    const all = [...(curFy ? [curFy - 2, curFy + 1] : []), ...(fy ? [fy] : []), ...ms.map(fiscalYearOf)];
+    if (!all.length) return [];
+    const lo = Math.min(...all), hi = Math.max(...all);
     return Array.from({ length: hi - lo + 1 }, (_, i) => hi - i); // ปีล่าสุดอยู่บนสุด
   }, [reports, area, curFy, fy]);
   const choose = (v: number) => { const r = fiscalRange(v); setFrom(r.from); setTo(r.to); };
@@ -59,7 +64,7 @@ export function FilterBar({ download }: { download?: boolean }) {
         <label htmlFor="fy">ปีงบประมาณ</label>
         <div className="fy-sel">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4M16 3v4M3 10h18" /></svg>
-          <select id="fy" value={custom ? "custom" : fy} onChange={e => e.target.value !== "custom" && choose(Number(e.target.value))}>
+          <select id="fy" value={custom ? "custom" : fy || ""} disabled={!fy} onChange={e => e.target.value !== "custom" && choose(Number(e.target.value))}>
             {custom && <option value="custom">กำหนดเอง ({thaiMonth(from)} – {thaiMonth(to)})</option>}
             {years.map(y => <option key={y} value={y}>ปีงบประมาณ {y}{y === curFy ? " (ปัจจุบัน)" : ""}</option>)}
           </select>

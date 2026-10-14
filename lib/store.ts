@@ -1,10 +1,8 @@
-import { promises as fs } from "fs";
-import path from "path";
 import { AREA_FIELDS, AREA_LEGACY_KEYS, DEFAULT_SETTINGS, DISTRICTS, FIELDS, validateAreaTotals, validateDueDays, validateSchedules, validateAreaSets, type AreaReport, type Report, type Settings } from "./data";
+import { db } from "./mongo";
 
-// เก็บเป็นไฟล์ JSON (data/reports.json) — เหมาะกับเซิร์ฟเวอร์เดียว หากย้ายไปใช้ฐานข้อมูลให้แก้เฉพาะไฟล์นี้
-const DIR = path.join(process.cwd(), "data");
-const FILE = path.join(DIR, "reports.json"), SFILE = path.join(DIR, "settings.json"), AFILE = path.join(DIR, "area-reports.json");
+// เก็บข้อมูลใน MongoDB — คอลเลกชัน reports, area_reports, settings (ดู lib/mongo.ts)
+type Row = Record<string, unknown>;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
@@ -30,62 +28,67 @@ function validReport(value: unknown, keys: readonly string[]): boolean {
 const isReport = (v: unknown): v is Report => validReport(v, FIELDS.map(f => f.key));
 const isAreaReport = (v: unknown): v is AreaReport => validReport(v, [...AREA_FIELDS.map(f => f.key), ...AREA_LEGACY_KEYS]);
 
-async function readList<T>(file: string, guard: (v: unknown) => v is T, label: string): Promise<T[]> {
-  let content: string;
-  try {
-    content = await fs.readFile(file, "utf8");
-  } catch (error) {
-    if (isRecord(error) && error.code === "ENOENT") return [];
-    throw error;
-  }
-  const list: unknown = JSON.parse(content);
-  if (!Array.isArray(list) || !list.every(guard)) throw new Error(`Invalid report data in ${label}`);
-  return list;
+// แถวในฐานข้อมูล <-> รูปแบบ JSON ที่แอปใช้
+const fromRow = (r: Row) => ({
+  district: r.district, month: r.month, round: r.round, values: r.amounts, reporter: r.reporter, status: r.status, updatedAt: r.updated_at,
+  ...(r.submitted_at != null ? { submittedAt: r.submitted_at } : {}),
+  ...(r.due_date != null ? { dueDate: r.due_date } : {}),
+  ...(r.late != null ? { late: r.late } : {}),
+});
+const toRow = (r: Report | AreaReport) => ({
+  district: r.district, month: r.month, round: r.round ?? 1, status: r.status, reporter: r.reporter, amounts: r.values, updated_at: r.updatedAt,
+  submitted_at: r.submittedAt ?? null, due_date: r.dueDate ?? null, late: r.late ?? null,
+});
+
+function parseReport(row: Row): Report {
+  const v = fromRow(row);
+  if (!isReport(v)) throw new Error(`Invalid report row in reports (${String(row.district)} ${String(row.month)} รอบ ${String(row.round)})`);
+  return { ...v, round: v.round ?? 1 };
 }
-// รายงานเก่าที่ไม่มีรอบ ถือเป็นรอบที่ 1
-export async function readAll(): Promise<Report[]> { return (await readList(FILE, isReport, "data/reports.json")).map(r => ({ ...r, round: r.round ?? 1 })); }
 // รายงานพื้นที่รูปแบบเก่า (ก่อนเปลี่ยนมากรอกไร่รายเดือน) ไม่มีค่า "area" จึงนับเป็น 0 — ต้องกรอกใหม่
-export async function readAreaAll(): Promise<AreaReport[]> {
-  return (await readList(AFILE, isAreaReport, "data/area-reports.json")).map(r => ({ ...r, round: r.round ?? 1, values: r.values.area === undefined ? {} : { area: r.values.area } }));
+function parseArea(row: Row): AreaReport {
+  const v = fromRow(row);
+  if (!isAreaReport(v)) throw new Error(`Invalid report row in area_reports (${String(row.district)} ${String(row.month)} รอบ ${String(row.round)})`);
+  return { ...v, round: v.round ?? 1, values: v.values.area === undefined ? {} : { area: v.values.area } };
 }
 
-let chain: Promise<unknown> = Promise.resolve();
-// อ่าน-แก้-เขียนต่อกันทีละคำสั่ง fn รับรายงานเดิม (ถ้ามี) แล้วคืนรายงานใหม่ (โยน Error เพื่อปฏิเสธ)
-function mutate<T extends { district: string; month: string; round: number }>(file: string, read: () => Promise<T[]>, district: string, month: string, round: number, fn: (old?: T) => T): Promise<T> {
-  const p = chain.then(async () => {
-    const all = await read();
-    const i = all.findIndex(x => x.district === district && x.month === month && x.round === round);
-    const r = fn(i >= 0 ? all[i] : undefined);
-    if (i >= 0) all[i] = r; else all.push(r);
-    await fs.mkdir(DIR, { recursive: true });
-    await fs.writeFile(file, JSON.stringify(all, null, 1));
-    return r;
-  });
-  chain = p.catch(() => {});
-  return p;
-}
-export const update = (district: string, month: string, round: number, fn: (old?: Report) => Report) => mutate(FILE, readAll, district, month, round, fn);
-export const updateArea = (district: string, month: string, round: number, fn: (old?: AreaReport) => AreaReport) => mutate(AFILE, readAreaAll, district, month, round, fn);
+type Table = "reports" | "area_reports";
+const NO_ID = { projection: { _id: 0 } } as const; // ไม่ต้องการ _id ของ Mongo ในข้อมูลที่แอปใช้
 
-export async function readSettings(): Promise<Settings> {
-  let content: string;
-  try {
-    content = await fs.readFile(SFILE, "utf8");
-  } catch (error) {
-    if (isRecord(error) && error.code === "ENOENT") return DEFAULT_SETTINGS;
-    throw error;
-  }
-  const s: unknown = JSON.parse(content);
-  if (!isRecord(s) || validateDueDays(s.dueDays)) throw new Error("Invalid settings in data/settings.json");
-  const areaTotals = s.areaTotals === undefined ? {} : s.areaTotals; // ไฟล์เก่าไม่มี areaTotals
-  if (validateAreaTotals(areaTotals)) throw new Error("Invalid areaTotals in data/settings.json");
-  const schedules = s.schedules === undefined ? [] : s.schedules; // ไฟล์เก่าไม่มี schedules
-  if (validateSchedules(schedules)) throw new Error("Invalid schedules in data/settings.json");
-  const areaSets = s.areaSets === undefined ? [] : s.areaSets; // ไฟล์เก่าไม่มี areaSets
-  if (validateAreaSets(areaSets)) throw new Error("Invalid areaSets in data/settings.json");
+async function fetchAll(table: Table): Promise<Row[]> {
+  const rows = await (await db()).collection(table).find({}, NO_ID).sort({ district: 1, month: 1, round: 1 }).toArray();
+  return rows as Row[];
+}
+export async function readAll(): Promise<Report[]> { return (await fetchAll("reports")).map(parseReport); }
+export async function readAreaAll(): Promise<AreaReport[]> { return (await fetchAll("area_reports")).map(parseArea); }
+
+// อ่านรายงานเดิม (ถ้ามี) -> fn คืนรายงานใหม่ (โยน Error เพื่อปฏิเสธ) -> เขียนกลับ (upsert ตามคีย์ อำเภอ+เดือน+รอบ)
+async function mutate<T extends Report | AreaReport>(table: Table, parse: (r: Row) => T, district: string, month: string, round: number, fn: (old?: T) => T): Promise<T> {
+  const col = (await db()).collection(table), key = { district, month, round };
+  const data = await col.findOne(key, NO_ID);
+  const r = fn(data ? parse(data as Row) : undefined);
+  await col.replaceOne(key, toRow(r), { upsert: true });
+  return r;
+}
+export const update = (district: string, month: string, round: number, fn: (old?: Report) => Report) => mutate("reports", parseReport, district, month, round, fn);
+export const updateArea = (district: string, month: string, round: number, fn: (old?: AreaReport) => AreaReport) => mutate("area_reports", parseArea, district, month, round, fn);
+
+function parseSettings(s: unknown): Settings {
+  if (!isRecord(s) || validateDueDays(s.dueDays)) throw new Error("Invalid settings in table settings");
+  const areaTotals = s.areaTotals === undefined ? {} : s.areaTotals; // ข้อมูลเก่าไม่มี areaTotals
+  if (validateAreaTotals(areaTotals)) throw new Error("Invalid areaTotals in table settings");
+  const schedules = s.schedules === undefined ? [] : s.schedules; // ข้อมูลเก่าไม่มี schedules
+  if (validateSchedules(schedules)) throw new Error("Invalid schedules in table settings");
+  const areaSets = s.areaSets === undefined ? [] : s.areaSets; // ข้อมูลเก่าไม่มี areaSets
+  if (validateAreaSets(areaSets)) throw new Error("Invalid areaSets in table settings");
   return { dueDays: s.dueDays as number[], areaTotals: areaTotals as Record<string, number>, schedules: schedules as Settings["schedules"], areaSets: areaSets as Settings["areaSets"] };
 }
+// การตั้งค่าเก็บเป็นเอกสารเดียว (_id = "main") ในคอลเลกชัน settings
+export async function readSettings(): Promise<Settings> {
+  const doc = await (await db()).collection<{ _id: string; data: unknown }>("settings").findOne({ _id: "main" });
+  return doc ? parseSettings(doc.data) : DEFAULT_SETTINGS;
+}
 export async function writeSettings(s: Settings) {
-  await fs.mkdir(DIR, { recursive: true });
-  await fs.writeFile(SFILE, JSON.stringify(s, null, 1));
+  await (await db()).collection<{ _id: string; data: Settings; updated_at: string }>("settings")
+    .replaceOne({ _id: "main" }, { data: s, updated_at: new Date().toISOString() }, { upsert: true }); // upsert ใช้ _id จาก filter
 }

@@ -20,6 +20,8 @@
 # local report data
 /data/reports.json
 /data/area-reports.json
+/data/users.json
+/data/initial-credentials.csv
 
 # production
 /build
@@ -36,6 +38,7 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
 
 # vercel
 .vercel
