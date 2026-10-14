@@ -46,8 +46,7 @@ export async function PUT(req: NextRequest) {
     phone: typeof inputReporter.phone === "string" ? inputReporter.phone.trim() : "",
   };
   if (body.status === "submitted") {
-    if (!rp.name || !rp.position) return bad("กรอกชื่อและตำแหน่งผู้รายงาน");
-    if (!/^[0-9\- ]{9,12}$/.test(rp.phone)) return bad("เบอร์โทรไม่ถูกต้อง");
+    if (!rp.name) return bad("กรอกชื่อผู้รายงาน");
   }
   const { district, month, status } = body;
   try {

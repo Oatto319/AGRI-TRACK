@@ -59,7 +59,7 @@ export default function DistrictAreaReport() {
     setBusy(true); setMsg(null);
     try {
       const response = await fetch("/api/area", { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ district, month, round: rd, values: vals, reporter: rep, status: s }) });
+        body: JSON.stringify({ district, month, round: rd, values: vals, reporter: { name: rep.name }, status: s }) });
       const data: unknown = await response.json();
       if (!response.ok) {
         setMsg({ t: typeof data === "object" && data !== null && "error" in data && typeof data.error === "string" ? data.error : "บันทึกไม่สำเร็จ", bad: true });
@@ -122,11 +122,10 @@ export default function DistrictAreaReport() {
       </div>
         <p className="hint">{total <= 0 ? "จังหวัดยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดของอำเภอนี้ จึงยังคำนวณเป้าหมายและร้อยละไม่ได้ (ติดต่อสำนักงานเกษตรจังหวัด)" : `คิดเป็น ${f2(target > 0 ? (accum / target) * 100 : 0)}% ของเป้าหมาย`}{accum > total && total > 0 ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p>
         <p className="hint">พื้นที่ปลูกพืชทั้งหมดจังหวัดเป็นผู้กำหนด · พื้นที่สะสม = ผลรวมที่รายงานทุกเดือนตั้งแต่พฤศจิกายนถึงมิถุนายนของฤดูกาลนี้ (นับรายงานที่ส่งแล้ว รวมค่าที่กำลังกรอก)</p></fieldset>}
-      <p className="hint">ต้องกรอกพื้นที่และระบุผู้รายงานก่อนกดส่ง</p>
+      <p className="hint">ต้องกรอกพื้นที่และชื่อผู้รายงานก่อนกดส่ง</p>
       <fieldset className="grp"><legend>ผู้รายงาน</legend><div className="two">
-        {([["name", "ชื่อ-สกุล"], ["position", "ตำแหน่ง"], ["phone", "โทรศัพท์"]] as const).map(([k, l]) => (
-          <div className="field" key={k}><label htmlFor={`r${k}`}>{l}</label>
-            <input id={`r${k}`} type="text" value={rep[k]} onChange={e => setRep({ ...rep, [k]: e.target.value })} /></div>))}</div></fieldset>
+        <div className="field"><label htmlFor="rname">ชื่อ-สกุล</label>
+          <input id="rname" type="text" value={rep.name} onChange={e => setRep({ ...rep, name: e.target.value })} /></div></div></fieldset>
       {msg && <p className={`msg${msg.bad ? " bad" : ""}`} role="status">{msg.t}</p>}
       <div className="actions">
         {status !== "submitted" && <button className="btn alt" disabled={busy || !month || !inSeason} onClick={() => save("draft")}>บันทึกร่าง</button>}
