@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { AREA_TARGET_PCT, FIELDS, thaiMonth } from "@/lib/data";
 import { aggregateArea, fmt } from "@/lib/summary";
-import { BarChart, Icons, PV_COLORS, PlainDonut, Ring, Sparkline } from "@/components/ProvinceCharts";
+import { AreaCombo, AreaHBars, BarChart, Icons, PV_COLORS, RankBoard, Ring, Sparkline, StatusBar, TypeDonut, cumulate } from "@/components/ProvinceCharts";
 import { FilterBar, useProvince } from "@/components/Province";
 
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
@@ -23,10 +23,18 @@ export default function ProvinceDashboard() {
   const target = sum(r => r.target);
   const sent = rows.filter(r => r.any).length;
   const late = sum(r => r.late);
+  const reachedF = rows.filter(r => r.target > 0 && r.total >= r.target).length; // อำเภอที่ผลิตปุ๋ยถึงเป้าของตัวเอง
+  const reachedPct = rows.length ? Math.round((reachedF / rows.length) * 100) : 0;
   const pct = target ? Math.min(100, Math.round((total / target) * 100)) : 0;
 
   const ar = useMemo(() => (area && valid ? aggregateArea(area, to, settings.areaTotals) : null), [area, to, settings.areaTotals, valid]);
-  const areaRingPct = ar ? Math.min(100, ar.pct) : 0;
+
+  // กราฟข้อมูลไถกลบและต่อซังข้าว: พื้นที่รายเดือน + สะสม (ทั้งจังหวัด) และเทียบรายอำเภอ
+  const areaSeries = cumulate(ar?.months ?? [], (ar?.months ?? []).map(m => (ar?.rows ?? []).reduce((a, r) => a + (r.byMonth[m] ?? 0), 0)));
+  const areaRank = [...(ar?.rows ?? [])].filter(r => r.accum > 0).sort((a, b) => b.accum - a.accum).slice(0, 10);
+  const reached = (ar?.rows ?? []).filter(r => r.target > 0 && r.accum >= r.target).length;
+  const below = (ar?.rows ?? []).filter(r => r.accum > 0 && !(r.target > 0 && r.accum >= r.target)).length;
+  const noData = (ar?.rows ?? []).filter(r => r.accum <= 0).length;
 
   const multiYear = valid && from.slice(0, 4) !== to.slice(0, 4);
   const monthly = (agg?.months ?? []).map(m => ({ label: monthLabel(m, multiYear), value: sum(r => r.byMonth[m] ?? 0) }));
@@ -35,8 +43,8 @@ export default function ProvinceDashboard() {
   const rounds = agg?.rounds ?? 1;
 
   const areaRows = ar ? [
-    { icon: Icons.field, color: "#1f7a85", label: "พื้นที่ปลูกพืชทั้งหมด", value: `${f2(ar.sums.total)} ไร่`, bar: ar.sums.total > 0 ? 100 : 0, sub: ar.sums.total > 0 ? "จังหวัดเป็นผู้กำหนด" : "ยังไม่ได้กำหนด · ตั้งค่าได้ที่หน้า 3" },
-    { icon: Icons.target, color: "#c09a3a", label: `เป้าหมายร้อยละ ${AREA_TARGET_PCT}`, value: `${f2(ar.sums.target)} ไร่`, bar: ar.sums.total > 0 ? AREA_TARGET_PCT : 0 },
+    { icon: Icons.field, color: "#1f7a85", label: "พื้นที่ปลูกพืชทั้งหมด", value: `${f2(ar.sums.total)} ไร่`, bar: ar.sums.total > 0 ? 100 : 0, sub: ar.sums.assigned ? "จังหวัดเป็นผู้กำหนด" : "ยังไม่ได้กำหนดครบ · ใช้พื้นที่สะสมแทน (ตั้งค่าได้ที่หน้า 3)" },
+    { icon: Icons.target, color: "#c09a3a", label: `เป้าหมายร้อยละ ${AREA_TARGET_PCT}`, value: `${f2(ar.sums.target)} ไร่`, bar: ar.sums.total > 0 ? AREA_TARGET_PCT : 0, sub: ar.sums.assigned ? undefined : "คิดจากพื้นที่สะสมทั้งหมด" },
     { icon: Icons.check, color: "#2f8f5b", label: "พื้นที่สะสมทั้งหมด", value: `${f2(ar.sums.accum)} ไร่`, bar: Math.min(100, ar.pct), sub: `คิดเป็น ${f2(ar.pct)}% ของพื้นที่ปลูกพืชทั้งหมด` },
     { icon: Icons.straw, color: "#b36a3c", label: "ปริมาณฟางข้าว", value: `${f2(ar.sums.straw)} ตัน`, sub: `คิดเป็นมูลค่า ${f2(ar.sums.value)} บาท` },
   ] : [];
@@ -54,25 +62,26 @@ export default function ProvinceDashboard() {
 
       {agg && (
         <>
-          {/* การ์ดตัวเลขสำคัญ 4 ใบ */}
-          <section className="pv-kpis" aria-label="ตัวเลขสำคัญ">
-            <div className="pv-kpi navy">
-              <small>ปุ๋ยอินทรีย์ทั้งหมด</small>
+          {/* ปุ๋ยอินทรีย์: การ์ดหลัก + ตัวชี้วัด */}
+          <h2 className="pv-sec" style={{ marginTop: 0 }}>ปุ๋ยอินทรีย์และวัสดุอินทรีย์ · {yearTxt}</h2>
+          <section className="pv-kpis pv-kpis3" aria-label="ตัวเลขสำคัญ">
+            <div className="pv-hero">
+              <div className="hd"><span className="ic">{Icons.field}</span><small>ปุ๋ยอินทรีย์ทั้งหมด (สะสมในช่วงที่เลือก)</small></div>
               <b>{fmt(total)} <span>ตัน</span></b>
-              <em>เป้าหมาย {fmt(target)} ตัน</em>
+              <div className="pg" role="img" aria-label={`บรรลุเป้าหมาย ${pct} เปอร์เซ็นต์`}><i style={{ width: `${pct}%` }} /></div>
+              <div className="ft"><span>เป้าหมาย {fmt(target)} ตัน</span><span>{pct}%</span></div>
+              <div className="tags">
+                <em>{target > total ? `ขาดอีก ${fmt(target - total)} ตัน` : "บรรลุเป้าหมายแล้ว"}</em>
+                <em>{late ? `ส่งช้า ${late} ครั้ง` : "ไม่มีรายการส่งช้า"}</em>
+              </div>
             </div>
             <div className="pv-kpi teal">
-              <small>อำเภอที่ส่งรายงานแล้ว</small>
-              <b>{sent} <span>/ {rows.length} อำเภอ</span></b>
-              <em>{late ? `ส่งช้า ${late} ครั้ง` : "ไม่มีรายการส่งช้า"}</em>
-            </div>
-            <div className="pv-kpi green">
-              <div><small>บรรลุเป้าหมายปุ๋ย</small><em>{target > total ? `ขาดอีก ${fmt(target - total)} ตัน` : "บรรลุเป้าหมายแล้ว"}</em></div>
-              <Ring pct={pct} label={`บรรลุเป้าหมายปุ๋ย ${pct} เปอร์เซ็นต์`} />
+              <div><small>อำเภอที่ส่งรายงานแล้ว</small><b>{sent} <span>/ {rows.length} อำเภอ</span></b><em>{sent < rows.length ? `ยังไม่ส่ง ${rows.length - sent} อำเภอ` : "ส่งครบทุกอำเภอ"}</em></div>
+              <Ring pct={rows.length ? Math.round((sent / rows.length) * 100) : 0} label="อำเภอที่ส่งรายงานแล้ว" />
             </div>
             <div className="pv-kpi gold">
-              <div><small>พื้นที่สะสมต่อพื้นที่ทั้งหมด</small><em>{ar ? `${f2(ar.sums.accum)} ไร่` : "–"}</em></div>
-              <Ring pct={areaRingPct} label={`พื้นที่สะสม ${Math.round(areaRingPct)} เปอร์เซ็นต์`} />
+              <div><small>อำเภอที่ถึงเป้าปุ๋ย</small><b>{reachedF} <span>/ {rows.length} อำเภอ</span></b><em>เทียบเป้าของแต่ละอำเภอ</em></div>
+              <Ring pct={reachedPct} label={`อำเภอที่ถึงเป้าปุ๋ย ${reachedPct} เปอร์เซ็นต์`} />
             </div>
           </section>
 
@@ -81,20 +90,17 @@ export default function ProvinceDashboard() {
             <section className="pv-card pv-rank">
               <h2>10 อันดับอำเภอผลผลิตสูงสุด</h2>
               <p className="pv-note">ใช้ข้อมูลปุ๋ยอินทรีย์สะสมในช่วงที่เลือก</p>
-              {top10.length === 0 ? <p className="pv-empty">ยังไม่มีข้อมูลในช่วงนี้</p> : (
-                <ol>{top10.map((r, i) => (
-                  <li key={r.name}><span className="n">{i + 1}.</span><span className="nm">{r.name}</span><b>{fmt(r.total)} ตัน</b></li>))}
-                </ol>)}
+              {top10.length === 0 ? <p className="pv-empty">ยังไม่มีข้อมูลในช่วงนี้</p> : <RankBoard rows={top10.map(r => ({ name: r.name, value: r.total, pct: r.target ? (r.total / r.target) * 100 : 0 }))} />}
               <div className="pv-spark-wrap">
                 <Sparkline values={monthly.map(m => m.value)} />
-                <small>ยอดรวม {yearTxt}</small>
+                <small>แนวโน้มรายเดือน {yearTxt}</small>
               </div>
             </section>
 
             <div className="pv-col">
               <section className="pv-card">
                 <h2>สัดส่วนตามชนิด</h2>
-                <PlainDonut parts={FIELDS.map((f, i) => ({ label: f.label, value: sum(r => r.sums[f.key]), color: PV_COLORS[i] }))} />
+                <TypeDonut unit="ตัน" parts={FIELDS.map((f, i) => ({ label: f.label, value: sum(r => r.sums[f.key]), color: PV_COLORS[i] }))} />
               </section>
               <section className="pv-card">
                 <h2>ผลผลิตรายเดือน</h2>
@@ -102,6 +108,32 @@ export default function ProvinceDashboard() {
               </section>
             </div>
           </div>
+
+          {/* กราฟข้อมูลไถกลบและต่อซังข้าว */}
+          {ar && (
+            <>
+              <h2 className="pv-sec">ข้อมูลไถกลบและต่อซังข้าว · ฤดูกาล {thaiMonth(ar.season.start)} – {thaiMonth(ar.season.end)}</h2>
+              <div className="pv-areamain">
+                <section className="pv-card">
+                  <h2>พื้นที่ไถกลบรายเดือนและพื้นที่สะสม</h2>
+                  <p className="pv-note">แท่ง = พื้นที่ที่รายงานในเดือนนั้น (แกนซ้าย) · เส้น = พื้นที่สะสมตั้งแต่ พ.ย. (แกนขวา)</p>
+                  <AreaCombo data={areaSeries} target={ar.sums.target} />
+                  <p className="pv-lg"><span><i style={{ background: "#1f7a85" }} />พื้นที่รายเดือน (ไร่)</span><span><i className="ln" style={{ background: "#c09a3a" }} />พื้นที่สะสม (ไร่)</span><span><i className="ds" />เป้าหมายร้อยละ {AREA_TARGET_PCT}</span></p>
+                </section>
+                <section className="pv-card">
+                  <h2>ความคืบหน้าเทียบเป้าหมายรายอำเภอ</h2>
+                  <p className="pv-note">สถานะ {ar.rows.length} อำเภอ · เทียบพื้นที่สะสมกับเป้าหมายร้อยละ {AREA_TARGET_PCT}</p>
+                  <StatusBar parts={[{ label: "ถึงเป้า", value: reached, color: "#1f7a85" }, { label: "ยังไม่ถึงเป้า", value: below, color: "#c09a3a" }, { label: "ยังไม่มีข้อมูล", value: noData, color: "#cbd5e1" }]} />
+                  {areaRank.length === 0 ? <p className="pv-empty">ยังไม่มีข้อมูลในช่วงนี้</p> : <AreaHBars rows={areaRank} />}
+                  {areaRank.length > 0 && <p className="pv-key"><i style={{ background: "#1f7a85" }} />ถึงเป้าแล้ว <i style={{ background: "#c09a3a" }} />ยังไม่ถึงเป้า <i style={{ background: "#b36a3c", width: 3 }} />เส้นเป้าหมาย · 10 อันดับพื้นที่สะสมสูงสุด (ไร่)</p>}
+                  <div className="pv-mini">
+                    <div><small>ฟางข้าว</small><b>{f2(ar.sums.straw)} ตัน</b></div>
+                    <div><small>มูลค่า</small><b>{f2(ar.sums.value)} บาท</b></div>
+                  </div>
+                </section>
+              </div>
+            </>
+          )}
 
           {/* พื้นที่และฟางข้าว + สถานะการส่งข้อมูล */}
           <div className="pv-bottom">

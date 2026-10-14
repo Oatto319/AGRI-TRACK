@@ -8,8 +8,8 @@ import { FilterBar, useProvince } from "@/components/Province";
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 
 export default function ProvinceArea() {
-  const { area, error, from, to, valid } = useProvince();
-  const a = useMemo(() => (area && valid ? aggregateArea(area, from, to) : null), [area, from, to, valid]);
+  const { area, error, from, to, valid, settings } = useProvince();
+  const a = useMemo(() => (area && valid ? aggregateArea(area, to, settings.areaTotals) : null), [area, to, settings.areaTotals, valid]);
 
   return (
     <div className="db">

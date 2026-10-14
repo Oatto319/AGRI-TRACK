@@ -306,3 +306,55 @@ input[type=text],input[type=number],select,textarea{border-radius:12px;border:1p
 @media(max-width:1020px){.pv-kpis{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:820px){.pv-main,.pv-bottom{grid-template-columns:1fr}}
 @media(max-width:480px){.pv-kpis{grid-template-columns:1fr}.pv-head h1{font-size:1.35rem}}
+
+/* ---- กราฟข้อมูลไถกลบและต่อซังข้าว ---- */
+.pv-sec{font-size:1.15rem;font-weight:700;color:#0f172a;margin:1.4rem 0 .75rem}
+.pv-areamain{display:grid;grid-template-columns:1.8fr 1fr;gap:1.1rem;margin-bottom:1.1rem;align-items:stretch}
+.pv-areamain .pv-card,.db-grid .pv-card{min-width:0}
+.pv-lg{display:flex;flex-wrap:wrap;gap:.4rem 1rem;margin:.2rem 0 0;font-size:.8rem;color:#64748b}
+.pv-lg i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:.35rem;vertical-align:-1px}
+.pv-lg i.ln{height:3px;border-radius:2px;vertical-align:3px;width:16px}.pv-lg i.ds{height:0;border-top:2px dashed #b36a3c;background:none;border-radius:0;vertical-align:3px;width:16px}
+.pv-hb{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.5rem}
+.pv-hb li{display:grid;grid-template-columns:6.2rem 1fr 5.4rem;gap:.55rem;align-items:center;font-size:.88rem;color:#475569}
+.pv-hb .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.pv-hb li.me .nm{font-weight:700;color:#0f172a}
+.pv-hb .tk{position:relative;height:14px;background:#eef2f6;border-radius:99px;overflow:visible}
+.pv-hb .tk i{display:block;height:100%;border-radius:99px;min-width:2px}
+.pv-hb .tk u{position:absolute;top:-3px;bottom:-3px;width:2px;background:#b36a3c;border-radius:2px}
+.pv-hb b{text-align:right;font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums}
+.pv-hb li.me .tk{outline:2px solid #bfdbfe;outline-offset:2px}
+.pv-sb{margin-bottom:1rem}.pv-sb .bar{display:flex;height:12px;border-radius:99px;overflow:hidden;background:#eef2f6;gap:2px}.pv-sb .bar i{display:block}
+.pv-sb .pv-key{margin-top:.55rem}.pv-sb .pv-key span{display:inline-flex;align-items:center}.pv-sb .pv-key b{margin-left:.3rem;color:#0f172a}
+.pv-mini{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;margin-top:.9rem}
+.pv-mini div{background:#f8fafc;border-radius:10px;padding:.55rem .75rem}.pv-mini small{display:block;color:#64748b;font-size:.78rem}.pv-mini b{font-size:1.05rem;color:#0f172a;font-variant-numeric:tabular-nums}
+@media(max-width:900px){.pv-areamain{grid-template-columns:1fr}}
+@media(max-width:520px){.pv-hb li{grid-template-columns:5rem 1fr 4.4rem}}
+
+/* ---- ออกแบบแดชบอร์ดปุ๋ยใหม่ ---- */
+.pv-kpis3{grid-template-columns:1.7fr 1fr 1fr}
+.pv-hero{position:relative;overflow:hidden;color:#fff;border-radius:16px;padding:1.2rem 1.4rem;background:linear-gradient(135deg,#12293f 0%,#1d4f6b 55%,#2a8fa0 100%);box-shadow:0 4px 14px rgba(23,50,77,.22);display:flex;flex-direction:column;gap:.35rem}
+.pv-hero:before,.pv-hero:after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none}
+.pv-hero:before{width:210px;height:210px;right:-60px;top:-80px}.pv-hero:after{width:130px;height:130px;right:70px;bottom:-70px}
+.pv-hero .hd{display:flex;align-items:center;gap:.6rem}.pv-hero .hd small{font-size:.9rem;opacity:.92}
+.pv-hero .ic{width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,.16);display:grid;place-items:center}
+.pv-hero b{font-family:var(--head);font-size:2.6rem;font-weight:700;line-height:1.1;position:relative}.pv-hero b span{font-family:var(--f-body),sans-serif;font-size:1rem;font-weight:400;opacity:.85}
+.pv-hero .pg{height:10px;border-radius:99px;background:rgba(255,255,255,.2);overflow:hidden;margin-top:.3rem}
+.pv-hero .pg i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#e3bd55,#f6dc8a);min-width:4px}
+.pv-hero .ft{display:flex;justify-content:space-between;font-size:.82rem;opacity:.92}
+.pv-hero .tags{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.3rem;position:relative}
+.pv-hero .tags em{font-style:normal;font-size:.78rem;background:rgba(255,255,255,.16);border-radius:99px;padding:.18rem .7rem}
+.pv-kpis3 .pv-kpi{flex-direction:row;align-items:center;justify-content:space-between;gap:.75rem}
+.pv-td{display:flex;align-items:center;gap:1.2rem;flex-wrap:wrap}.pv-td svg{width:172px;height:172px;flex:none}
+.pv-td ul{list-style:none;margin:0;padding:0;flex:1;min-width:210px;font-size:.88rem}
+.pv-td li{display:grid;grid-template-columns:10px 1fr auto 2.8rem;gap:.5rem;align-items:center;padding:.22rem 0;border-bottom:1px dashed #eef2f6}
+.pv-td li i{width:10px;height:10px;border-radius:50%}.pv-td li span{color:#475569}.pv-td li b{font-weight:600;color:#0f172a;font-variant-numeric:tabular-nums}
+.pv-td li em{font-style:normal;text-align:right;color:#94a3b8;font-size:.8rem}.pv-td li.zero{opacity:.5}
+.pv-rb{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.55rem}
+.pv-rb li{display:flex;gap:.7rem;align-items:center;padding:.5rem .65rem;border-radius:12px;background:#f8fafc;border:1px solid #f1f5f9}
+.pv-rb .no{width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;font-weight:700;font-size:.85rem;background:#e2e8f0;color:#475569}
+.pv-rb li.m1{background:linear-gradient(90deg,#fff8e1,#f8fafc);border-color:#f3e2a8}.pv-rb li.m1 .no{background:linear-gradient(135deg,#e3bd55,#b08a2c);color:#fff}
+.pv-rb li.m2 .no{background:linear-gradient(135deg,#b6c2cf,#7d8a99);color:#fff}.pv-rb li.m3 .no{background:linear-gradient(135deg,#d49a6a,#a8683c);color:#fff}
+.pv-rb .bd{flex:1;min-width:0}.pv-rb .ln{display:flex;justify-content:space-between;gap:.5rem;font-size:.92rem;color:#0f172a}.pv-rb .ln b{font-weight:600;font-variant-numeric:tabular-nums}.pv-rb .ln small{font-weight:400;color:#64748b}
+.pv-rb .tk{height:6px;border-radius:99px;background:#e8edf3;margin:.3rem 0 .15rem;overflow:hidden}.pv-rb .tk i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#2a8fa0,#17324d)}
+.pv-rb li.m1 .tk i{background:linear-gradient(90deg,#e3bd55,#b08a2c)}.pv-rb .bd>small{color:#94a3b8;font-size:.76rem}
+@media(max-width:1000px){.pv-kpis3{grid-template-columns:1fr 1fr}.pv-hero{grid-column:1/-1}}
+@media(max-width:560px){.pv-kpis3{grid-template-columns:1fr}}

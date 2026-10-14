@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, areaPct, areaSeasonOf, areaTarget, bkkDate, currentMonth, dueDateOf, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
+import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, currentMonth, dueDateOf, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
 
@@ -30,9 +30,9 @@ export default function DistrictAreaReport() {
   const season = month ? areaSeasonOf(month) : null;
   const thisArea = num("area");
   // พื้นที่ปลูกทั้งหมดจังหวัดเป็นผู้กำหนด · สะสม = รายงานที่ส่งแล้วในฤดูกาล (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
-  const total = settings.areaTotals[district] ?? 0, target = areaTarget(total);
   const others = season ? all.filter(x => x.status === "submitted" && x.month >= season.start && x.month <= season.end && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values.area ?? 0), 0) : 0;
-  const accum = others + thisArea, pct = areaPct(accum, total);
+  const accum = others + thisArea;
+  const assigned = (settings.areaTotals[district] ?? 0) > 0, total = effectiveTotal(settings.areaTotals[district], accum), target = areaTarget(total), pct = areaPct(accum, total);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search), q = sp.get("month"), r = Number(sp.get("round") ?? 1);
@@ -120,7 +120,7 @@ export default function DistrictAreaReport() {
         {computed("sa", "ปริมาณฟางข้าวสะสม", f2(strawTons(accum)), "ตัน")}
         {computed("va", "คิดเป็นมูลค่าสะสม", f2(strawValue(accum)), "บาท")}
       </div>
-        <p className="hint">{total <= 0 ? "จังหวัดยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดของอำเภอนี้ จึงยังคำนวณเป้าหมายและร้อยละไม่ได้ (ติดต่อสำนักงานเกษตรจังหวัด)" : `คิดเป็น ${f2(target > 0 ? (accum / target) * 100 : 0)}% ของเป้าหมาย`}{accum > total && total > 0 ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p>
+        <p className="hint">{!assigned ? "จังหวัดยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดของอำเภอนี้ จึงใช้พื้นที่สะสมทั้งหมดเป็นฐานคำนวณเป้าหมายและร้อยละไปก่อน" : `คิดเป็น ${f2(target > 0 ? (accum / target) * 100 : 0)}% ของเป้าหมาย`}{assigned && accum > total ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p>
         <p className="hint">พื้นที่ปลูกพืชทั้งหมดจังหวัดเป็นผู้กำหนด · พื้นที่สะสม = ผลรวมที่รายงานทุกเดือนตั้งแต่พฤศจิกายนถึงมิถุนายนของฤดูกาลนี้ (นับรายงานที่ส่งแล้ว รวมค่าที่กำลังกรอก)</p></fieldset>}
       <p className="hint">ต้องกรอกพื้นที่และชื่อผู้รายงานก่อนกดส่ง</p>
       <fieldset className="grp"><legend>ผู้รายงาน</legend><div className="two">

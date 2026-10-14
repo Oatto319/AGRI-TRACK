@@ -1,4 +1,4 @@
-import { DISTRICTS, FIELDS, TARGET_PER_TAMBON, areaPct, areaSeasonOf, areaTarget, strawTons, strawValue, type AreaReport, type FieldKey, type Report } from "./data";
+import { DISTRICTS, FIELDS, TARGET_PER_TAMBON, areaPct, areaSeasonOf, areaTarget, effectiveTotal, strawTons, strawValue, type AreaReport, type FieldKey, type Report } from "./data";
 
 export const fmt = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 export const sumValues = (v: Report["values"]) => FIELDS.reduce((a, f) => a + (v[f.key] ?? 0), 0);
@@ -38,13 +38,13 @@ export function aggregateArea(reports: AreaReport[], to: string, totals: Record<
   const sub = reports.filter(r => r.status === "submitted" && r.month >= season.start && r.month <= last);
   const rows = DISTRICTS.map(d => {
     const mine = sub.filter(r => r.district === d.name).sort((a, b) => a.month.localeCompare(b.month) || a.round - b.round);
-    const total = totals[d.name] ?? 0, target = areaTarget(total), accum = mine.reduce((a, r) => a + (r.values.area ?? 0), 0);
+    const accum = mine.reduce((a, r) => a + (r.values.area ?? 0), 0), assigned = (totals[d.name] ?? 0) > 0, total = effectiveTotal(totals[d.name], accum), target = areaTarget(total);
     const byMonth: Record<string, number> = Object.fromEntries(months.map(m => [m, mine.filter(r => r.month === m).reduce((a, r) => a + (r.values.area ?? 0), 0)]));
-    return { name: d.name, total, target, accum, pct: areaPct(accum, total), ofTarget: target > 0 ? (accum / target) * 100 : 0,
+    return { name: d.name, total, assigned, target, accum, pct: areaPct(accum, total), ofTarget: target > 0 ? (accum / target) * 100 : 0,
       straw: strawTons(accum), value: strawValue(accum), byMonth,
       any: mine.length, late: mine.filter(r => r.late).length, lastMonth: mine[mine.length - 1]?.month };
   });
   const s = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
-  const sums = { total: s(r => r.total), target: s(r => r.target), accum: s(r => r.accum), straw: s(r => r.straw), value: s(r => r.value), late: s(r => r.late) };
+  const sums = { total: s(r => r.total), assigned: rows.every(r => r.assigned), target: s(r => r.target), accum: s(r => r.accum), straw: s(r => r.straw), value: s(r => r.value), late: s(r => r.late) };
   return { rows, sums, season, months, pct: areaPct(sums.accum, sums.total), ofTarget: sums.target > 0 ? (sums.accum / sums.target) * 100 : 0 };
 }

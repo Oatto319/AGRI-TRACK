@@ -86,6 +86,8 @@ export interface AreaReport {
   reporter: Reporter; status: "draft" | "submitted"; updatedAt: string;
   submittedAt?: string; dueDate?: string; late?: boolean;
 }
+// พื้นที่ปลูกพืชทั้งหมดที่ใช้คำนวณ: ถ้าจังหวัดกำหนดไว้ (>0) ใช้ค่านั้น · ถ้ายังไม่กำหนด ใช้พื้นที่สะสมทั้งหมดแทน เพื่อให้เป้าหมายและร้อยละแสดงผลได้
+export const effectiveTotal = (set: number | undefined, accum: number) => (set && set > 0 ? set : accum);
 export const areaTarget = (total: number) => (total * AREA_TARGET_PCT) / 100;
 export const areaPct = (accum: number, total: number) => (total > 0 ? (accum / total) * 100 : 0); // สะสม ÷ พื้นที่ปลูกทั้งหมด × 100
 export const strawTons = (rai: number) => (rai * STRAW_KG_PER_RAI) / 1000; // (ไร่ × 500) ÷ 1000 = ตัน

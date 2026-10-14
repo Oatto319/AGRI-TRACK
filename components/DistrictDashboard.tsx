@@ -6,6 +6,7 @@ import { aggregate, aggregateArea, fmt, sumValues } from "@/lib/summary";
 import { COLORS, Donut, Kpi, RankRows, Trend } from "@/components/Charts";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
+import { AreaCombo, AreaHBars, cumulate } from "@/components/ProvinceCharts";
 
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 
@@ -39,7 +40,7 @@ export default function DistrictDashboard() {
     const ranked = [...agg.rows].sort((a, b) => b.total - a.total), sentRows = agg.rows.filter(r => r.any);
     const mine = reports.filter(r => r.district === district);
     const arAll = aggregateArea(area, to, settings.areaTotals), ar = arAll.rows.find(r => r.name === district)!;
-    return { agg, me, ar, season: arAll.season, arMonths: arAll.months, ranked, rounds, rank: ranked.findIndex(r => r.name === district) + 1, avg: sentRows.length ? sentRows.reduce((a, r) => a + r.total, 0) / sentRows.length : 0,
+    return { agg, me, ar, arRows: arAll.rows, season: arAll.season, arMonths: arAll.months, ranked, rounds, rank: ranked.findIndex(r => r.name === district) + 1, avg: sentRows.length ? sentRows.reduce((a, r) => a + r.total, 0) / sentRows.length : 0,
       rec: (m: string, rd: number) => mine.find(r => r.month === m && r.round === rd),
       mstat: (m: string) => { const g = me.got[m] ?? 0; return g >= rounds ? "ok" : g > 0 || mine.some(r => r.month === m) ? "warn" : "no"; },
       mlate: (m: string) => mine.some(r => r.month === m && r.late),
@@ -130,11 +131,21 @@ export default function DistrictDashboard() {
         </div>
         <h2 className="db-sec">พื้นที่และฟางข้าว · ฤดูกาล {thaiMonth(d.season.start)} – {thaiMonth(d.season.end)}</h2>
         <div className="db-kpis">
-          <Kpi label="พื้นที่ปลูกพืชทั้งหมด" value={f2(d.ar.total)} unit="ไร่" tone="blue" note={d.ar.total > 0 ? "จังหวัดเป็นผู้กำหนด" : "จังหวัดยังไม่ได้กำหนด"} />
+          <Kpi label="พื้นที่ปลูกพืชทั้งหมด" value={f2(d.ar.total)} unit="ไร่" tone="blue" note={d.ar.assigned ? "จังหวัดเป็นผู้กำหนด" : "จังหวัดยังไม่ได้กำหนด · ใช้พื้นที่สะสมแทน"} />
           <Kpi label={`เป้าหมายร้อยละ ${AREA_TARGET_PCT} ของพื้นที่`} value={f2(d.ar.target)} unit="ไร่" tone="amber" />
           <Kpi label="พื้นที่สะสมทั้งหมด" value={f2(d.ar.accum)} unit="ไร่" color="#059669" tone="emerald" pct={d.ar.pct} note={`คิดเป็น ${f2(d.ar.pct)}% ของพื้นที่ทั้งหมด · ${f2(d.ar.ofTarget)}% ของเป้าหมาย`} />
           <Kpi label="ปริมาณฟางข้าว" value={f2(d.ar.straw)} unit="ตัน" tone="emerald" note="ไร่สะสม × 500 กก. ÷ 1,000" />
           <Kpi label="คิดเป็นมูลค่า" value={f2(d.ar.value)} unit="บาท" tone="blue" note={d.ar.late ? `ส่งช้า ${d.ar.late} ครั้ง` : "ไร่สะสม × 725 บาท"} />
+        </div>
+        <div className="db-grid">
+          <section className="db-card"><h2>พื้นที่ไถกลบรายเดือนและพื้นที่สะสม</h2>
+            <AreaCombo data={cumulate(d.arMonths, d.arMonths.map(m => d.ar.byMonth[m] ?? 0))} target={d.ar.target} />
+            <p className="pv-lg"><span><i style={{ background: "#1f7a85" }} />พื้นที่รายเดือน (ไร่)</span><span><i className="ln" style={{ background: "#c09a3a" }} />พื้นที่สะสม (ไร่)</span><span><i className="ds" />เป้าหมายร้อยละ {AREA_TARGET_PCT}</span></p></section>
+          <section className="db-card"><h2>เทียบพื้นที่สะสมกับอำเภออื่น (10 อันดับแรก)</h2>
+            {(() => { const rk = [...d.arRows].sort((a, b) => b.accum - a.accum), top = rk.slice(0, 10), pos = rk.findIndex(r => r.name === district);
+              const shown = pos >= 10 ? [...top.slice(0, 9), rk[pos]] : top;
+              return <><AreaHBars rows={shown.filter(r => r.accum > 0 || r.name === district)} highlight={district} />
+                <p className="hint">{pos >= 10 ? `อำเภอ${district} อยู่อันดับ ${pos + 1} · ` : ""}เส้นขีด = เป้าหมายร้อยละ {AREA_TARGET_PCT} ของแต่ละอำเภอ · เขียวน้ำเงิน = ถึงเป้าแล้ว · ทอง = ยังไม่ถึงเป้า</p></>; })()}</section>
         </div>
         <section className="db-card"><h2>รายละเอียดรายเดือน · ปุ๋ยอินทรีย์และวัสดุอินทรีย์</h2>
           <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน</th><th>รอบ</th><th>สถานะ</th><th>กำหนดส่ง</th><th>ส่งเมื่อ</th>{FIELDS.map(f => <th key={f.key}>{f.label}</th>)}<th>รวม (ตัน)</th><th></th></tr></thead>
