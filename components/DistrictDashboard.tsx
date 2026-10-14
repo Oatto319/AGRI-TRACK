@@ -6,6 +6,7 @@ import { aggregate, aggregateArea, fmt, sumValues } from "@/lib/summary";
 import { COLORS, Donut, Kpi, RankRows, Trend } from "@/components/Charts";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
+import { I, PageHead, StatusPill } from "@/components/Entry";
 import { AreaCombo, AreaHBars, cumulate } from "@/components/ProvinceCharts";
 
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
@@ -48,65 +49,59 @@ export default function DistrictDashboard() {
   }, [reports, valid, from, to, district, settings, area]);
   return (
     <div className="db">
-      <div className="db-head">
-        <div><h1>สวัสดี อำเภอ{district} 👋</h1>
-          <p className="sub" style={{ margin: 0 }}>ผลการดำเนินงานปุ๋ยอินทรีย์และวัสดุอินทรีย์ · {valid ? `${thaiMonth(from)} – ${thaiMonth(to)}` : ""}</p></div>
-        <div className="db-filter">
-          <div className="field"><label htmlFor="f">ตั้งแต่เดือน</label><MonthPicker id="f" value={from} onChange={setFrom} /></div>
-          <div className="field"><label htmlFor="t">ถึงเดือน</label><MonthPicker id="t" value={to} onChange={setTo} /></div>
-          <Link className="btn go" href="/district/report">＋ กรอกรายงาน</Link>
-        </div>
-      </div>
-      {loadError && <p className="err" role="alert">{loadError}</p>}
-      {!reports && <p>กำลังโหลด…</p>}
-      {reports && !valid && <p className="err">เลือกช่วงเดือนให้ถูกต้อง</p>}
+      <PageHead title={`สวัสดี อำเภอ${district}`} sub="เริ่มจากการ์ด “งานที่ต้องกรอก” ด้านล่าง กดปุ่มในการ์ดเพื่อไปกรอกได้ทันที" />
+      {loadError && <p className="ux-toast bad" role="alert">{loadError}</p>}
+      {!reports && <p className="ux-empty">กำลังโหลด…</p>}
       {d && <>
-        {(() => {
-          const rd = Math.min(cr, d.rounds), r = d.rec(cm, rd), st = r?.status ?? "none", due = dueDateOf(cm, settings.dueDays[rd - 1] ?? 31);
-          const vitems = FIELDS.map(f => ({ key: f.key, label: f.label, group: f.group, val: r?.values[f.key] }));
-          const ritems = ([["name", "ชื่อ-สกุลผู้รายงาน"], ["position", "ตำแหน่ง"], ["phone", "โทรศัพท์"]] as const).map(([k, l]) => ({ key: k, label: l, val: r?.reporter[k] || undefined }));
-          const all = [...vitems, ...ritems], done = all.filter(i => i.val !== undefined).length, pend = all.length - done;
-          const Item = ({ label, val, unit }: { label: string; val?: number | string; unit?: boolean }) => (
-            <Link href={`/district/report?month=${cm}&round=${rd}`} className={`db-item ${val !== undefined ? "ok" : "no"}`}>
-              <i>{val !== undefined ? "✓" : "!"}</i><span>{label}</span><em>{val !== undefined ? `${typeof val === "number" ? fmt(val) : val}${unit ? " ตัน" : ""}` : "ยังไม่ได้กรอก"}</em></Link>);
-          return (
-            <section className="db-card db-todo" style={{ marginBottom: "1rem" }}>
-              <div className="db-head" style={{ marginBottom: ".6rem" }}>
-                <div><h2>สิ่งที่ต้องกรอก · เดือน{thaiMonth(cm)}{d.rounds > 1 ? ` · รอบที่ ${rd}` : ""}</h2>
-                  <p className="hint" style={{ margin: 0 }}>{st === "submitted" ? "ส่งรายงานแล้ว" : st === "draft" ? "บันทึกร่างไว้ ยังไม่ได้ส่ง" : "ยังไม่ได้เริ่มกรอก"} · กรอกแล้ว {done} จาก {all.length} รายการ · {pend ? `ค้างอีก ${pend} รายการ` : "ครบทุกรายการ"}</p>
-                  <p className="hint late-note" style={{ margin: ".2rem 0 0" }}>กำหนดส่งภายใน {thaiDate(due)}{r?.submittedAt && <> · ส่งเมื่อ {thaiDateTime(r.submittedAt)} <span className={`pill ${r.late ? "no" : "ok"}`}>{r.late ? "ส่งช้า" : "ตรงเวลา"}</span></>}</p></div>
-                <div className="db-filter"><div className="field"><label htmlFor="cm">เดือน</label><MonthPicker id="cm" value={cm} onChange={setCm} /></div>
-                  <Link className="btn go" href={`/district/report?month=${cm}&round=${rd}`}>{pend ? "กรอกต่อ" : "ดู/แก้ไข"}</Link></div>
-              </div>
-              {d.rounds > 1 && <div className="rseg" role="group" aria-label="รอบรายงาน" style={{ marginBottom: ".8rem" }}>{settings.dueDays.map((dd, i) => (
-                <button key={i} type="button" aria-pressed={rd === i + 1} onClick={() => setCr(i + 1)}>รอบที่ {i + 1} · ภายใน {thaiDate(dueDateOf(cm, dd))}{d.rec(cm, i + 1)?.status === "submitted" ? " ✓" : ""}</button>))}</div>}
-              <div className="db-bar" style={{ marginBottom: "1rem" }}><i style={{ width: `${(done / all.length) * 100}%`, ["--c" as string]: pend ? "#e3a72f" : "#2f7d4f" }} /></div>
-              {Array.from(new Set(FIELDS.map(f => f.group))).map(g => (
-                <div key={g}><h3 className="db-sub">{g}</h3><div className="db-items">{vitems.filter(i => i.group === g).map(i => <Item key={i.key} label={i.label} val={i.val} unit />)}</div></div>))}
-              <h3 className="db-sub">ผู้รายงาน</h3><div className="db-items">{ritems.map(i => <Item key={i.key} label={i.label} val={i.val} />)}</div>
-              <p className="hint">ช่องที่ไม่มีผลผลิตให้กรอก 0 · ต้องกรอกครบทุกช่องและระบุผู้รายงานก่อนกดส่ง</p>
-            </section>);
-        })()}
-        {(() => {
-          if (!isAreaMonth(cm)) return (
-            <section className="db-card" style={{ marginBottom: "1rem" }}>
-              <h2>ข้อมูลพื้นที่และฟางข้าว</h2>
-              <p className="hint" style={{ margin: 0 }}>เดือน{thaiMonth(cm)}ไม่อยู่ในช่วงรายงานพื้นที่ (รายงานเฉพาะเดือนพฤศจิกายน–มิถุนายน) จึงไม่ต้องกรอกในเดือนนี้</p>
-            </section>);
-          const rd = Math.min(cr, d.rounds), ar = area.find(x => x.month === cm && x.round === rd), st = ar?.status ?? "none";
-          const done = AREA_FIELDS.filter(f => ar?.values[f.key] !== undefined).length, href = `/district/area?month=${cm}&round=${rd}`;
-          return (
-            <section className="db-card" style={{ marginBottom: "1rem" }}>
-              <div className="db-head" style={{ marginBottom: ".6rem" }}>
-                <div><h2>ข้อมูลพื้นที่และฟางข้าว · เดือน{thaiMonth(cm)}{d.rounds > 1 ? ` · รอบที่ ${rd}` : ""}</h2>
-                  <p className="hint late-note" style={{ margin: 0 }}>{st === "submitted" ? "ส่งแล้ว" : st === "draft" ? "บันทึกร่างไว้ ยังไม่ได้ส่ง" : "ยังไม่ได้เริ่มกรอก"} · กรอกแล้ว {done} จาก {AREA_FIELDS.length} รายการ
-                    {ar?.submittedAt && <> · ส่งเมื่อ {thaiDateTime(ar.submittedAt)} <span className={`pill ${ar.late ? "no" : "ok"}`}>{ar.late ? "ส่งช้า" : "ตรงเวลา"}</span></>}</p></div>
-                <Link className="btn go" href={href}>{st === "submitted" ? "ดู/แก้ไข" : done ? "กรอกต่อ" : "กรอก"}</Link>
-              </div>
-              <div className="db-items">{AREA_FIELDS.map(f => { const v = ar?.values[f.key]; return (
-                <Link key={f.key} href={href} className={`db-item ${v !== undefined ? "ok" : "no"}`}><i>{v !== undefined ? "✓" : "!"}</i><span>{f.label}</span><em>{v !== undefined ? `${f2(v)} ${f.unit}` : "ยังไม่ได้กรอก"}</em></Link>); })}</div>
-            </section>);
-        })()}
+        <section aria-label="งานที่ต้องกรอก">
+          <div className="ux-mfilter" style={{ marginBottom: ".9rem" }}>
+            <div><span className="ux-lbl">งานที่ต้องกรอกของเดือน</span><MonthPicker id="cm" value={cm} onChange={setCm} /></div>
+            {d.rounds > 1 && <div className="ux-tabs" role="group" aria-label="รอบรายงาน">{settings.dueDays.map((dd, i) => (
+              <button key={i} type="button" className="ux-tab" aria-pressed={Math.min(cr, d.rounds) === i + 1} onClick={() => setCr(i + 1)}>
+                <b>รอบที่ {i + 1} {d.rec(cm, i + 1)?.status === "submitted" && <span className="ok">✓</span>}</b><small>ส่งภายใน {thaiDate(dueDateOf(cm, dd))}</small></button>))}</div>}
+          </div>
+          <div className="ux-tasks">
+            {(() => {
+              const rd = Math.min(cr, d.rounds), r = d.rec(cm, rd), st = r?.status ?? "none", due = dueDateOf(cm, settings.dueDays[rd - 1] ?? 31);
+              const items = [...FIELDS.map(f => ({ label: f.label, val: r?.values[f.key] })), ...([["name", "ชื่อผู้รายงาน"], ["position", "ตำแหน่ง"], ["phone", "โทรศัพท์"]] as const).map(([k, l]) => ({ label: l, val: r?.reporter[k] || undefined }))];
+              const done = items.filter(i => i.val !== undefined).length, miss = items.filter(i => i.val === undefined);
+              return (
+                <article className="ux-task" style={{ ["--tc" as string]: "#1d5f73" }}>
+                  <header><i>{I.leaf}</i><div><h2>รายงานปุ๋ยอินทรีย์</h2><p>เดือน{thaiMonth(cm)}{d.rounds > 1 ? ` · รอบที่ ${rd}` : ""} · ส่งภายใน {thaiDate(due)}</p></div></header>
+                  <div className="st"><StatusPill status={st === "none" ? undefined : st} late={r?.late} />กรอกแล้ว {done} จาก {items.length} ช่อง{r?.submittedAt && <> · ส่งเมื่อ {thaiDateTime(r.submittedAt)}</>}</div>
+                  <div className="pg" aria-hidden="true"><i style={{ width: `${(done / items.length) * 100}%` }} /></div>
+                  <p className="miss">{miss.length ? <>ยังไม่ได้กรอก: <b>{miss.slice(0, 4).map(m => m.label).join(", ")}{miss.length > 4 ? ` และอีก ${miss.length - 4} ช่อง` : ""}</b></> : "กรอกครบทุกช่องแล้ว"}</p>
+                  <Link className={`ux-btn ${st === "submitted" ? "line" : ""}`} href={`/district/report?month=${cm}&round=${rd}`}>{st === "submitted" ? "ดู / แก้ไขรายงาน" : done ? "กรอกต่อ" : "เริ่มกรอกรายงานปุ๋ย"}</Link>
+                </article>);
+            })()}
+            {(() => {
+              if (!isAreaMonth(cm)) return (
+                <article className="ux-task" style={{ ["--tc" as string]: "#94a3b8" }}>
+                  <header><i>{I.sprout}</i><div><h2>พื้นที่ไถกลบฟางข้าว</h2><p>เดือน{thaiMonth(cm)}</p></div></header>
+                  <p className="miss">เดือนนี้ไม่ต้องกรอก · รายงานพื้นที่เฉพาะเดือนพฤศจิกายนถึงมิถุนายน</p>
+                </article>);
+              const rd = Math.min(cr, d.rounds), ar = area.find(x => x.month === cm && x.round === rd), st = ar?.status ?? "none", due = dueDateOf(cm, settings.dueDays[rd - 1] ?? 31);
+              const v = ar?.values.area, href = `/district/area?month=${cm}&round=${rd}`;
+              return (
+                <article className="ux-task" style={{ ["--tc" as string]: "#b08a2c" }}>
+                  <header><i>{I.sprout}</i><div><h2>พื้นที่ไถกลบฟางข้าว</h2><p>เดือน{thaiMonth(cm)}{d.rounds > 1 ? ` · รอบที่ ${rd}` : ""} · ส่งภายใน {thaiDate(due)}</p></div></header>
+                  <div className="st"><StatusPill status={st === "none" ? undefined : st} late={ar?.late} />{v !== undefined ? <>กรอกแล้ว {f2(v)} ไร่</> : "ยังไม่ได้กรอกพื้นที่"}{ar?.submittedAt && <> · ส่งเมื่อ {thaiDateTime(ar.submittedAt)}</>}</div>
+                  <div className="pg" aria-hidden="true"><i style={{ width: v !== undefined ? "100%" : "0%" }} /></div>
+                  <p className="miss">{v !== undefined ? "กรอกพื้นที่แล้ว ส่วนฟางข้าวและมูลค่าระบบคำนวณให้" : <>ยังไม่ได้กรอก: <b>{AREA_FIELDS[0].label}</b></>}</p>
+                  <Link className={`ux-btn gold ${st === "submitted" ? "line" : ""}`} href={href}>{st === "submitted" ? "ดู / แก้ไขข้อมูล" : v !== undefined ? "กรอกต่อ" : "เริ่มกรอกพื้นที่"}</Link>
+                </article>);
+            })()}
+          </div>
+        </section>
+
+        <div className="ux-ph" style={{ marginTop: "1.6rem", marginBottom: ".8rem" }}>
+          <div><h2 className="db-sec" style={{ margin: 0 }}>ผลงานของอำเภอ</h2><p className="ux-note">ปุ๋ยอินทรีย์และวัสดุอินทรีย์ · {valid ? `${thaiMonth(from)} – ${thaiMonth(to)}` : ""}</p></div>
+          <div className="ux-mfilter">
+            <div><span className="ux-lbl">ตั้งแต่เดือน</span><MonthPicker id="f" value={from} onChange={setFrom} /></div>
+            <div><span className="ux-lbl">ถึงเดือน</span><MonthPicker id="t" value={to} onChange={setTo} /></div>
+          </div>
+        </div>
+        {!valid && <p className="ux-toast bad">เลือกช่วงเดือนให้ถูกต้อง (เดือนเริ่มต้องไม่เกินเดือนสิ้นสุด)</p>}
         <div className="db-kpis">
           <Kpi label="ผลผลิตรวมของอำเภอ" value={fmt(d.me.total)} unit="ตัน" tone="emerald" note={`เฉลี่ย ${fmt(d.me.sent ? d.me.total / d.me.sent : 0)} ตัน/เดือนที่ส่ง`} />
           <Kpi label={`เทียบเป้าหมาย ${fmt(d.me.target)} ตัน`} value={`${d.pct}%`} color="#f59e0b" tone="amber" pct={d.pct} note={d.me.target > d.me.total ? `ยังขาดอีก ${fmt(d.me.target - d.me.total)} ตัน` : "บรรลุเป้าหมายแล้ว"} />

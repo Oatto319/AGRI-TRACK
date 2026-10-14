@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Prompt, Sarabun } from "next/font/google";
 import "./globals.css";
+import "./ux.css";
 
 const head = Prompt({ subsets: ["thai", "latin"], weight: ["500", "600"], variable: "--f-head" });
 const body = Sarabun({ subsets: ["thai", "latin"], weight: ["400", "500", "700"], variable: "--f-body" });

@@ -3,6 +3,7 @@ import { startTransition, useEffect, useState } from "react";
 import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, currentMonth, dueDateOf, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
+import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
 
 const toStr = (v: AreaReport["values"]) => Object.fromEntries(Object.entries(v).map(([k, n]) => [k, String(n)]));
 const load = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดไม่สำเร็จ"); return (await r.json()) as T; };
@@ -77,69 +78,85 @@ export default function DistrictAreaReport() {
     }
   }
 
-  const areaInput = (
-    <div className="field"><label htmlFor="area">พื้นที่ไถกลบฟางข้าวเดือนนี้</label>
-      <div className="inp"><input id="area" type="number" inputMode="decimal" min={0} step="any" value={vals.area ?? ""} disabled={!inSeason}
-        onChange={e => setVals({ ...vals, area: e.target.value })} /><span>ไร่</span></div></div>);
-  const computed = (id: string, label: string, value: string, unit: string) => (
-    <div className="field"><label htmlFor={id}>{label}</label>
-      <div className="inp"><input id={id} type="text" readOnly tabIndex={-1} value={value} /><span>{unit}</span></div></div>);
+  const hasArea = vals.area !== undefined && vals.area !== "";
+  const checks = [
+    { ok: hasArea, t: hasArea ? "กรอกพื้นที่เดือนนี้แล้ว" : "พื้นที่ไถกลบเดือนนี้ (ไม่มีให้ใส่ 0)" },
+    { ok: !!rep.name.trim(), t: "ชื่อ-สกุลผู้รายงาน" },
+  ];
+  const ready = checks.every(c => c.ok) && inSeason;
+  const ofTarget = target > 0 ? (accum / target) * 100 : 0;
 
   return (<>
-    <h1>ข้อมูลพื้นที่และฟางข้าว</h1>
-    <p className="sub">อำเภอ{district} · รายงานเฉพาะเดือนพฤศจิกายน–มิถุนายน · ต้องรายงาน {rounds} ครั้ง/เดือน (รอบและกำหนดส่งเดียวกับรายงานปุ๋ยอินทรีย์) · กรอกเฉพาะจำนวนไร่ ช่องสีเทาคำนวณให้อัตโนมัติ</p>
-    <section className="sheet">
-      <div className="field"><label htmlFor="m">เดือนที่รายงาน</label>
-        <MonthPicker id="m" value={month} onChange={setMonth} />
-        <p className="hint">{month ? thaiMonth(month) : "กำลังเตรียมเดือนรายงาน"} · สถานะ: {status === "submitted" ? "ส่งแล้ว (แก้ไขแล้วส่งซ้ำได้)" : status === "draft" ? "ร่าง" : "ยังไม่บันทึก"}</p></div>
-      {!inSeason && <p className="msg bad" role="alert">เดือน{thaiMonth(month)}อยู่นอกช่วงรายงานพื้นที่ (รายงานได้เฉพาะเดือนพฤศจิกายน–มิถุนายน) กรุณาเลือกเดือนอื่น</p>}
-      {rounds > 1 && month && (
-        <div className="field"><span id="rl" className="lbl">รอบที่รายงาน</span>
-          <div className="rseg" role="group" aria-labelledby="rl">{settings.dueDays.map((d, i) => {
-            const r = all.find(x => x.month === month && x.round === i + 1);
-            return <button key={i} type="button" aria-pressed={rd === i + 1} onClick={() => setRound(i + 1)}>รอบที่ {i + 1} · ภายใน {thaiDate(dueDateOf(month, d))}{r?.status === "submitted" ? " ✓" : ""}</button>;
-          })}</div></div>)}
-      {rec?.status === "submitted" ? (
-        <p className={`msg${rec.late ? " bad" : ""}`} role="status">
-          {rec.submittedAt ? `ส่งข้อมูลแล้วเมื่อ ${thaiDateTime(rec.submittedAt)}` : "ส่งข้อมูลแล้ว (ไม่มีบันทึกวันที่ส่ง)"}
-          {rec.dueDate && ` · กำหนดส่ง ${thaiDate(rec.dueDate)}`} <span className={`pill ${rec.late ? "no" : "ok"}`}>{rec.late ? "ส่งช้า" : "ส่งตรงเวลา"}</span></p>
-      ) : month && (
-        <p className={`msg${overdue ? " bad" : ""}`} role="status">
-          กำหนดส่งภายใน {thaiDate(due)}{overdue ? " · เลยกำหนดส่งแล้ว ถ้าส่งตอนนี้ระบบจะบันทึกว่า \"ส่งช้า\" พร้อมวันที่ส่ง" : ""}</p>)}
-      <fieldset className="grp"><legend>พื้นที่ที่ดำเนินการเดือนนี้</legend><div className="two">
-        {areaInput}
-        {computed("st", "ปริมาณฟางข้าว", f2(strawTons(thisArea)), "ตัน")}
-        {computed("sv", "คิดเป็นมูลค่า", f2(strawValue(thisArea)), "บาท")}
+    <PageHead title="กรอกพื้นที่ไถกลบฟางข้าว" sub={`อำเภอ${district} · กรอกเฉพาะจำนวนไร่ที่ไถกลบในเดือนนั้น ส่วนฟางข้าว มูลค่า และยอดสะสมระบบคำนวณให้เอง`}
+      chips={[{ label: "รายงานเฉพาะเดือน", value: "พ.ย. – มิ.ย." }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
+    <div className="ux-split">
+      <div className="ux-stack">
+        <Step n={1} title="เลือกเดือนที่รายงาน" hint="เลือกได้เฉพาะเดือนพฤศจิกายนถึงมิถุนายน" done={!!month && inSeason}>
+          <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
+          <MonthPicker id="m" value={month} onChange={setMonth} />
+          {!inSeason && <div className="ux-banner bad" role="alert">{I.alert}<div>เดือน{thaiMonth(month)}อยู่นอกช่วงรายงานพื้นที่ กรุณาเลือกเดือนระหว่างพฤศจิกายน–มิถุนายน</div></div>}
+          <RoundTabs dueDays={settings.dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
+          {inSeason && <DueBanner rec={rec} due={due} overdue={overdue} noun="ข้อมูล" />}
+        </Step>
+
+        <Step n={2} title="กรอกพื้นที่ที่ไถกลบในเดือนนี้" hint="กรอกเฉพาะช่องแรก ช่องสีเทาคำนวณให้อัตโนมัติ" done={hasArea}>
+          <div className="ux-two">
+            <NumField id="area" label="พื้นที่ไถกลบฟางข้าวเดือนนี้" unit="ไร่" value={vals.area ?? ""} disabled={!inSeason} onChange={v => setVals({ ...vals, area: v })} />
+            <ReadField id="st" label="ปริมาณฟางข้าว" value={f2(strawTons(thisArea))} unit="ตัน" />
+            <ReadField id="sv" label="คิดเป็นมูลค่า" value={f2(strawValue(thisArea))} unit="บาท" />
+          </div>
+          <p className="ux-hint">ฟางข้าว (ตัน) = ไร่ × {STRAW_KG_PER_RAI} กก. ÷ 1,000 · มูลค่า = ไร่ × {STRAW_VALUE_PER_RAI} บาท</p>
+        </Step>
+
+        <Step n={3} title="ผู้รายงาน" hint="ระบบจำชื่อจากครั้งก่อนให้อัตโนมัติ" done={!!rep.name.trim()}>
+          <div className="ux-two"><TextField id="rname" label="ชื่อ-สกุล" value={rep.name} onChange={v => setRep({ ...rep, name: v })} /></div>
+        </Step>
+
+        {season && <section className="ux-card">
+          <h2>สรุปสะสมฤดูกาล {thaiMonth(season.start)} – {thaiMonth(season.end)}</h2>
+          <p className="ux-note">คำนวณอัตโนมัติ · ดูเท่านั้น ไม่ต้องกรอก (นับรายงานที่ส่งแล้ว รวมค่าที่กำลังกรอก)</p>
+          <div className="ux-two" style={{ marginTop: ".9rem" }}>
+            <ReadField id="ta" label="พื้นที่ปลูกพืชทั้งหมด" value={f2(total)} unit="ไร่" />
+            <ReadField id="tg" label={`เป้าหมายร้อยละ ${AREA_TARGET_PCT}`} value={f2(target)} unit="ไร่" />
+            <ReadField id="ac" label="พื้นที่สะสมทั้งหมด" value={f2(accum)} unit="ไร่" />
+            <ReadField id="pc" label="คิดเป็นร้อยละของพื้นที่ทั้งหมด" value={f2(pct)} unit="%" />
+            <ReadField id="sa" label="ปริมาณฟางข้าวสะสม" value={f2(strawTons(accum))} unit="ตัน" />
+            <ReadField id="va" label="คิดเป็นมูลค่าสะสม" value={f2(strawValue(accum))} unit="บาท" />
+          </div>
+          <p className="ux-hint">{!assigned ? "จังหวัดยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดของอำเภอนี้ จึงใช้พื้นที่สะสมเป็นฐานคำนวณไปก่อน" : `คิดเป็น ${f2(ofTarget)}% ของเป้าหมาย`}{assigned && accum > total ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p>
+        </section>}
       </div>
-        <p className="hint">ถ้าเดือนนี้ไม่มีให้ใส่ 0 · ฟางข้าว (ตัน) = ไร่ × {STRAW_KG_PER_RAI} กก. ÷ 1,000 · มูลค่า = ไร่ × {STRAW_VALUE_PER_RAI} บาท</p></fieldset>
-      {season && <fieldset className="grp"><legend>สรุปสะสมฤดูกาล {thaiMonth(season.start)} – {thaiMonth(season.end)}</legend><div className="two">
-        {computed("ta", "พื้นที่ปลูกพืชทั้งหมด", f2(total), "ไร่")}
-        {computed("tg", `เป้าหมายร้อยละ ${AREA_TARGET_PCT}`, f2(target), "ไร่")}
-        {computed("ac", "พื้นที่สะสมทั้งหมด", f2(accum), "ไร่")}
-        {computed("pc", "คิดเป็นร้อยละของพื้นที่ทั้งหมด", f2(pct), "%")}
-        {computed("sa", "ปริมาณฟางข้าวสะสม", f2(strawTons(accum)), "ตัน")}
-        {computed("va", "คิดเป็นมูลค่าสะสม", f2(strawValue(accum)), "บาท")}
-      </div>
-        <p className="hint">{!assigned ? "จังหวัดยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดของอำเภอนี้ จึงใช้พื้นที่สะสมทั้งหมดเป็นฐานคำนวณเป้าหมายและร้อยละไปก่อน" : `คิดเป็น ${f2(target > 0 ? (accum / target) * 100 : 0)}% ของเป้าหมาย`}{assigned && accum > total ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p>
-        <p className="hint">พื้นที่ปลูกพืชทั้งหมดจังหวัดเป็นผู้กำหนด · พื้นที่สะสม = ผลรวมที่รายงานทุกเดือนตั้งแต่พฤศจิกายนถึงมิถุนายนของฤดูกาลนี้ (นับรายงานที่ส่งแล้ว รวมค่าที่กำลังกรอก)</p></fieldset>}
-      <p className="hint">ต้องกรอกพื้นที่และชื่อผู้รายงานก่อนกดส่ง</p>
-      <fieldset className="grp"><legend>ผู้รายงาน</legend><div className="two">
-        <div className="field"><label htmlFor="rname">ชื่อ-สกุล</label>
-          <input id="rname" type="text" value={rep.name} onChange={e => setRep({ ...rep, name: e.target.value })} /></div></div></fieldset>
-      {msg && <p className={`msg${msg.bad ? " bad" : ""}`} role="status">{msg.t}</p>}
-      <div className="actions">
-        {status !== "submitted" && <button className="btn alt" disabled={busy || !month || !inSeason} onClick={() => save("draft")}>บันทึกร่าง</button>}
-        <button className="btn go" disabled={busy || !month || !inSeason} onClick={() => save("submitted")}>{status === "submitted" ? "ส่งซ้ำ (แก้ไข)" : "ส่งข้อมูล"}</button>
-      </div>
+
+      <aside className="ux-side" aria-label="สรุปและส่งข้อมูล">
+        <div className="ux-sum">
+          <small>พื้นที่สะสมตั้งแต่ พ.ย.</small>
+          <div className="big">{f2(accum)} <span>ไร่</span></div>
+          <div className="pg" aria-hidden="true"><i style={{ width: `${Math.min(100, ofTarget)}%` }} /></div>
+          <small>{target > 0 ? `${f2(ofTarget)}% ของเป้าหมาย ${f2(target)} ไร่` : "ยังไม่มีเป้าหมาย"}</small>
+          <div className="row"><span>เดือนที่กรอก</span><b>{month ? thaiMonth(month) : "–"}{rounds > 1 ? ` · รอบ ${rd}` : ""}</b></div>
+          <div className="row"><span>สถานะ</span><b>{status === "submitted" ? "ส่งแล้ว" : status === "draft" ? "ร่าง" : "ยังไม่ได้กรอก"}</b></div>
+        </div>
+        <div className="ux-card">
+          <h2>ก่อนส่งต้องมีครบ</h2>
+          <ul className="ux-todo">{checks.map(c => <li key={c.t} className={c.ok ? "ok" : ""}><i>{c.ok ? "✓" : "!"}</i>{c.t}</li>)}</ul>
+          {msg && <p className={`ux-toast${msg.bad ? " bad" : ""}`} style={{ marginTop: ".9rem" }} role="status">{msg.t}</p>}
+          <div className="ux-actions" style={{ marginTop: ".9rem" }}>
+            <button className="ux-btn gold" disabled={busy || !month || !ready} onClick={() => save("submitted")}>{I.send}{status === "submitted" ? "ส่งซ้ำ (แก้ไข)" : "ส่งข้อมูล"}</button>
+            {status !== "submitted" && <button className="ux-btn line" disabled={busy || !month || !inSeason} onClick={() => save("draft")}>{I.save}บันทึกร่างไว้ก่อน</button>}
+          </div>
+        </div>
+      </aside>
+    </div>
+
+    <section className="ux-card" style={{ marginTop: "1.2rem" }}>
+      <h2>ประวัติการรายงาน</h2><p className="ux-note">กดที่รายการเพื่อเปิดดูหรือแก้ไข</p>
+      <ul className="ux-hist" style={{ marginTop: ".8rem" }}>
+        {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
+          <li key={`${r.month}-${r.round}`}><button type="button" className={r.month === month && r.round === rd ? "cur" : ""} onClick={() => { setMonth(r.month); setRound(r.round); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+            <span><b>{thaiMonth(r.month)}</b>{rounds > 1 && <> · รอบ {r.round}</>}<small>ฟางข้าว {f2(strawTons(r.values.area ?? 0))} ตัน · {r.submittedAt ? `ส่งเมื่อ ${thaiDateTime(r.submittedAt)}` : "ยังไม่ได้ส่ง"}</small></span>
+            <b>{f2(r.values.area ?? 0)} ไร่</b><StatusPill status={r.status} late={r.late} /></button></li>))}
+        {!all.length && <li className="ux-empty">ยังไม่มีข้อมูล · เริ่มกรอกด้านบนได้เลย</li>}
+      </ul>
     </section>
-    <h2 style={{ margin: "1.5rem 0 .5rem" }}>ประวัติการรายงาน</h2>
-    <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน / รอบ</th><th>พื้นที่เดือนนี้ (ไร่)</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>สถานะ</th><th>ส่งเมื่อ</th></tr></thead><tbody>
-      {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
-        <tr key={`${r.month}-${r.round}`}><td style={{ textAlign: "left" }}><button className="btn alt" onClick={() => { setMonth(r.month); setRound(r.round); }}>{thaiMonth(r.month)} · รอบ {r.round}</button></td>
-          <td>{f2(r.values.area ?? 0)}</td><td>{f2(strawTons(r.values.area ?? 0))}</td><td>{f2(strawValue(r.values.area ?? 0))}</td>
-          <td><span className={`pill ${r.status === "submitted" ? (r.late ? "no" : "ok") : "warn"}`}>{r.status === "submitted" ? (r.late ? "ส่งช้า" : "ส่งแล้ว") : "ร่าง"}</span></td>
-          <td>{r.submittedAt ? thaiDateTime(r.submittedAt) : "–"}</td></tr>))}
-      {!all.length && <tr><td colSpan={6} style={{ textAlign: "center" }}>ยังไม่มีข้อมูล</td></tr>}
-    </tbody></table></div>
   </>);
 }

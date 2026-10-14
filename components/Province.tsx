@@ -30,9 +30,9 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
   return (
     <C.Provider value={{ settings, setSettings, reports, area, error, from, to, setFrom, setTo, valid, agg }}>
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
-        { href: "/province", label: "หน้า 1: ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ" },
-        { href: "/province/table", label: "หน้า 2: ตารางข้อมูลรายละเอียด", hint: "รายอำเภอ + ดาวน์โหลด Excel" },
-        { href: "/province/settings", label: "หน้า 3: ตั้งค่าการรายงาน", hint: "จำนวนครั้งต่อเดือนและวันกำหนดส่ง" }]}>
+        { href: "/province", label: "1. ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ", icon: "home" },
+        { href: "/province/table", label: "2. ตารางข้อมูลรายอำเภอ", hint: "ดูรายละเอียด + ดาวน์โหลด Excel", icon: "table" },
+        { href: "/province/settings", label: "3. ตั้งค่าการรายงาน", hint: "รอบ วันกำหนดส่ง พื้นที่ปลูก", icon: "gear" }]}>
         {children}
       </Shell>
     </C.Provider>

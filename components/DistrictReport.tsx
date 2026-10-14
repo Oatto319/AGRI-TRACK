@@ -4,6 +4,7 @@ import { DEFAULT_SETTINGS, DISTRICTS, FIELDS, MAX_ROUNDS, TARGET_PER_TAMBON, bkk
 import { fmt, sumValues } from "@/lib/summary";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
+import { DueBanner, I, NumField, PageHead, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
 
 const toStr = (v: Report["values"]) => Object.fromEntries(Object.entries(v).map(([k, n]) => [k, String(n)]));
 const load = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดไม่สำเร็จ"); return (await r.json()) as T; };
@@ -76,51 +77,83 @@ export default function DistrictReport() {
     }
   }
 
+  const GROUP: Record<string, { icon: React.ReactNode; c: string; l: string }> = {
+    "ปุ๋ยอินทรีย์": { icon: I.leaf, c: "#2f8a5b", l: "#eef8f2" },
+    "ปุ๋ยพืชสด": { icon: I.sprout, c: "#1f7a85", l: "#eaf5f7" },
+    "วัสดุอินทรีย์": { icon: I.box, c: "#b08a2c", l: "#fbf5e3" },
+  };
+  const groups = Array.from(new Set(FIELDS.map(f => f.group)));
+  const filled = FIELDS.filter(f => vals[f.key] !== undefined && vals[f.key] !== "").length;
+  const phoneOk = /^[0-9\- ]{9,12}$/.test(rep.phone);
+  const checks = [
+    { ok: filled === FIELDS.length, t: filled === FIELDS.length ? "กรอกปริมาณครบทุกช่อง" : `ปริมาณ: เหลืออีก ${FIELDS.length - filled} ช่อง (ไม่มีให้ใส่ 0)` },
+    { ok: !!rep.name.trim(), t: "ชื่อ-สกุลผู้รายงาน" },
+    { ok: !!rep.position.trim(), t: "ตำแหน่ง" },
+    { ok: phoneOk, t: "เบอร์โทร (ตัวเลข 9–12 หลัก)" },
+  ];
+  const ready = checks.every(c => c.ok);
+
   return (<>
-    <h1>กรอกรายงานรายเดือน</h1>
-    <p className="sub">แบบสำรวจการส่งเสริมการผลิตและใช้ปุ๋ยอินทรีย์และวัสดุอินทรีย์ · อำเภอ{district} · เกษตรตำบล {info.tambon} ราย · เป้าหมาย {fmt(info.tambon * TARGET_PER_TAMBON)} ตัน · ต้องรายงาน {rounds} ครั้ง/เดือน</p>
-    <section className="sheet">
-      <div className="field"><label htmlFor="m">เดือนที่รายงาน</label>
-        <MonthPicker id="m" value={month} onChange={setMonth} />
-        <p className="hint">{month ? thaiMonth(month) : "กำลังเตรียมเดือนรายงาน"} · สถานะ: {status === "submitted" ? "ส่งแล้ว (แก้ไขแล้วส่งซ้ำได้)" : status === "draft" ? "ร่าง" : "ยังไม่บันทึก"}</p></div>
-      {rounds > 1 && month && (
-        <div className="field"><span id="rl" className="lbl">รอบที่รายงาน</span>
-          <div className="rseg" role="group" aria-labelledby="rl">{settings.dueDays.map((d, i) => {
-            const r = all.find(x => x.month === month && x.round === i + 1);
-            return <button key={i} type="button" aria-pressed={rd === i + 1} onClick={() => setRound(i + 1)}>รอบที่ {i + 1} · ภายใน {thaiDate(dueDateOf(month, d))}{r?.status === "submitted" ? " ✓" : ""}</button>;
-          })}</div></div>)}
-      {rec?.status === "submitted" ? (
-        <p className={`msg${rec.late ? " bad" : ""}`} role="status">
-          {rec.submittedAt ? `ส่งรายงานแล้วเมื่อ ${thaiDateTime(rec.submittedAt)}` : "ส่งรายงานแล้ว (ไม่มีบันทึกวันที่ส่ง)"}
-          {rec.dueDate && ` · กำหนดส่ง ${thaiDate(rec.dueDate)}`} <span className={`pill ${rec.late ? "no" : "ok"}`}>{rec.late ? "ส่งช้า" : "ส่งตรงเวลา"}</span></p>
-      ) : month && (
-        <p className={`msg${overdue ? " bad" : ""}`} role="status">
-          กำหนดส่งภายใน {thaiDate(due)}{overdue ? " · เลยกำหนดส่งแล้ว ถ้าส่งตอนนี้ระบบจะบันทึกว่า \"ส่งช้า\" พร้อมวันที่ส่ง" : ""}</p>)}
-      {Array.from(new Set(FIELDS.map(f => f.group))).map(g => (
-        <fieldset className="grp" key={g}><legend>{g}</legend>
-          <div className="two">{FIELDS.filter(f => f.group === g).map(f => (
-            <div className="field" key={f.key}><label htmlFor={f.key}>{f.label}</label>
-              <div className="inp"><input id={f.key} type="number" inputMode="decimal" min={0} step="any" value={vals[f.key] ?? ""}
-                onChange={e => setVals({ ...vals, [f.key]: e.target.value })} /><span>ตัน</span></div></div>))}</div></fieldset>))}
-      <p className="hint">รวม{rounds > 1 ? "รอบนี้" : "เดือนนี้"} {fmt(sumValues(live))} ตัน · ถ้าไม่มีให้ใส่ 0{rounds > 1 ? " · กรอกเฉพาะปริมาณของรอบนี้ ระบบรวมทุกรอบเป็นยอดของเดือน" : ""}</p>
-      <fieldset className="grp"><legend>ผู้รายงาน</legend><div className="two">
-        {([["name", "ชื่อ-สกุล"], ["position", "ตำแหน่ง"], ["phone", "โทรศัพท์"]] as const).map(([k, l]) => (
-          <div className="field" key={k}><label htmlFor={`r${k}`}>{l}</label>
-            <input id={`r${k}`} type="text" value={rep[k]} onChange={e => setRep({ ...rep, [k]: e.target.value })} /></div>))}</div></fieldset>
-      {msg && <p className={`msg${msg.bad ? " bad" : ""}`} role="status">{msg.t}</p>}
-      <div className="actions">
-        {status !== "submitted" && <button className="btn alt" disabled={busy || !month} onClick={() => save("draft")}>บันทึกร่าง</button>}
-        <button className="btn go" disabled={busy || !month} onClick={() => save("submitted")}>{status === "submitted" ? "ส่งซ้ำ (แก้ไข)" : "ส่งรายงาน"}</button>
+    <PageHead title="กรอกรายงานปุ๋ยอินทรีย์รายเดือน" sub={`อำเภอ${district} · กรอกปริมาณที่ผลิตหรือส่งเสริมในเดือนที่เลือก ทำตามขั้นตอน 1 → 3 แล้วกด “ส่งรายงาน”`}
+      chips={[{ label: "เกษตรตำบล", value: `${info.tambon} ราย` }, { label: "เป้าหมาย", value: `${fmt(info.tambon * TARGET_PER_TAMBON)} ตัน` }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
+    <div className="ux-split">
+      <div className="ux-stack">
+        <Step n={1} title="เลือกเดือนที่รายงาน" hint="ระบบเลือกเดือนปัจจุบันให้แล้ว เปลี่ยนได้ถ้าต้องการกรอกย้อนหลัง" done={!!month}>
+          <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
+          <MonthPicker id="m" value={month} onChange={setMonth} />
+          <RoundTabs dueDays={settings.dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
+          <DueBanner rec={rec} due={due} overdue={overdue} noun="รายงาน" />
+        </Step>
+
+        <Step n={2} title="กรอกปริมาณ (หน่วย: ตัน)" hint={`ต้องกรอกครบทุกช่อง ถ้าเดือนนี้ไม่มีให้ใส่ 0${rounds > 1 ? " · กรอกเฉพาะปริมาณของรอบนี้" : ""}`} done={filled === FIELDS.length}>
+          {groups.map(g => { const gf = FIELDS.filter(f => f.group === g), sum = gf.reduce((a, f) => a + (Number(vals[f.key]) || 0), 0), st = GROUP[g];
+            return (
+              <div className="ux-grp" key={g} style={{ ["--gc" as string]: st?.c, ["--gc-l" as string]: st?.l }}>
+                <header><i>{st?.icon}</i><b>{g}</b><span>รวม {fmt(sum)} ตัน</span></header>
+                <div className="ux-grid">{gf.map(f => <NumField key={f.key} id={f.key} label={f.label} unit="ตัน" value={vals[f.key] ?? ""} onChange={v => setVals({ ...vals, [f.key]: v })} />)}</div>
+              </div>); })}
+        </Step>
+
+        <Step n={3} title="ผู้รายงาน" hint="ระบบจำข้อมูลจากครั้งก่อนให้อัตโนมัติ" done={!!rep.name.trim() && !!rep.position.trim() && phoneOk}>
+          <div className="ux-two">
+            <TextField id="rname" label="ชื่อ-สกุล" value={rep.name} onChange={v => setRep({ ...rep, name: v })} />
+            <TextField id="rposition" label="ตำแหน่ง" value={rep.position} onChange={v => setRep({ ...rep, position: v })} />
+            <TextField id="rphone" label="โทรศัพท์" value={rep.phone} onChange={v => setRep({ ...rep, phone: v })} placeholder="เช่น 045-123456" />
+          </div>
+        </Step>
       </div>
+
+      <aside className="ux-side" aria-label="สรุปและส่งรายงาน">
+        <div className="ux-sum">
+          <small>รวม{rounds > 1 ? "รอบนี้" : "เดือนนี้"}</small>
+          <div className="big">{fmt(sumValues(live))} <span>ตัน</span></div>
+          <div className="pg" aria-hidden="true"><i style={{ width: `${(filled / FIELDS.length) * 100}%` }} /></div>
+          <small>กรอกแล้ว {filled} จาก {FIELDS.length} ช่อง</small>
+          <div className="row"><span>เดือน</span><b>{month ? thaiMonth(month) : "–"}{rounds > 1 ? ` · รอบ ${rd}` : ""}</b></div>
+          <div className="row"><span>สถานะ</span><b>{status === "submitted" ? "ส่งแล้ว" : status === "draft" ? "ร่าง" : "ยังไม่ได้กรอก"}</b></div>
+        </div>
+        <div className="ux-card">
+          <h2>ก่อนส่งต้องมีครบ</h2>
+          <ul className="ux-todo">{checks.map(c => <li key={c.t} className={c.ok ? "ok" : ""}><i>{c.ok ? "✓" : "!"}</i>{c.t}</li>)}</ul>
+          {msg && <p className={`ux-toast${msg.bad ? " bad" : ""}`} style={{ marginTop: ".9rem" }} role="status">{msg.t}</p>}
+          <div className="ux-actions" style={{ marginTop: ".9rem" }}>
+            <button className="ux-btn gold" disabled={busy || !month || !ready} onClick={() => save("submitted")}>{I.send}{status === "submitted" ? "ส่งซ้ำ (แก้ไข)" : "ส่งรายงาน"}</button>
+            {status !== "submitted" && <button className="ux-btn line" disabled={busy || !month} onClick={() => save("draft")}>{I.save}บันทึกร่างไว้ก่อน</button>}
+          </div>
+          {!ready && <p className="ux-hint">ยังกรอกไม่ครบ จึงส่งไม่ได้ · บันทึกร่างไว้แล้วกลับมากรอกต่อได้</p>}
+        </div>
+      </aside>
+    </div>
+
+    <section className="ux-card" style={{ marginTop: "1.2rem" }}>
+      <h2>ประวัติการรายงาน</h2><p className="ux-note">กดที่รายการเพื่อเปิดดูหรือแก้ไข</p>
+      <ul className="ux-hist" style={{ marginTop: ".8rem" }}>
+        {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
+          <li key={`${r.month}-${r.round}`}><button type="button" className={r.month === month && r.round === rd ? "cur" : ""} onClick={() => { setMonth(r.month); setRound(r.round); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
+            <span><b>{thaiMonth(r.month)}</b>{rounds > 1 && <> · รอบ {r.round}</>}<small>{r.submittedAt ? `ส่งเมื่อ ${thaiDateTime(r.submittedAt)}` : "ยังไม่ได้ส่ง"}</small></span>
+            <b>{fmt(sumValues(r.values))} ตัน</b><StatusPill status={r.status} late={r.late} /></button></li>))}
+        {!all.length && <li className="ux-empty">ยังไม่มีรายงาน · เริ่มกรอกด้านบนได้เลย</li>}
+      </ul>
     </section>
-    <h2 style={{ margin: "1.5rem 0 .5rem" }}>ประวัติการรายงาน</h2>
-    <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน / รอบ</th><th>รวม (ตัน)</th><th>สถานะ</th><th>ส่งเมื่อ</th></tr></thead><tbody>
-      {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
-        <tr key={`${r.month}-${r.round}`}><td style={{ textAlign: "left" }}><button className="btn alt" onClick={() => { setMonth(r.month); setRound(r.round); }}>{thaiMonth(r.month)} · รอบ {r.round}</button></td>
-          <td>{fmt(sumValues(r.values))}</td>
-          <td><span className={`pill ${r.status === "submitted" ? (r.late ? "no" : "ok") : "warn"}`}>{r.status === "submitted" ? (r.late ? "ส่งช้า" : "ส่งแล้ว") : "ร่าง"}</span></td>
-          <td>{r.submittedAt ? thaiDateTime(r.submittedAt) : "–"}</td></tr>))}
-      {!all.length && <tr><td colSpan={4} style={{ textAlign: "center" }}>ยังไม่มีรายงาน</td></tr>}
-    </tbody></table></div>
   </>);
 }

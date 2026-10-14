@@ -2,11 +2,13 @@
 import { startTransition, useEffect, useState } from "react";
 import { AREA_TARGET_PCT, DISTRICTS, MAX_ROUNDS, currentMonth, dueDateOf, thaiDate, thaiMonth, type Settings } from "@/lib/data";
 import { useProvince } from "@/components/Province";
+import { I, PageHead, Step } from "@/components/Entry";
 
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 const even = (k: number) => Array.from({ length: k }, (_, i) => String(Math.round((31 / k) * (i + 1))));
 
 export default function ProvinceSettings() {
+  const [q, setQ] = useState("");
   const { settings, setSettings } = useProvince();
   const [days, setDays] = useState<string[]>(settings.dueDays.map(String));
   const [msg, setMsg] = useState<{ t: string; bad?: boolean } | null>(null);
@@ -71,47 +73,58 @@ export default function ProvinceSettings() {
     }
   }
 
+  const shown = DISTRICTS.filter(d => d.name.includes(q.trim()));
+  const setCount = DISTRICTS.filter(d => num(d.name) > 0).length;
+  const dayOk = days.every(d => d !== "" && Number(d) >= 1 && Number(d) <= 31);
+
   return (
-    <div className="db" style={{ maxWidth: 820 }}>
-      <div className="db-head"><div><h1>ตั้งค่าการรายงาน</h1>
-        <p className="sub" style={{ margin: 0 }}>กำหนดจำนวนครั้งที่อำเภอต้องรายงานต่อเดือน วันกำหนดส่งของแต่ละรอบ และพื้นที่ปลูกพืชทั้งหมดของแต่ละอำเภอ</p></div></div>
-      <section className="db-card">
-        <h2>จำนวนครั้งที่ต้องรายงานต่อเดือน</h2>
-        <div className="rseg" role="group" aria-label="จำนวนครั้งต่อเดือน" style={{ margin: ".5rem 0 1.2rem" }}>
-          {Array.from({ length: MAX_ROUNDS }, (_, i) => i + 1).map(k => (
-            <button key={k} type="button" aria-pressed={n === k} onClick={() => setDays(even(k))}>{k} ครั้ง/เดือน</button>))}
-        </div>
-        <h2>วันกำหนดส่งของแต่ละรอบ</h2>
-        <div style={{ display: "grid", gap: ".7rem", margin: ".7rem 0" }}>
-          {days.map((d, i) => (
-            <div key={i} className="set-row">
-              <b>รอบที่ {i + 1}</b>
-              <label htmlFor={`d${i}`}>ส่งภายในวันที่</label>
-              <input id={`d${i}`} type="number" min={1} max={31} value={d} style={{ width: 90 }} onChange={e => setDays(days.map((x, j) => (j === i ? e.target.value : x)))} />
-              <span className="hint" style={{ margin: 0 }}>{cur && <>ตัวอย่าง {thaiMonth(cur)}: ภายใน {d && Number(d) >= 1 && Number(d) <= 31 ? thaiDate(dueDateOf(cur, Number(d))) : "–"}</>}</span>
-            </div>))}
-        </div>
-        <p className="hint">วันที่ 31 หมายถึงสิ้นเดือน (เดือนที่สั้นกว่าจะใช้วันสุดท้ายของเดือน) · วันที่ของแต่ละรอบต้องเรียงจากน้อยไปมาก</p>
-        <p className="hint">ถ้าอำเภอส่งหลังวันกำหนด (เวลาประเทศไทย) ระบบจะแสดงว่า &quot;ส่งช้า&quot; พร้อมวันและเวลาที่ส่ง โดยนับจากการส่งครั้งแรก · แต่ละรอบให้กรอกเฉพาะปริมาณของรอบนั้น ระบบรวมทุกรอบเป็นยอดของเดือน</p>
-        {msg && <p className={`msg${msg.bad ? " bad" : ""}`} role="status">{msg.t}</p>}
-        <div className="actions"><button className="btn go" disabled={busy} onClick={save}>บันทึกการตั้งค่า</button></div>
-      </section>
-      <section className="db-card" style={{ marginTop: "1rem" }}>
-        <h2>พื้นที่ปลูกพืชทั้งหมดรายอำเภอ (จังหวัดเป็นผู้กำหนด)</h2>
-        <p className="hint">อำเภอไม่ต้องกรอกค่านี้ · ระบบใช้คำนวณเป้าหมายร้อยละ {AREA_TARGET_PCT} ของพื้นที่ และร้อยละของพื้นที่สะสม · เว้นว่างไว้ = ยังไม่กำหนด</p>
-        <div className="two" style={{ marginTop: ".8rem" }}>
-          {DISTRICTS.map(d => (
-            <div className="field" key={d.name}>
-              <label htmlFor={`a-${d.name}`}>{d.name}</label>
-              <div className="inp"><input id={`a-${d.name}`} type="number" inputMode="decimal" min={0} step="any" value={totals[d.name] ?? ""}
-                onChange={e => setTotals({ ...totals, [d.name]: e.target.value })} /><span>ไร่</span></div>
-              <p className="hint">เป้าหมายร้อยละ {AREA_TARGET_PCT} = {f2((num(d.name) * AREA_TARGET_PCT) / 100)} ไร่</p>
-            </div>))}
-        </div>
-        <p className="hint"><b>รวมทั้งจังหวัด {f2(sumTotal)} ไร่</b> · เป้าหมายร้อยละ {AREA_TARGET_PCT} = {f2((sumTotal * AREA_TARGET_PCT) / 100)} ไร่</p>
-        {amsg && <p className={`msg${amsg.bad ? " bad" : ""}`} role="status">{amsg.t}</p>}
-        <div className="actions"><button className="btn go" disabled={abusy} onClick={saveAreas}>บันทึกพื้นที่ปลูกพืชทั้งหมด</button></div>
-      </section>
+    <div style={{ maxWidth: 980 }}>
+      <PageHead title="ตั้งค่าการรายงาน" sub="ตั้งค่า 2 อย่างที่ใช้กับทุกอำเภอ: (1) รอบและวันกำหนดส่งรายงาน (2) พื้นที่ปลูกพืชทั้งหมดของแต่ละอำเภอ — แต่ละส่วนมีปุ่มบันทึกของตัวเอง" />
+      <div className="ux-stack">
+        <Step n={1} title="รอบและวันกำหนดส่งรายงาน" hint="อำเภอต้องส่งรายงานกี่ครั้งต่อเดือน และต้องส่งภายในวันที่เท่าไร">
+          <span className="ux-lbl" id="rc">จำนวนครั้งที่ต้องรายงานต่อเดือน</span>
+          <div className="ux-rounds" role="group" aria-labelledby="rc">
+            {Array.from({ length: MAX_ROUNDS }, (_, i) => i + 1).map(k => (
+              <button key={k} type="button" aria-pressed={n === k} onClick={() => setDays(even(k))}><b>{k}</b>ครั้ง/เดือน</button>))}
+          </div>
+          <span className="ux-lbl" style={{ marginTop: "1.2rem" }}>วันที่ต้องส่งของแต่ละรอบ</span>
+          <div style={{ display: "grid", gap: ".6rem" }}>
+            {days.map((d, i) => (
+              <div key={i} className="ux-due">
+                <b>รอบที่ {i + 1}</b>
+                <label htmlFor={`d${i}`}>ส่งภายในวันที่</label>
+                <input id={`d${i}`} type="number" min={1} max={31} value={d} onChange={e => setDays(days.map((x, j) => (j === i ? e.target.value : x)))} />
+                <span className="ux-hint" style={{ margin: 0 }}>{cur && <>ตัวอย่าง {thaiMonth(cur)}: ภายใน {d && Number(d) >= 1 && Number(d) <= 31 ? thaiDate(dueDateOf(cur, Number(d))) : "–"}</>}</span>
+              </div>))}
+          </div>
+          <div className="ux-banner">{I.info}<div>วันที่ 31 = สิ้นสุดเดือน · วันที่ของแต่ละรอบต้องเรียงจากน้อยไปมาก · ส่งหลังวันกำหนดระบบจะแสดงว่า “ส่งช้า” (นับจากการส่งครั้งแรก) · แต่ละรอบกรอกเฉพาะปริมาณของรอบนั้น ระบบรวมเป็นยอดเดือนให้</div></div>
+          {msg && <p className={`ux-toast${msg.bad ? " bad" : ""}`} style={{ marginTop: ".9rem" }} role="status">{msg.t}</p>}
+          <div style={{ marginTop: "1rem" }}><button className="ux-btn" disabled={busy || !dayOk} onClick={save}>{I.save}บันทึกรอบและวันกำหนดส่ง</button></div>
+        </Step>
+
+        <Step n={2} title="พื้นที่ปลูกพืชทั้งหมดรายอำเภอ" hint={`ใช้คำนวณเป้าหมายร้อยละ ${AREA_TARGET_PCT} และร้อยละของพื้นที่สะสม · อำเภอไม่ต้องกรอก · เว้นว่าง = ยังไม่กำหนด`} done={setCount === DISTRICTS.length}>
+          <div className="ux-kpis" style={{ marginBottom: ".9rem" }}>
+            <div className="ux-kpi"><i>{I.box}</i><div><small>รวมทั้งจังหวัด</small><b>{f2(sumTotal)} <span>ไร่</span></b></div></div>
+            <div className="ux-kpi" style={{ ["--kc" as string]: "#b08a2c" }}><i>{I.check}</i><div><small>เป้าหมายร้อยละ {AREA_TARGET_PCT}</small><b>{f2((sumTotal * AREA_TARGET_PCT) / 100)} <span>ไร่</span></b></div></div>
+            <div className="ux-kpi" style={{ ["--kc" as string]: "#059669" }}><i>{I.send}</i><div><small>กำหนดแล้ว</small><b>{setCount} / {DISTRICTS.length} <span>อำเภอ</span></b></div></div>
+          </div>
+          <input className="ux-search" type="search" placeholder="ค้นหาชื่ออำเภอ" aria-label="ค้นหาอำเภอ" value={q} onChange={e => setQ(e.target.value)} />
+          <div className="ux-areas" style={{ marginTop: ".9rem" }}>
+            {shown.map(d => (
+              <div className="ux-areacell" key={d.name}>
+                <label htmlFor={`a-${d.name}`}>{d.name}<small>เป้า {f2((num(d.name) * AREA_TARGET_PCT) / 100)} ไร่</small></label>
+                <div className={`ux-num-in${totals[d.name] ? " filled" : ""}`}>
+                  <input id={`a-${d.name}`} type="number" inputMode="decimal" min={0} step="any" placeholder="ยังไม่กำหนด" value={totals[d.name] ?? ""} onChange={e => setTotals({ ...totals, [d.name]: e.target.value })} /><span>ไร่</span>
+                </div>
+              </div>))}
+            {!shown.length && <p className="ux-empty">ไม่พบอำเภอที่ค้นหา</p>}
+          </div>
+          <div className="ux-sticky-save">
+            <span>{amsg ? <span className={`ux-toast${amsg.bad ? " bad" : ""}`} role="status">{amsg.t}</span> : <span className="ux-note">กรอกเสร็จแล้วกดบันทึก ระบบจะคำนวณ Dashboard และ Excel ใหม่ทันที</span>}</span>
+            <button className="ux-btn" disabled={abusy} onClick={saveAreas}>{I.save}บันทึกพื้นที่ปลูกพืชทั้งหมด</button>
+          </div>
+        </Step>
+      </div>
     </div>
   );
 }
