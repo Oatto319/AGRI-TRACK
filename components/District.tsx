@@ -17,7 +17,7 @@ export function DistrictFrame({ children }: { children: ReactNode }) {
   if (!district) return null;
   return (
     <C.Provider value={{ district }}>
-      <Shell org={`อำเภอ${district}`} role="เจ้าหน้าที่อำเภอ" links={[{ href: "/district", label: "Dashboard อำเภอ" }, { href: "/district/report", label: "กรอกรายงานรายเดือน" }]}>{children}</Shell>
+      <Shell org={`อำเภอ${district}`} role="เจ้าหน้าที่อำเภอ" links={[{ href: "/district", label: "Dashboard อำเภอ" }, { href: "/district/report", label: "กรอกรายงานรายเดือน" }, { href: "/district/area", label: "ข้อมูลพื้นที่และฟางข้าว" }]}>{children}</Shell>
     </C.Provider>
   );
 }

@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
-import { FIELDS, thaiDate, thaiDateTime, thaiMonth, type Report } from "./data";
-import { aggregate } from "./summary";
+import { AREA_TARGET_PCT, FIELDS, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Report } from "./data";
+import { aggregate, aggregateArea } from "./summary";
 
 type Agg = ReturnType<typeof aggregate>;
 
@@ -30,7 +30,7 @@ function buildSheet(workbook: ExcelJS.Workbook, name: string, a: Agg, subtitle: 
   worksheet.columns = head.map((_, i) => ({ width: i === 1 ? 16 : i >= 4 && i < 4 + nf ? 14 : 13 }));
 }
 
-export async function buildWorkbook(reports: Report[], from: string, to: string, rounds = 1): Promise<Buffer> {
+export async function buildWorkbook(reports: Report[], from: string, to: string, rounds = 1, area: AreaReport[] = []): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const all = aggregate(reports, from, to, rounds);
   buildSheet(workbook, "สรุปสะสม", all, `ตั้งแต่เดือน ${thaiMonth(from)} ถึง ${thaiMonth(to)}`, true);
@@ -45,5 +45,12 @@ export async function buildWorkbook(reports: Report[], from: string, to: string,
     ...log.map(r => [r.district, thaiMonth(r.month), r.round, r.dueDate ? thaiDate(r.dueDate) : "", r.submittedAt ? thaiDateTime(r.submittedAt) : "",
       !r.submittedAt ? "ไม่มีบันทึกวันที่ส่ง" : r.late ? "ส่งช้า" : "ตรงเวลา", r.reporter.name, r.reporter.position, r.reporter.phone])]);
   ws.columns = [16, 16, 8, 14, 22, 10, 20, 20, 14].map(width => ({ width }));
+  const ar = aggregateArea(area, from, to), aw = workbook.addWorksheet("พื้นที่และฟางข้าว");
+  aw.addRows([["ข้อมูลพื้นที่และฟางข้าว"], [`ตั้งแต่เดือน ${thaiMonth(from)} ถึง ${thaiMonth(to)}`], [],
+    ["ที่", "อำเภอ", "พื้นที่ปลูกพืชทั้งหมด (ไร่)", `เป้าหมายร้อยละ ${AREA_TARGET_PCT} ของพื้นที่ (ไร่)`, "พื้นที่สะสมทั้งหมด (ไร่)", "คิดเป็นร้อยละของพื้นที่ทั้งหมด (%)", "คิดเป็นร้อยละของเป้าหมาย (%)", "ปริมาณฟางข้าว (ตัน)", "คิดเป็นมูลค่า (บาท)", "ส่งช้า (ครั้ง)"],
+    ...ar.rows.map((r, i) => [i + 1, r.name, r.total, r.target, r.accum, Number(r.pct.toFixed(2)), Number(r.ofTarget.toFixed(2)), r.straw, r.value, r.late]),
+    ["", "รวม", ar.sums.total, ar.sums.target, ar.sums.accum, Number(ar.pct.toFixed(2)), Number(ar.ofTarget.toFixed(2)), ar.sums.straw, ar.sums.value, ar.sums.late], [],
+    ["หมายเหตุ: พื้นที่ปลูกทั้งหมดและพื้นที่สะสมใช้ค่าจากรายงานล่าสุดในช่วงที่เลือก ส่วนฟางข้าวและมูลค่ารวมทุกรายงานในช่วง"]]);
+  aw.columns = [6, 16, 22, 26, 22, 26, 24, 20, 20, 12].map(width => ({ width }));
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

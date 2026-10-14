@@ -58,3 +58,21 @@ export const dueDateOf = (month: string, day: number) => {
 };
 export const thaiDate = (ymd: string) => { const [y, m, d] = ymd.slice(0, 10).split("-").map(Number); return `${d} ${TH_S[m - 1]} ${y + 543}`; };
 export const thaiDateTime = (iso: string) => { const b = new Date(new Date(iso).getTime() + 7 * 3600e3).toISOString(); return `${thaiDate(b)} ${b.slice(11, 16)} น.`; };
+
+// ---------- ข้อมูลพื้นที่และฟางข้าว (แบบฟอร์มแยกอีกหน้า ใช้รอบและกำหนดส่งชุดเดียวกับรายงานปุ๋ย) ----------
+export const AREA_TARGET_PCT = 35; // เป้าหมาย = ร้อยละ 35 ของพื้นที่ปลูกพืชทั้งหมด
+export const AREA_FIELDS = [
+  { key: "totalArea", label: "พื้นที่ปลูกพืชทั้งหมด", unit: "ไร่" },
+  { key: "accumArea", label: "พื้นที่สะสมทั้งหมด", unit: "ไร่" },
+  { key: "straw", label: "ปริมาณฟางข้าว", unit: "ตัน" },
+  { key: "strawValue", label: "คิดเป็นมูลค่า", unit: "บาท" },
+] as const;
+export type AreaKey = (typeof AREA_FIELDS)[number]["key"];
+export interface AreaReport {
+  district: string; month: string; round: number;
+  values: Partial<Record<AreaKey, number>>;
+  reporter: Reporter; status: "draft" | "submitted"; updatedAt: string;
+  submittedAt?: string; dueDate?: string; late?: boolean;
+}
+export const areaTarget = (total: number) => (total * AREA_TARGET_PCT) / 100; // ช่อง "เป้าหมายร้อยละ 35" คำนวณอัตโนมัติ
+export const areaPct = (accum: number, total: number) => (total > 0 ? (accum / total) * 100 : 0); // ช่อง "คิดเป็น %" = สะสม ÷ พื้นที่ทั้งหมด

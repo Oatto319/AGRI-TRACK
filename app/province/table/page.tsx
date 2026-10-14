@@ -1,11 +1,15 @@
 "use client";
 import Link from "next/link";
-import { FIELDS, thaiDate, thaiDateTime, thaiMonth } from "@/lib/data";
-import { fmt } from "@/lib/summary";
+import { useMemo } from "react";
+import { AREA_TARGET_PCT, FIELDS, thaiDate, thaiDateTime, thaiMonth } from "@/lib/data";
+import { aggregateArea, fmt } from "@/lib/summary";
 import { FilterBar, useProvince } from "@/components/Province";
 
+const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
+
 export default function ProvinceTable() {
-  const { reports, error, from, to, valid, agg } = useProvince();
+  const { reports, area, error, from, to, valid, agg } = useProvince();
+  const a = useMemo(() => (area && valid ? aggregateArea(area, from, to) : null), [area, from, to, valid]);
   const rows = agg?.rows ?? [];
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
   const total = sum(r => r.total), target = sum(r => r.target), sent = rows.filter(r => r.any).length;
@@ -48,6 +52,20 @@ export default function ProvinceTable() {
               {!log.length && <tr><td colSpan={6} style={{ textAlign: "center" }}>ยังไม่มีรายงานที่ส่งในช่วงนี้</td></tr>}
             </tbody></table></div></section>);
       })()}
+      {a && (
+        <section className="db-card" style={{ padding: 0, overflow: "hidden", marginTop: "1rem" }}>
+          <h2 style={{ padding: "1rem 1.2rem", margin: 0, background: "#f6f8fc", borderBottom: "1px solid var(--line)" }}>พื้นที่และฟางข้าวรายอำเภอ (ส่งแล้ว {a.rows.filter(r => r.any).length} จาก {a.rows.length} อำเภอ)</h2>
+          <div className="tw2" style={{ border: 0, borderRadius: 0 }}><table className="dt"><thead><tr>
+            <th>ที่</th><th>อำเภอ</th><th>พื้นที่ปลูกพืชทั้งหมด (ไร่)</th><th>เป้าหมายร้อยละ {AREA_TARGET_PCT} (ไร่)</th><th>พื้นที่สะสมทั้งหมด (ไร่)</th><th>คิดเป็น (%)</th><th>ปริมาณฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>ข้อมูลล่าสุด</th><th>ส่งช้า (ครั้ง)</th></tr></thead>
+            <tbody>{a.rows.map((r, i) => (
+              <tr key={r.name}><td>{i + 1}</td><td>{r.name}</td><td>{f2(r.total)}</td><td>{f2(r.target)}</td><td>{f2(r.accum)}</td>
+                <td><span className={`pill ${!r.any ? "no" : r.pct >= AREA_TARGET_PCT ? "ok" : "warn"}`}>{r.any ? `${f2(r.pct)}%` : "ยังไม่ส่ง"}</span></td>
+                <td>{f2(r.straw)}</td><td>{f2(r.value)}</td><td>{r.lastMonth ? thaiMonth(r.lastMonth) : "–"}</td>
+                <td>{r.late ? <span className="pill no">{r.late}</span> : "–"}</td></tr>))}</tbody>
+            <tfoot><tr><td></td><td>รวม</td><td>{f2(a.sums.total)}</td><td>{f2(a.sums.target)}</td><td>{f2(a.sums.accum)}</td><td>{f2(a.pct)}%</td><td>{f2(a.sums.straw)}</td><td>{f2(a.sums.value)}</td><td></td><td>{a.sums.late}</td></tr></tfoot>
+          </table></div>
+          <p className="hint" style={{ padding: "0 1.2rem 1rem" }}>พื้นที่ใช้ค่าจากรายงานล่าสุดในช่วง ส่วนฟางข้าวและมูลค่ารวมทุกรายงานในช่วง · เขียว = ถึงเป้าร้อยละ {AREA_TARGET_PCT} ของพื้นที่แล้ว · เหลือง = ยังไม่ถึงเป้า · แดง = ยังไม่ส่ง</p>
+        </section>)}
     </div>
   );
 }

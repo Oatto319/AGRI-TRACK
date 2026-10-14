@@ -19,6 +19,7 @@
 
 # local report data
 /data/reports.json
+/data/area-reports.json
 
 # production
 /build
