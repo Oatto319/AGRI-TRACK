@@ -34,13 +34,23 @@ export interface Report {
   submittedAt?: string; dueDate?: string; late?: boolean; // บันทึกตอนส่งครั้งแรก ไม่เปลี่ยนเมื่อแก้ไขแล้วส่งซ้ำ
 }
 // จังหวัดกำหนด: dueDays[i] = วันที่ของเดือนที่ต้องส่งรอบที่ i+1 (จำนวนสมาชิก = จำนวนครั้งต่อเดือน)
-export interface Settings { dueDays: number[] }
-export const DEFAULT_SETTINGS: Settings = { dueDays: [31] };
+// areaTotals[ชื่ออำเภอ] = พื้นที่ปลูกพืชทั้งหมด (ไร่) ที่จังหวัดเป็นผู้กำหนด
+export interface Settings { dueDays: number[]; areaTotals: Record<string, number> }
+export const DEFAULT_SETTINGS: Settings = { dueDays: [31], areaTotals: {} };
 export const MAX_ROUNDS = 4;
 export function validateDueDays(d: unknown): string | null {
   if (!Array.isArray(d) || d.length < 1 || d.length > MAX_ROUNDS) return `จำนวนครั้งต่อเดือนต้องอยู่ระหว่าง 1–${MAX_ROUNDS}`;
   if (!d.every(x => Number.isInteger(x) && x >= 1 && x <= 31)) return "วันที่กำหนดส่งต้องเป็นเลข 1–31";
   if (!d.every((x, i) => i === 0 || x > d[i - 1])) return "วันที่กำหนดส่งของแต่ละรอบต้องเรียงจากน้อยไปมาก และไม่ซ้ำกัน";
+  return null;
+}
+
+export function validateAreaTotals(t: unknown): string | null {
+  if (typeof t !== "object" || t === null || Array.isArray(t)) return "ข้อมูลพื้นที่ไม่ถูกต้อง";
+  for (const [k, v] of Object.entries(t)) {
+    if (!DISTRICTS.some(d => d.name === k)) return `ไม่พบอำเภอ ${k}`;
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) return `พื้นที่ของอำเภอ${k}ต้องเป็นตัวเลขที่ไม่ติดลบ`;
+  }
   return null;
 }
 
@@ -60,19 +70,30 @@ export const thaiDate = (ymd: string) => { const [y, m, d] = ymd.slice(0, 10).sp
 export const thaiDateTime = (iso: string) => { const b = new Date(new Date(iso).getTime() + 7 * 3600e3).toISOString(); return `${thaiDate(b)} ${b.slice(11, 16)} น.`; };
 
 // ---------- ข้อมูลพื้นที่และฟางข้าว (แบบฟอร์มแยกอีกหน้า ใช้รอบและกำหนดส่งชุดเดียวกับรายงานปุ๋ย) ----------
+// อำเภอรายงานเฉพาะ "พื้นที่ไถกลบฟางข้าวในเดือนนั้น (ไร่)" ในเดือน พ.ย.–มิ.ย. เท่านั้น
+// พื้นที่ปลูกพืชทั้งหมดจังหวัดเป็นผู้กำหนด (Settings.areaTotals) · ช่องอื่นคำนวณจากสองค่านี้
 export const AREA_TARGET_PCT = 35; // เป้าหมาย = ร้อยละ 35 ของพื้นที่ปลูกพืชทั้งหมด
+export const STRAW_KG_PER_RAI = 500; // ฟางข้าว 500 กก./ไร่ (0.5 ตัน)
+export const STRAW_VALUE_PER_RAI = 725; // บาท/ไร่ (ธาตุอาหารหลัก 23 กก./ไร่)
 export const AREA_FIELDS = [
-  { key: "totalArea", label: "พื้นที่ปลูกพืชทั้งหมด", unit: "ไร่" },
-  { key: "accumArea", label: "พื้นที่สะสมทั้งหมด", unit: "ไร่" },
-  { key: "straw", label: "ปริมาณฟางข้าว", unit: "ตัน" },
-  { key: "strawValue", label: "คิดเป็นมูลค่า", unit: "บาท" },
+  { key: "area", label: "พื้นที่ไถกลบฟางข้าวในเดือนนี้", unit: "ไร่" },
 ] as const;
 export type AreaKey = (typeof AREA_FIELDS)[number]["key"];
+export const AREA_LEGACY_KEYS = ["totalArea", "accumArea", "straw", "strawValue"] as const; // รูปแบบเก่า (อ่านได้แต่ไม่ใช้)
 export interface AreaReport {
   district: string; month: string; round: number;
   values: Partial<Record<AreaKey, number>>;
   reporter: Reporter; status: "draft" | "submitted"; updatedAt: string;
   submittedAt?: string; dueDate?: string; late?: boolean;
 }
-export const areaTarget = (total: number) => (total * AREA_TARGET_PCT) / 100; // ช่อง "เป้าหมายร้อยละ 35" คำนวณอัตโนมัติ
-export const areaPct = (accum: number, total: number) => (total > 0 ? (accum / total) * 100 : 0); // ช่อง "คิดเป็น %" = สะสม ÷ พื้นที่ทั้งหมด
+export const areaTarget = (total: number) => (total * AREA_TARGET_PCT) / 100;
+export const areaPct = (accum: number, total: number) => (total > 0 ? (accum / total) * 100 : 0); // สะสม ÷ พื้นที่ปลูกทั้งหมด × 100
+export const strawTons = (rai: number) => (rai * STRAW_KG_PER_RAI) / 1000; // (ไร่ × 500) ÷ 1000 = ตัน
+export const strawValue = (rai: number) => rai * STRAW_VALUE_PER_RAI; // ไร่ × 725 บาท
+export const isAreaMonth = (ym: string) => { const m = Number(ym.slice(5, 7)); return m >= 11 || m <= 6; };
+// ฤดูกาลของเดือนนั้น: พ.ย. ปีหนึ่ง – มิ.ย. ปีถัดไป (เดือน ก.ค.–ต.ค. ให้ถือเป็นฤดูกาลที่เพิ่งจบ)
+export const areaSeasonOf = (ym: string) => {
+  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7)), s = m >= 11 ? y : y - 1;
+  return { start: `${s}-11`, end: `${s + 1}-06` };
+};
+export const nearestAreaMonth = (ym: string) => (isAreaMonth(ym) ? ym : areaSeasonOf(ym).end);

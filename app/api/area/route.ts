@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AREA_FIELDS, DISTRICTS, bkkDate, dueDateOf, type AreaReport } from "@/lib/data";
+import { AREA_FIELDS, DISTRICTS, bkkDate, dueDateOf, isAreaMonth, type AreaReport } from "@/lib/data";
 import { readAreaAll, readSettings, updateArea } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
@@ -21,6 +21,7 @@ export async function PUT(req: NextRequest) {
   if (!isRecord(body)) return bad("ข้อมูลไม่ถูกต้อง");
   if (typeof body.district !== "string" || !DISTRICTS.some(x => x.name === body.district)) return bad("ไม่พบอำเภอ");
   if (typeof body.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.month)) return bad("เดือนไม่ถูกต้อง");
+  if (!isAreaMonth(body.month)) return bad("รายงานพื้นที่ทำได้เฉพาะเดือนพฤศจิกายนถึงมิถุนายน");
   if (body.status !== "draft" && body.status !== "submitted") return bad("สถานะไม่ถูกต้อง");
   const settings = await readSettings(), round = body.round === undefined ? 1 : body.round;
   if (typeof round !== "number" || !Number.isInteger(round) || round < 1 || round > settings.dueDays.length) return bad(`รอบต้องอยู่ระหว่าง 1–${settings.dueDays.length}`);

@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { AREA_FIELDS, AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, areaPct, areaTarget, bkkDate, currentMonth, dueDateOf, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
+import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, areaPct, areaSeasonOf, areaTarget, bkkDate, currentMonth, dueDateOf, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
 
@@ -26,13 +26,19 @@ export default function DistrictAreaReport() {
   const due = month ? dueDateOf(month, settings.dueDays[rd - 1] ?? 31) : "";
   const overdue = !!due && !!today && today > due && status !== "submitted";
   const num = (k: string) => (vals[k] === undefined || vals[k] === "" ? 0 : Number(vals[k]) || 0);
-  const total = num("totalArea"), accum = num("accumArea"), target = areaTarget(total), pct = areaPct(accum, total);
+  const inSeason = !month || isAreaMonth(month);
+  const season = month ? areaSeasonOf(month) : null;
+  const thisArea = num("area");
+  // พื้นที่ปลูกทั้งหมดจังหวัดเป็นผู้กำหนด · สะสม = รายงานที่ส่งแล้วในฤดูกาล (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
+  const total = settings.areaTotals[district] ?? 0, target = areaTarget(total);
+  const others = season ? all.filter(x => x.status === "submitted" && x.month >= season.start && x.month <= season.end && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values.area ?? 0), 0) : 0;
+  const accum = others + thisArea, pct = areaPct(accum, total);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search), q = sp.get("month"), r = Number(sp.get("round") ?? 1);
     startTransition(() => {
       setToday(bkkDate());
-      setMonth(q && /^\d{4}-(0[1-9]|1[0-2])$/.test(q) ? q : currentMonth());
+      setMonth(nearestAreaMonth(q && /^\d{4}-(0[1-9]|1[0-2])$/.test(q) ? q : currentMonth()));
       setRound(Number.isInteger(r) && r >= 1 && r <= MAX_ROUNDS ? r : 1);
     });
   }, []);
@@ -71,24 +77,22 @@ export default function DistrictAreaReport() {
     }
   }
 
-  const input = (key: (typeof AREA_FIELDS)[number]["key"]) => {
-    const fd = AREA_FIELDS.find(x => x.key === key)!;
-    return (
-      <div className="field" key={key}><label htmlFor={key}>{fd.label}</label>
-        <div className="inp"><input id={key} type="number" inputMode="decimal" min={0} step="any" value={vals[key] ?? ""}
-          onChange={e => setVals({ ...vals, [key]: e.target.value })} /><span>{fd.unit}</span></div></div>);
-  };
+  const areaInput = (
+    <div className="field"><label htmlFor="area">พื้นที่ไถกลบฟางข้าวเดือนนี้</label>
+      <div className="inp"><input id="area" type="number" inputMode="decimal" min={0} step="any" value={vals.area ?? ""} disabled={!inSeason}
+        onChange={e => setVals({ ...vals, area: e.target.value })} /><span>ไร่</span></div></div>);
   const computed = (id: string, label: string, value: string, unit: string) => (
     <div className="field"><label htmlFor={id}>{label}</label>
-      <div className="inp"><input id={id} readOnly tabIndex={-1} value={value} /><span>{unit}</span></div></div>);
+      <div className="inp"><input id={id} type="text" readOnly tabIndex={-1} value={value} /><span>{unit}</span></div></div>);
 
   return (<>
     <h1>ข้อมูลพื้นที่และฟางข้าว</h1>
-    <p className="sub">อำเภอ{district} · ต้องรายงาน {rounds} ครั้ง/เดือน (รอบและกำหนดส่งเดียวกับรายงานปุ๋ยอินทรีย์) · ช่องสีเทาคำนวณให้อัตโนมัติ</p>
+    <p className="sub">อำเภอ{district} · รายงานเฉพาะเดือนพฤศจิกายน–มิถุนายน · ต้องรายงาน {rounds} ครั้ง/เดือน (รอบและกำหนดส่งเดียวกับรายงานปุ๋ยอินทรีย์) · กรอกเฉพาะจำนวนไร่ ช่องสีเทาคำนวณให้อัตโนมัติ</p>
     <section className="sheet">
       <div className="field"><label htmlFor="m">เดือนที่รายงาน</label>
         <MonthPicker id="m" value={month} onChange={setMonth} />
         <p className="hint">{month ? thaiMonth(month) : "กำลังเตรียมเดือนรายงาน"} · สถานะ: {status === "submitted" ? "ส่งแล้ว (แก้ไขแล้วส่งซ้ำได้)" : status === "draft" ? "ร่าง" : "ยังไม่บันทึก"}</p></div>
+      {!inSeason && <p className="msg bad" role="alert">เดือน{thaiMonth(month)}อยู่นอกช่วงรายงานพื้นที่ (รายงานได้เฉพาะเดือนพฤศจิกายน–มิถุนายน) กรุณาเลือกเดือนอื่น</p>}
       {rounds > 1 && month && (
         <div className="field"><span id="rl" className="lbl">รอบที่รายงาน</span>
           <div className="rseg" role="group" aria-labelledby="rl">{settings.dueDays.map((d, i) => {
@@ -102,33 +106,41 @@ export default function DistrictAreaReport() {
       ) : month && (
         <p className={`msg${overdue ? " bad" : ""}`} role="status">
           กำหนดส่งภายใน {thaiDate(due)}{overdue ? " · เลยกำหนดส่งแล้ว ถ้าส่งตอนนี้ระบบจะบันทึกว่า \"ส่งช้า\" พร้อมวันที่ส่ง" : ""}</p>)}
-      <fieldset className="grp"><legend>พื้นที่</legend><div className="two">
-        {input("totalArea")}
-        {computed("tg", `เป้าหมายร้อยละ ${AREA_TARGET_PCT} ของพื้นที่`, f2(target), "ไร่")}
-        {input("accumArea")}
-        {computed("pc", "คิดเป็นกี่เปอร์เซ็นต์ของพื้นที่ทั้งหมด", f2(pct), "%")}
+      <fieldset className="grp"><legend>พื้นที่ที่ดำเนินการเดือนนี้</legend><div className="two">
+        {areaInput}
+        {computed("st", "ปริมาณฟางข้าว", f2(strawTons(thisArea)), "ตัน")}
+        {computed("sv", "คิดเป็นมูลค่า", f2(strawValue(thisArea)), "บาท")}
       </div>
-        <p className="hint">{target > 0 ? `คิดเป็น ${f2((accum / target) * 100)}% ของเป้าหมาย` : "กรอกพื้นที่ปลูกพืชทั้งหมดเพื่อคำนวณเป้าหมาย"}{accum > total && total > 0 ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p></fieldset>
-      <fieldset className="grp"><legend>ฟางข้าว</legend><div className="two">{input("straw")}{input("strawValue")}</div></fieldset>
-      <p className="hint">ถ้าไม่มีให้ใส่ 0 · ต้องกรอกครบทุกช่องและระบุผู้รายงานก่อนกดส่ง</p>
+        <p className="hint">ถ้าเดือนนี้ไม่มีให้ใส่ 0 · ฟางข้าว (ตัน) = ไร่ × {STRAW_KG_PER_RAI} กก. ÷ 1,000 · มูลค่า = ไร่ × {STRAW_VALUE_PER_RAI} บาท</p></fieldset>
+      {season && <fieldset className="grp"><legend>สรุปสะสมฤดูกาล {thaiMonth(season.start)} – {thaiMonth(season.end)}</legend><div className="two">
+        {computed("ta", "พื้นที่ปลูกพืชทั้งหมด", f2(total), "ไร่")}
+        {computed("tg", `เป้าหมายร้อยละ ${AREA_TARGET_PCT}`, f2(target), "ไร่")}
+        {computed("ac", "พื้นที่สะสมทั้งหมด", f2(accum), "ไร่")}
+        {computed("pc", "คิดเป็นร้อยละของพื้นที่ทั้งหมด", f2(pct), "%")}
+        {computed("sa", "ปริมาณฟางข้าวสะสม", f2(strawTons(accum)), "ตัน")}
+        {computed("va", "คิดเป็นมูลค่าสะสม", f2(strawValue(accum)), "บาท")}
+      </div>
+        <p className="hint">{total <= 0 ? "จังหวัดยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดของอำเภอนี้ จึงยังคำนวณเป้าหมายและร้อยละไม่ได้ (ติดต่อสำนักงานเกษตรจังหวัด)" : `คิดเป็น ${f2(target > 0 ? (accum / target) * 100 : 0)}% ของเป้าหมาย`}{accum > total && total > 0 ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p>
+        <p className="hint">พื้นที่ปลูกพืชทั้งหมดจังหวัดเป็นผู้กำหนด · พื้นที่สะสม = ผลรวมที่รายงานทุกเดือนตั้งแต่พฤศจิกายนถึงมิถุนายนของฤดูกาลนี้ (นับรายงานที่ส่งแล้ว รวมค่าที่กำลังกรอก)</p></fieldset>}
+      <p className="hint">ต้องกรอกพื้นที่และระบุผู้รายงานก่อนกดส่ง</p>
       <fieldset className="grp"><legend>ผู้รายงาน</legend><div className="two">
         {([["name", "ชื่อ-สกุล"], ["position", "ตำแหน่ง"], ["phone", "โทรศัพท์"]] as const).map(([k, l]) => (
           <div className="field" key={k}><label htmlFor={`r${k}`}>{l}</label>
             <input id={`r${k}`} type="text" value={rep[k]} onChange={e => setRep({ ...rep, [k]: e.target.value })} /></div>))}</div></fieldset>
       {msg && <p className={`msg${msg.bad ? " bad" : ""}`} role="status">{msg.t}</p>}
       <div className="actions">
-        {status !== "submitted" && <button className="btn alt" disabled={busy || !month} onClick={() => save("draft")}>บันทึกร่าง</button>}
-        <button className="btn go" disabled={busy || !month} onClick={() => save("submitted")}>{status === "submitted" ? "ส่งซ้ำ (แก้ไข)" : "ส่งข้อมูล"}</button>
+        {status !== "submitted" && <button className="btn alt" disabled={busy || !month || !inSeason} onClick={() => save("draft")}>บันทึกร่าง</button>}
+        <button className="btn go" disabled={busy || !month || !inSeason} onClick={() => save("submitted")}>{status === "submitted" ? "ส่งซ้ำ (แก้ไข)" : "ส่งข้อมูล"}</button>
       </div>
     </section>
     <h2 style={{ margin: "1.5rem 0 .5rem" }}>ประวัติการรายงาน</h2>
-    <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน / รอบ</th><th>พื้นที่ทั้งหมด (ไร่)</th><th>สะสม (ไร่)</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>สถานะ</th><th>ส่งเมื่อ</th></tr></thead><tbody>
+    <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน / รอบ</th><th>พื้นที่เดือนนี้ (ไร่)</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>สถานะ</th><th>ส่งเมื่อ</th></tr></thead><tbody>
       {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
         <tr key={`${r.month}-${r.round}`}><td style={{ textAlign: "left" }}><button className="btn alt" onClick={() => { setMonth(r.month); setRound(r.round); }}>{thaiMonth(r.month)} · รอบ {r.round}</button></td>
-          <td>{f2(r.values.totalArea ?? 0)}</td><td>{f2(r.values.accumArea ?? 0)}</td><td>{f2(r.values.straw ?? 0)}</td><td>{f2(r.values.strawValue ?? 0)}</td>
+          <td>{f2(r.values.area ?? 0)}</td><td>{f2(strawTons(r.values.area ?? 0))}</td><td>{f2(strawValue(r.values.area ?? 0))}</td>
           <td><span className={`pill ${r.status === "submitted" ? (r.late ? "no" : "ok") : "warn"}`}>{r.status === "submitted" ? (r.late ? "ส่งช้า" : "ส่งแล้ว") : "ร่าง"}</span></td>
           <td>{r.submittedAt ? thaiDateTime(r.submittedAt) : "–"}</td></tr>))}
-      {!all.length && <tr><td colSpan={7} style={{ textAlign: "center" }}>ยังไม่มีข้อมูล</td></tr>}
+      {!all.length && <tr><td colSpan={6} style={{ textAlign: "center" }}>ยังไม่มีข้อมูล</td></tr>}
     </tbody></table></div>
   </>);
 }

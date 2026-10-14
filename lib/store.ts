@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { AREA_FIELDS, DEFAULT_SETTINGS, DISTRICTS, FIELDS, validateDueDays, type AreaReport, type Report, type Settings } from "./data";
+import { AREA_FIELDS, AREA_LEGACY_KEYS, DEFAULT_SETTINGS, DISTRICTS, FIELDS, validateAreaTotals, validateDueDays, type AreaReport, type Report, type Settings } from "./data";
 
 // เก็บเป็นไฟล์ JSON (data/reports.json) — เหมาะกับเซิร์ฟเวอร์เดียว หากย้ายไปใช้ฐานข้อมูลให้แก้เฉพาะไฟล์นี้
 const DIR = path.join(process.cwd(), "data");
@@ -28,7 +28,7 @@ function validReport(value: unknown, keys: readonly string[]): boolean {
 }
 
 const isReport = (v: unknown): v is Report => validReport(v, FIELDS.map(f => f.key));
-const isAreaReport = (v: unknown): v is AreaReport => validReport(v, AREA_FIELDS.map(f => f.key));
+const isAreaReport = (v: unknown): v is AreaReport => validReport(v, [...AREA_FIELDS.map(f => f.key), ...AREA_LEGACY_KEYS]);
 
 async function readList<T>(file: string, guard: (v: unknown) => v is T, label: string): Promise<T[]> {
   let content: string;
@@ -44,7 +44,10 @@ async function readList<T>(file: string, guard: (v: unknown) => v is T, label: s
 }
 // รายงานเก่าที่ไม่มีรอบ ถือเป็นรอบที่ 1
 export async function readAll(): Promise<Report[]> { return (await readList(FILE, isReport, "data/reports.json")).map(r => ({ ...r, round: r.round ?? 1 })); }
-export async function readAreaAll(): Promise<AreaReport[]> { return (await readList(AFILE, isAreaReport, "data/area-reports.json")).map(r => ({ ...r, round: r.round ?? 1 })); }
+// รายงานพื้นที่รูปแบบเก่า (ก่อนเปลี่ยนมากรอกไร่รายเดือน) ไม่มีค่า "area" จึงนับเป็น 0 — ต้องกรอกใหม่
+export async function readAreaAll(): Promise<AreaReport[]> {
+  return (await readList(AFILE, isAreaReport, "data/area-reports.json")).map(r => ({ ...r, round: r.round ?? 1, values: r.values.area === undefined ? {} : { area: r.values.area } }));
+}
 
 let chain: Promise<unknown> = Promise.resolve();
 // อ่าน-แก้-เขียนต่อกันทีละคำสั่ง fn รับรายงานเดิม (ถ้ามี) แล้วคืนรายงานใหม่ (โยน Error เพื่อปฏิเสธ)
@@ -74,7 +77,9 @@ export async function readSettings(): Promise<Settings> {
   }
   const s: unknown = JSON.parse(content);
   if (!isRecord(s) || validateDueDays(s.dueDays)) throw new Error("Invalid settings in data/settings.json");
-  return { dueDays: s.dueDays as number[] };
+  const areaTotals = s.areaTotals === undefined ? {} : s.areaTotals; // ไฟล์เก่าไม่มี areaTotals
+  if (validateAreaTotals(areaTotals)) throw new Error("Invalid areaTotals in data/settings.json");
+  return { dueDays: s.dueDays as number[], areaTotals: areaTotals as Record<string, number> };
 }
 export async function writeSettings(s: Settings) {
   await fs.mkdir(DIR, { recursive: true });

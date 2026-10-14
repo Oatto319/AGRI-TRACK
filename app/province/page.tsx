@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo } from "react";
-import { AREA_TARGET_PCT, FIELDS } from "@/lib/data";
+import { AREA_TARGET_PCT, FIELDS, thaiMonth } from "@/lib/data";
 import { aggregateArea, fmt } from "@/lib/summary";
 import { BarChart, Icons, PV_COLORS, PlainDonut, Ring, Sparkline } from "@/components/ProvinceCharts";
 import { FilterBar, useProvince } from "@/components/Province";
@@ -15,7 +15,7 @@ const monthLabel = (ym: string, multiYear: boolean) => {
 };
 
 export default function ProvinceDashboard() {
-  const { reports, area, error, from, to, valid, agg } = useProvince();
+  const { reports, area, error, from, to, valid, agg, settings } = useProvince();
 
   const rows = agg?.rows ?? [];
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
@@ -25,7 +25,7 @@ export default function ProvinceDashboard() {
   const late = sum(r => r.late);
   const pct = target ? Math.min(100, Math.round((total / target) * 100)) : 0;
 
-  const ar = useMemo(() => (area && valid ? aggregateArea(area, from, to) : null), [area, from, to, valid]);
+  const ar = useMemo(() => (area && valid ? aggregateArea(area, to, settings.areaTotals) : null), [area, to, settings.areaTotals, valid]);
   const areaRingPct = ar ? Math.min(100, ar.pct) : 0;
 
   const multiYear = valid && from.slice(0, 4) !== to.slice(0, 4);
@@ -35,9 +35,9 @@ export default function ProvinceDashboard() {
   const rounds = agg?.rounds ?? 1;
 
   const areaRows = ar ? [
-    { icon: Icons.field, color: "#1f7a85", label: "พื้นที่ปลูกพืชทั้งหมด", value: `${f2(ar.sums.total)} ไร่`, bar: ar.sums.total > 0 ? 100 : 0 },
+    { icon: Icons.field, color: "#1f7a85", label: "พื้นที่ปลูกพืชทั้งหมด", value: `${f2(ar.sums.total)} ไร่`, bar: ar.sums.total > 0 ? 100 : 0, sub: ar.sums.total > 0 ? "จังหวัดเป็นผู้กำหนด" : "ยังไม่ได้กำหนด · ตั้งค่าได้ที่หน้า 3" },
     { icon: Icons.target, color: "#c09a3a", label: `เป้าหมายร้อยละ ${AREA_TARGET_PCT}`, value: `${f2(ar.sums.target)} ไร่`, bar: ar.sums.total > 0 ? AREA_TARGET_PCT : 0 },
-    { icon: Icons.check, color: "#2f8f5b", label: "พื้นที่สะสมทั้งหมด", value: `${f2(ar.sums.accum)} ไร่`, bar: Math.min(100, ar.pct), sub: `คิดเป็น ${f2(ar.pct)}% ของพื้นที่ทั้งหมด` },
+    { icon: Icons.check, color: "#2f8f5b", label: "พื้นที่สะสมทั้งหมด", value: `${f2(ar.sums.accum)} ไร่`, bar: Math.min(100, ar.pct), sub: `คิดเป็น ${f2(ar.pct)}% ของพื้นที่ปลูกพืชทั้งหมด` },
     { icon: Icons.straw, color: "#b36a3c", label: "ปริมาณฟางข้าว", value: `${f2(ar.sums.straw)} ตัน`, sub: `คิดเป็นมูลค่า ${f2(ar.sums.value)} บาท` },
   ] : [];
 
@@ -107,6 +107,7 @@ export default function ProvinceDashboard() {
           <div className="pv-bottom">
             <section className="pv-card">
               <h2>พื้นที่และฟางข้าว</h2>
+              {ar && <p className="pv-note">ฤดูกาล {thaiMonth(ar.season.start)} – {thaiMonth(ar.season.end)} · สะสมถึง {thaiMonth(ar.months[ar.months.length - 1])}</p>}
               <ul className="pv-area">{areaRows.map(a => (
                 <li key={a.label}>
                   <span className="ic" style={{ background: a.color }}>{a.icon}</span>
