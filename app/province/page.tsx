@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo } from "react";
-import { AREA_TARGET_PCT, FIELDS, thaiMonth } from "@/lib/data";
+import { AREA_TARGET_PCT, FIELDS, areaTotalsFor, fiscalYearOf, thaiMonth } from "@/lib/data";
 import { aggregateArea, fmt } from "@/lib/summary";
 import { AreaCombo, AreaHBars, BarChart, Icons, PV_COLORS, RankBoard, Ring, Sparkline, StatusBar, TypeDonut, cumulate } from "@/components/ProvinceCharts";
 import { FilterBar, useProvince } from "@/components/Province";
@@ -27,7 +27,7 @@ export default function ProvinceDashboard() {
   const reachedPct = rows.length ? Math.round((reachedF / rows.length) * 100) : 0;
   const pct = target ? Math.min(100, Math.round((total / target) * 100)) : 0;
 
-  const ar = useMemo(() => (area && valid ? aggregateArea(area, to, settings.areaTotals) : null), [area, to, settings.areaTotals, valid]);
+  const ar = useMemo(() => (area && valid ? aggregateArea(area, to, areaTotalsFor(settings, to)) : null), [area, to, settings, valid]);
 
   // กราฟข้อมูลไถกลบและต่อซังข้าว: พื้นที่รายเดือน + สะสม (ทั้งจังหวัด) และเทียบรายอำเภอ
   const areaSeries = cumulate(ar?.months ?? [], (ar?.months ?? []).map(m => (ar?.rows ?? []).reduce((a, r) => a + (r.byMonth[m] ?? 0), 0)));
@@ -39,7 +39,7 @@ export default function ProvinceDashboard() {
   const multiYear = valid && from.slice(0, 4) !== to.slice(0, 4);
   const monthly = (agg?.months ?? []).map(m => ({ label: monthLabel(m, multiYear), value: sum(r => r.byMonth[m] ?? 0) }));
   const top10 = [...rows].filter(r => r.total > 0).sort((a, b) => b.total - a.total).slice(0, 10);
-  const yearTxt = valid ? (multiYear ? `${Number(from.slice(0, 4)) + 543}–${Number(to.slice(0, 4)) + 543}` : `${Number(to.slice(0, 4)) + 543}`) : "";
+  const yearTxt = valid ? (fiscalYearOf(from) === fiscalYearOf(to) ? `ปีงบประมาณ ${fiscalYearOf(to)}` : multiYear ? `${Number(from.slice(0, 4)) + 543}–${Number(to.slice(0, 4)) + 543}` : `${Number(to.slice(0, 4)) + 543}`) : "";
   const rounds = agg?.rounds ?? 1;
 
   const areaRows = ar ? [

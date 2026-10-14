@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Shell from "./Shell";
 import MonthPicker from "@/components/MonthPicker";
-import { DEFAULT_SETTINGS, currentMonth, type AreaReport, type Report, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, currentMonth, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type Report, type Settings } from "@/lib/data";
 import { aggregate } from "@/lib/summary";
 
 interface Ctx { settings: Settings; setSettings: (s: Settings) => void; reports: Report[] | null; area: AreaReport[] | null; error: string | null; from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; valid: boolean; agg: ReturnType<typeof aggregate> | null }
@@ -22,11 +22,13 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
       setSettings(st); setArea(ar);
       setReports(all);
       const ms = all.filter(r => r.status === "submitted").map(r => r.month).sort(), cur = currentMonth();
-      setFrom(ms[0] ?? cur); setTo(ms[ms.length - 1] ?? cur);
+      // ค่าเริ่มต้น = ปีงบประมาณของเดือนล่าสุดที่มีรายงานส่งแล้ว (ถ้ายังไม่มีข้อมูล ใช้ปีงบประมาณปัจจุบัน)
+      const fr = fiscalRange(fiscalYearOf(ms[ms.length - 1] ?? cur));
+      setFrom(fr.from); setTo(fr.to);
     }).catch(() => setError("ไม่สามารถโหลดรายงานได้ กรุณาลองใหม่อีกครั้ง"));
   }, []);
   const valid = !!from && !!to && from <= to;
-  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, settings.dueDays.length) : null), [reports, from, to, valid, settings]);
+  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length) : null), [reports, from, to, valid, settings]);
   return (
     <C.Provider value={{ settings, setSettings, reports, area, error, from, to, setFrom, setTo, valid, agg }}>
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
@@ -39,12 +41,31 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
   );
 }
 
+// ตัวกรองแดชบอร์ด: เลือกเป็น "ปีงบประมาณ" (ต.ค. – ก.ย.) แทนการเลือกช่วงเดือน
 export function FilterBar({ download }: { download?: boolean }) {
-  const { from, to, setFrom, setTo, valid } = useProvince();
+  const { from, to, setFrom, setTo, valid, reports, area } = useProvince();
+  const curFy = fiscalYearOf(currentMonth());
+  const fy = to ? fiscalYearOf(to) : curFy;
+  const custom = !!from && !!to && !isFiscalRange(from, to); // ช่วงเดือนที่ตั้งไว้จากหน้าตาราง ไม่ตรงปีงบประมาณ
+  const years = useMemo(() => {
+    const ms = [...(reports ?? []).map(r => r.month), ...(area ?? []).map(r => r.month)];
+    const lo = Math.min(curFy - 2, fy, ...ms.map(fiscalYearOf)), hi = Math.max(curFy + 1, fy, ...ms.map(fiscalYearOf));
+    return Array.from({ length: hi - lo + 1 }, (_, i) => hi - i); // ปีล่าสุดอยู่บนสุด
+  }, [reports, area, curFy, fy]);
+  const choose = (v: number) => { const r = fiscalRange(v); setFrom(r.from); setTo(r.to); };
   return (
     <div className="db-filter">
-      <div className="field"><label htmlFor="f">เริ่มต้นเดือน</label><MonthPicker id="f" value={from} onChange={setFrom} /></div>
-      <div className="field"><label htmlFor="t">ถึงเดือน</label><MonthPicker id="t" value={to} onChange={setTo} /></div>
+      <div className="field">
+        <label htmlFor="fy">ปีงบประมาณ</label>
+        <div className="fy-sel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4M16 3v4M3 10h18" /></svg>
+          <select id="fy" value={custom ? "custom" : fy} onChange={e => e.target.value !== "custom" && choose(Number(e.target.value))}>
+            {custom && <option value="custom">กำหนดเอง ({thaiMonth(from)} – {thaiMonth(to)})</option>}
+            {years.map(y => <option key={y} value={y}>ปีงบประมาณ {y}{y === curFy ? " (ปัจจุบัน)" : ""}</option>)}
+          </select>
+        </div>
+        {valid && !custom && <small className="fy-note">{thaiMonth(from)} – {thaiMonth(to)}</small>}
+      </div>
       {download && valid && <a className="btn go" href={`/api/export?from=${from}&to=${to}`} download>📥 ดาวน์โหลด Excel</a>}
     </div>);
 }

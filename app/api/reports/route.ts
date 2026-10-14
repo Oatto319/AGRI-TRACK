@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { DISTRICTS, FIELDS, bkkDate, dueDateOf, type Report } from "@/lib/data";
+import { DISTRICTS, FIELDS, bkkDate, dueDateOf, dueDaysFor, type Report } from "@/lib/data";
 import { readAll, readSettings, update } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
@@ -22,7 +22,7 @@ export async function PUT(req: NextRequest) {
   if (typeof body.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.month)) return bad("เดือนไม่ถูกต้อง");
   if (body.status !== "draft" && body.status !== "submitted") return bad("สถานะไม่ถูกต้อง");
   const settings = await readSettings(), round = body.round === undefined ? 1 : body.round;
-  if (typeof round !== "number" || !Number.isInteger(round) || round < 1 || round > settings.dueDays.length) return bad(`รอบต้องอยู่ระหว่าง 1–${settings.dueDays.length}`);
+  if (typeof round !== "number" || !Number.isInteger(round) || round < 1 || round > dueDaysFor(settings, "fert", body.month).length) return bad(`รอบต้องอยู่ระหว่าง 1–${dueDaysFor(settings, "fert", body.month).length}`);
 
   const inputValues = body.values === undefined ? {} : isRecord(body.values) ? body.values : null;
   if (!inputValues) return bad("ข้อมูลตัวเลขไม่ถูกต้อง");
@@ -57,7 +57,7 @@ export async function PUT(req: NextRequest) {
       let meta: Partial<Report> = {};
       if (status === "submitted") {
         if (old?.submittedAt) meta = { submittedAt: old.submittedAt, dueDate: old.dueDate, late: old.late }; // นับจากวันที่ส่งครั้งแรก
-        else { const due = dueDateOf(month, settings.dueDays[round - 1]); meta = { submittedAt: now.toISOString(), dueDate: due, late: bkkDate(now) > due }; }
+        else { const due = dueDateOf(month, dueDaysFor(settings, "fert", month)[round - 1]); meta = { submittedAt: now.toISOString(), dueDate: due, late: bkkDate(now) > due }; }
       }
       return { district, month, round, values, reporter: rp, status, updatedAt: now.toISOString(), ...meta };
     });

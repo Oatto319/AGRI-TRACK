@@ -35,13 +35,57 @@ export interface Report {
 }
 // จังหวัดกำหนด: dueDays[i] = วันที่ของเดือนที่ต้องส่งรอบที่ i+1 (จำนวนสมาชิก = จำนวนครั้งต่อเดือน)
 // areaTotals[ชื่ออำเภอ] = พื้นที่ปลูกพืชทั้งหมด (ไร่) ที่จังหวัดเป็นผู้กำหนด
-export interface Settings { dueDays: number[]; areaTotals: Record<string, number> }
-export const DEFAULT_SETTINGS: Settings = { dueDays: [31], areaTotals: {} };
+// รายการที่ต้องรายงาน: กำหนดต่อ "หัวข้อ × ปีงบประมาณ" ว่าต้องรายงานกี่ครั้งต่อเดือน และต้องส่งภายในวันที่เท่าไรของแต่ละรอบ
+// dueDays (เดิม) ใช้เป็นค่าเริ่มต้นสำหรับปีงบประมาณ/หัวข้อที่ยังไม่ได้กำหนดรายการ
+export const TOPICS = [
+  { key: "fert", label: "ปุ๋ยอินทรีย์" },
+  { key: "area", label: "ไถกลบฟางข้าว" },
+] as const;
+export type Topic = (typeof TOPICS)[number]["key"];
+export interface Schedule { id: string; topic: Topic; fy: number; dueDays: number[] } // fy = ปีงบประมาณ พ.ศ.
+// พื้นที่ปลูกพืชทั้งหมดรายอำเภอ แยกตามปีงบประมาณ (areaTotals เดิมใช้เป็นค่าสำรองสำหรับปีที่ยังไม่มีรายการ)
+export interface AreaSet { id: string; fy: number; totals: Record<string, number> }
+export interface Settings { dueDays: number[]; areaTotals: Record<string, number>; schedules: Schedule[]; areaSets: AreaSet[] }
+export const DEFAULT_SETTINGS: Settings = { dueDays: [31], areaTotals: {}, schedules: [], areaSets: [] };
 export const MAX_ROUNDS = 4;
 export function validateDueDays(d: unknown): string | null {
   if (!Array.isArray(d) || d.length < 1 || d.length > MAX_ROUNDS) return `จำนวนครั้งต่อเดือนต้องอยู่ระหว่าง 1–${MAX_ROUNDS}`;
   if (!d.every(x => Number.isInteger(x) && x >= 1 && x <= 31)) return "วันที่กำหนดส่งต้องเป็นเลข 1–31";
   if (!d.every((x, i) => i === 0 || x > d[i - 1])) return "วันที่กำหนดส่งของแต่ละรอบต้องเรียงจากน้อยไปมาก และไม่ซ้ำกัน";
+  return null;
+}
+
+export function validateSchedules(x: unknown): string | null {
+  if (!Array.isArray(x) || x.length > 100) return "ข้อมูลรายการที่ต้องรายงานไม่ถูกต้อง";
+  const seen = new Set<string>();
+  for (const it of x) {
+    if (typeof it !== "object" || it === null || Array.isArray(it)) return "ข้อมูลรายการที่ต้องรายงานไม่ถูกต้อง";
+    const { id, topic, fy, dueDays } = it as Record<string, unknown>;
+    if (typeof id !== "string" || !id) return "ข้อมูลรายการที่ต้องรายงานไม่ถูกต้อง";
+    if (!TOPICS.some(t => t.key === topic)) return "ไม่พบหัวข้อที่ต้องการรายงาน";
+    if (typeof fy !== "number" || !Number.isInteger(fy) || fy < 2500 || fy > 2700) return "ปีงบประมาณไม่ถูกต้อง";
+    const e = validateDueDays(dueDays);
+    if (e) return e;
+    const k = `${topic}-${fy}`;
+    if (seen.has(k)) return "มีหัวข้อและปีงบประมาณซ้ำกันในรายการ";
+    seen.add(k);
+  }
+  return null;
+}
+
+export function validateAreaSets(x: unknown): string | null {
+  if (!Array.isArray(x) || x.length > 50) return "ข้อมูลพื้นที่ปลูกพืชไม่ถูกต้อง";
+  const seen = new Set<number>();
+  for (const it of x) {
+    if (typeof it !== "object" || it === null || Array.isArray(it)) return "ข้อมูลพื้นที่ปลูกพืชไม่ถูกต้อง";
+    const { id, fy, totals } = it as Record<string, unknown>;
+    if (typeof id !== "string" || !id) return "ข้อมูลพื้นที่ปลูกพืชไม่ถูกต้อง";
+    if (typeof fy !== "number" || !Number.isInteger(fy) || fy < 2500 || fy > 2700) return "ปีงบประมาณไม่ถูกต้อง";
+    const e = validateAreaTotals(totals);
+    if (e) return e;
+    if (seen.has(fy)) return "มีปีงบประมาณซ้ำกันในรายการพื้นที่ปลูกพืช";
+    seen.add(fy);
+  }
   return null;
 }
 
@@ -57,6 +101,23 @@ export function validateAreaTotals(t: unknown): string | null {
 const TH = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 export const thaiMonth = (ym: string) => { const [y, m] = ym.split("-").map(Number); return `${TH[m - 1]} ${y + 543}`; };
 export const currentMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
+
+// ---------- ปีงบประมาณ (1 ต.ค. – 30 ก.ย.) ----------
+// ปีงบประมาณ พ.ศ. 2569 = ต.ค. 2568 – ก.ย. 2569 · ค่าที่ใช้ทั้งหมดเป็น "YYYY-MM" (ค.ศ.) เหมือนส่วนอื่นของระบบ
+export const fiscalYearOf = (ym: string) => { const [y, m] = ym.split("-").map(Number); return y + 543 + (m >= 10 ? 1 : 0); }; // คืนค่าเป็น พ.ศ.
+export const fiscalRange = (fyBE: number) => ({ from: `${fyBE - 544}-10`, to: `${fyBE - 543}-09` });
+export const isFiscalRange = (from: string, to: string) => !!from && !!to && fiscalRange(fiscalYearOf(to)).from === from && fiscalRange(fiscalYearOf(to)).to === to;
+
+// วันกำหนดส่งของหัวข้อ ณ เดือนนั้น: ใช้รายการของปีงบประมาณที่เดือนนั้นอยู่ ถ้าไม่มีใช้ค่าเริ่มต้น settings.dueDays
+export const dueDaysFor = (s: Settings, topic: Topic, month?: string): number[] => {
+  if (!month) return s.dueDays;
+  const fy = fiscalYearOf(month);
+  return (s.schedules ?? []).find(x => x.topic === topic && x.fy === fy)?.dueDays ?? s.dueDays;
+};
+
+// พื้นที่ปลูกพืชทั้งหมดรายอำเภอ ณ เดือนนั้น: ใช้รายการของปีงบประมาณที่เดือนนั้นอยู่ ถ้าไม่มีใช้ค่าสำรอง settings.areaTotals
+export const areaTotalsFor = (s: Settings, month: string): Record<string, number> =>
+  (month ? (s.areaSets ?? []).find(x => x.fy === fiscalYearOf(month))?.totals : undefined) ?? s.areaTotals;
 
 const TH_S = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
 // วันที่ตามเวลาไทย (UTC+7) รูปแบบ YYYY-MM-DD

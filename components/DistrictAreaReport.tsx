@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, currentMonth, dueDateOf, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
+import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
 import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
@@ -21,10 +21,10 @@ export default function DistrictAreaReport() {
   const [msg, setMsg] = useState<{ t: string; bad?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const rounds = settings.dueDays.length, rd = Math.min(round, rounds);
+  const dueDays = dueDaysFor(settings, "area", month), rounds = dueDays.length, rd = Math.min(round, rounds);
   const rec = all.find(x => x.month === month && x.round === rd);
   const status = rec?.status ?? "none";
-  const due = month ? dueDateOf(month, settings.dueDays[rd - 1] ?? 31) : "";
+  const due = month ? dueDateOf(month, dueDays[rd - 1] ?? 31) : "";
   const overdue = !!due && !!today && today > due && status !== "submitted";
   const num = (k: string) => (vals[k] === undefined || vals[k] === "" ? 0 : Number(vals[k]) || 0);
   const inSeason = !month || isAreaMonth(month);
@@ -33,7 +33,7 @@ export default function DistrictAreaReport() {
   // พื้นที่ปลูกทั้งหมดจังหวัดเป็นผู้กำหนด · สะสม = รายงานที่ส่งแล้วในฤดูกาล (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
   const others = season ? all.filter(x => x.status === "submitted" && x.month >= season.start && x.month <= season.end && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values.area ?? 0), 0) : 0;
   const accum = others + thisArea;
-  const assigned = (settings.areaTotals[district] ?? 0) > 0, total = effectiveTotal(settings.areaTotals[district], accum), target = areaTarget(total), pct = areaPct(accum, total);
+  const assigned = (areaTotalsFor(settings, month)[district] ?? 0) > 0, total = effectiveTotal(areaTotalsFor(settings, month)[district], accum), target = areaTarget(total), pct = areaPct(accum, total);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search), q = sp.get("month"), r = Number(sp.get("round") ?? 1);
@@ -95,7 +95,7 @@ export default function DistrictAreaReport() {
           <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
           <MonthPicker id="m" value={month} onChange={setMonth} />
           {!inSeason && <div className="ux-banner bad" role="alert">{I.alert}<div>เดือน{thaiMonth(month)}อยู่นอกช่วงรายงานพื้นที่ กรุณาเลือกเดือนระหว่างพฤศจิกายน–มิถุนายน</div></div>}
-          <RoundTabs dueDays={settings.dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
+          <RoundTabs dueDays={dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
           {inSeason && <DueBanner rec={rec} due={due} overdue={overdue} noun="ข้อมูล" />}
         </Step>
 

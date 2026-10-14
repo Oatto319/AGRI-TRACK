@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { AREA_TARGET_PCT, thaiMonth } from "@/lib/data";
+import { AREA_TARGET_PCT, areaTotalsFor, thaiMonth } from "@/lib/data";
 import { aggregateArea, fmt } from "@/lib/summary";
 import { I, PageHead, f2 } from "@/components/Entry";
 import MonthPicker from "@/components/MonthPicker";
@@ -12,7 +12,7 @@ type Tab = "fert" | "area" | "log";
 export default function ProvinceTable() {
   const { reports, area, error, from, to, setFrom, setTo, valid, agg, settings } = useProvince();
   const [tab, setTab] = useState<Tab>("fert");
-  const a = useMemo(() => (area && valid ? aggregateArea(area, to, settings.areaTotals) : null), [area, to, settings.areaTotals, valid]);
+  const a = useMemo(() => (area && valid ? aggregateArea(area, to, areaTotalsFor(settings, to)) : null), [area, to, settings, valid]);
   const rows = agg?.rows ?? [];
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((x, r) => x + f(r), 0);
   const total = sum(r => r.total), target = sum(r => r.target), sent = rows.filter(r => r.any).length;

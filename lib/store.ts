@@ -1,6 +1,6 @@
 import { promises as fs } from "fs";
 import path from "path";
-import { AREA_FIELDS, AREA_LEGACY_KEYS, DEFAULT_SETTINGS, DISTRICTS, FIELDS, validateAreaTotals, validateDueDays, type AreaReport, type Report, type Settings } from "./data";
+import { AREA_FIELDS, AREA_LEGACY_KEYS, DEFAULT_SETTINGS, DISTRICTS, FIELDS, validateAreaTotals, validateDueDays, validateSchedules, validateAreaSets, type AreaReport, type Report, type Settings } from "./data";
 
 // เก็บเป็นไฟล์ JSON (data/reports.json) — เหมาะกับเซิร์ฟเวอร์เดียว หากย้ายไปใช้ฐานข้อมูลให้แก้เฉพาะไฟล์นี้
 const DIR = path.join(process.cwd(), "data");
@@ -79,7 +79,11 @@ export async function readSettings(): Promise<Settings> {
   if (!isRecord(s) || validateDueDays(s.dueDays)) throw new Error("Invalid settings in data/settings.json");
   const areaTotals = s.areaTotals === undefined ? {} : s.areaTotals; // ไฟล์เก่าไม่มี areaTotals
   if (validateAreaTotals(areaTotals)) throw new Error("Invalid areaTotals in data/settings.json");
-  return { dueDays: s.dueDays as number[], areaTotals: areaTotals as Record<string, number> };
+  const schedules = s.schedules === undefined ? [] : s.schedules; // ไฟล์เก่าไม่มี schedules
+  if (validateSchedules(schedules)) throw new Error("Invalid schedules in data/settings.json");
+  const areaSets = s.areaSets === undefined ? [] : s.areaSets; // ไฟล์เก่าไม่มี areaSets
+  if (validateAreaSets(areaSets)) throw new Error("Invalid areaSets in data/settings.json");
+  return { dueDays: s.dueDays as number[], areaTotals: areaTotals as Record<string, number>, schedules: schedules as Settings["schedules"], areaSets: areaSets as Settings["areaSets"] };
 }
 export async function writeSettings(s: Settings) {
   await fs.mkdir(DIR, { recursive: true });

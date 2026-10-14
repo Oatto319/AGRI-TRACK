@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, DISTRICTS, FIELDS, MAX_ROUNDS, TARGET_PER_TAMBON, bkkDate, currentMonth, dueDateOf, thaiDate, thaiDateTime, thaiMonth, type Report, type Reporter, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, DISTRICTS, FIELDS, MAX_ROUNDS, TARGET_PER_TAMBON, bkkDate, currentMonth, dueDateOf, dueDaysFor, thaiDate, thaiDateTime, thaiMonth, type Report, type Reporter, type Settings } from "@/lib/data";
 import { fmt, sumValues } from "@/lib/summary";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
@@ -22,10 +22,10 @@ export default function DistrictReport() {
   const [msg, setMsg] = useState<{ t: string; bad?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const rounds = settings.dueDays.length, rd = Math.min(round, rounds);
+  const dueDays = dueDaysFor(settings, "fert", month), rounds = dueDays.length, rd = Math.min(round, rounds);
   const rec = all.find(x => x.month === month && x.round === rd);
   const status = rec?.status ?? "none";
-  const due = month ? dueDateOf(month, settings.dueDays[rd - 1] ?? 31) : "";
+  const due = month ? dueDateOf(month, dueDays[rd - 1] ?? 31) : "";
   const overdue = !!due && !!today && today > due && status !== "submitted";
 
   useEffect(() => {
@@ -101,7 +101,7 @@ export default function DistrictReport() {
         <Step n={1} title="เลือกเดือนที่รายงาน" hint="ระบบเลือกเดือนปัจจุบันให้แล้ว เปลี่ยนได้ถ้าต้องการกรอกย้อนหลัง" done={!!month}>
           <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
           <MonthPicker id="m" value={month} onChange={setMonth} />
-          <RoundTabs dueDays={settings.dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
+          <RoundTabs dueDays={dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
           <DueBanner rec={rec} due={due} overdue={overdue} noun="รายงาน" />
         </Step>
 
