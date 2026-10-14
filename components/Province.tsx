@@ -43,7 +43,7 @@ export function FilterBar({ download }: { download?: boolean }) {
   const { from, to, setFrom, setTo, valid } = useProvince();
   return (
     <div className="db-filter">
-      <div className="field"><label htmlFor="f">ตั้งแต่เดือน</label><MonthPicker id="f" value={from} onChange={setFrom} /></div>
+      <div className="field"><label htmlFor="f">เริ่มต้นเดือน</label><MonthPicker id="f" value={from} onChange={setFrom} /></div>
       <div className="field"><label htmlFor="t">ถึงเดือน</label><MonthPicker id="t" value={to} onChange={setTo} /></div>
       {download && valid && <a className="btn go" href={`/api/export?from=${from}&to=${to}`} download>📥 ดาวน์โหลด Excel</a>}
     </div>);
