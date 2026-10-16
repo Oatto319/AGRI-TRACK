@@ -1,10 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
-import { AREA_TARGET_PCT, areaTotalsFor, rangeLabel, thaiMonth } from "@/lib/data";
+import { AREA_TARGET_PCT, areaTotalsFor, fiscalYearOf, rangeLabel, thaiMonth } from "@/lib/data";
 import { aggregateArea, fmt } from "@/lib/summary";
 import { I, PageHead, f2 } from "@/components/Entry";
 import { AreaTable, FertTable, KpiRow, SubmitLog } from "@/components/ProvinceTables";
 import { FiscalSelect, useProvince } from "@/components/Province";
+import PdfButton from "@/components/PdfButton";
 
 type Tab = "fert" | "area" | "log";
 
@@ -18,10 +19,11 @@ export default function ProvinceTable() {
 
   return (
     <div>
-      <PageHead title="ตารางข้อมูลรายอำเภอ" sub="เลือกปีงบประมาณ แล้วเลือกแท็บที่ต้องการดู · ดาวน์โหลดเป็น Excel ได้จากปุ่มด้านขวา">
+      <PageHead title="ตารางข้อมูลรายอำเภอ" sub="เลือกปีงบประมาณ แล้วเลือกแท็บที่ต้องการดู · ดาวน์โหลดเป็น Excel หรือ PDF สรุป 3 ปีได้จากปุ่มด้านขวา">
         <div className="ux-mfilter">
           <FiscalSelect />
           {valid && <a className="ux-btn gold" href={`/api/export?from=${from}&to=${to}`} download>ดาวน์โหลด Excel</a>}
+          {valid && <PdfButton fy={fiscalYearOf(to)} className="ux-btn" />}
         </div>
       </PageHead>
       {error && <p className="ux-toast bad" role="alert">{error}</p>}

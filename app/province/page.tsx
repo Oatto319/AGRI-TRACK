@@ -53,7 +53,7 @@ export default function ProvinceDashboard() {
     <div className="pv">
       <div className="pv-head">
         <h1>แดชบอร์ดข้อมูลจังหวัด</h1>
-        <FilterBar />
+        <FilterBar pdf />
       </div>
 
       {error && <p className="msg bad" role="alert">{error}</p>}

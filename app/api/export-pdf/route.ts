@@ -1,0 +1,20 @@
+import { NextRequest } from "next/server";
+import { readAll, readAreaAll, readSettings } from "@/lib/store";
+import { buildPdf } from "@/lib/pdf";
+
+// GET /api/export-pdf?fy=2569 → รายงาน PDF เปรียบเทียบย้อนหลัง 3 ปีงบประมาณ (fy-2, fy-1, fy) เป็นปี พ.ศ.
+export async function GET(req: NextRequest) {
+  const fy = Number(req.nextUrl.searchParams.get("fy"));
+  if (!Number.isInteger(fy) || fy < 2500 || fy > 2700) return new Response("ปีงบประมาณไม่ถูกต้อง", { status: 400 });
+  try {
+    const [reports, area, settings] = await Promise.all([readAll(), readAreaAll(), readSettings()]);
+    const buf = await buildPdf(reports, area, settings, fy);
+    return new Response(new Uint8Array(buf), { headers: {
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="agri-track-report-fy${fy}.pdf"`,
+      "Cache-Control": "no-store",
+    } });
+  } catch {
+    return new Response("สร้างไฟล์ PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง", { status: 500 });
+  }
+}

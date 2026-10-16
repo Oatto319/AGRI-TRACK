@@ -1,6 +1,7 @@
 "use client";
 import { createContext, startTransition, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Shell from "./Shell";
+import PdfButton from "./PdfButton";
 import { DEFAULT_SETTINGS, currentMonth, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type Report, type Settings } from "@/lib/data";
 import { aggregate } from "@/lib/summary";
 
@@ -72,11 +73,12 @@ export function FiscalSelect() {
 }
 
 // ตัวกรองแดชบอร์ด: เลือกเป็น "ปีงบประมาณ" (ต.ค. – ก.ย.) แทนการเลือกช่วงเดือน
-export function FilterBar({ download }: { download?: boolean }) {
+export function FilterBar({ download, pdf }: { download?: boolean; pdf?: boolean }) {
   const { from, to, valid } = useProvince();
   return (
     <div className="db-filter">
       <FiscalSelect />
       {download && valid && <a className="btn go" href={`/api/export?from=${from}&to=${to}`} download>📥 ดาวน์โหลด Excel</a>}
+      {pdf && valid && <PdfButton fy={fiscalYearOf(to)} className="btn go" />}
     </div>);
 }
