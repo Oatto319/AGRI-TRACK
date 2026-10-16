@@ -1,7 +1,9 @@
 "use client";
-import { AREA_TARGET_PCT, FIELDS, thaiDate, thaiDateTime, thaiMonth, type Report } from "@/lib/data";
+import { AREA_TARGET_PCT, FIELDS, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type Report } from "@/lib/data";
 import { fmt, type aggregate, type aggregateArea } from "@/lib/summary";
 import { f2 } from "@/components/Entry";
+
+const f2fix = (v: number) => v.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 type Agg = ReturnType<typeof aggregate>;
 type AreaAgg = ReturnType<typeof aggregateArea>;
@@ -43,13 +45,13 @@ export function FertTable({ agg }: { agg: Agg }) {
 export function AreaTable({ a }: { a: AreaAgg }) {
   return (
     <div className="ux-tw"><table className="ux-table"><thead><tr>
-      <th className="sticky">อำเภอ</th><th>พื้นที่ปลูกพืชทั้งหมด (ไร่)</th><th>เป้าหมายร้อยละ {AREA_TARGET_PCT} (ไร่)</th><th>พื้นที่สะสม (ไร่)</th><th>คิดเป็นของพื้นที่ทั้งหมด</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>รายงานล่าสุด</th><th>ส่งช้า</th></tr></thead>
+      <th className="sticky">อำเภอ</th><th>พื้นที่ปลูกพืชทั้งหมด (ไร่)</th><th>เป้าหมายร้อยละ {AREA_TARGET_PCT} (ไร่)</th>{a.months.map(m => <th key={m}>{thaiMonthShort(m)} (ไร่)</th>)}<th>พื้นที่สะสม (ไร่)</th><th>คิดเป็นของพื้นที่ปลูกทั้งหมด (100%)</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>ฟางก้อน (ก้อน)</th><th>ราคาฟางก้อน (บาท)</th><th>รายงานล่าสุด</th><th>ส่งช้า</th></tr></thead>
       <tbody>{a.rows.map(r => (
-        <tr key={r.name}><td className="sticky">{r.name}</td><td>{f2(r.total)}</td><td>{f2(r.target)}</td><td><b>{f2(r.accum)}</b></td>
-          <td>{r.any ? <Bar pct={r.target > 0 ? (r.accum / r.target) * 100 : 0} color={r.target > 0 && r.accum >= r.target ? "var(--ok)" : "#c09a3a"} /> : <span className="ux-pill bad">ยังไม่ส่ง</span>}</td>
-          <td>{f2(r.straw)}</td><td>{f2(r.value)}</td><td>{r.lastMonth ? thaiMonth(r.lastMonth) : "–"}</td>
+        <tr key={r.name}><td className="sticky">{r.name}</td><td>{f2(r.total)}</td><td>{f2(r.target)}</td>{a.months.map(m => <td key={m}>{r.byMonth[m] ? f2fix(r.byMonth[m]) : "–"}</td>)}<td><b>{f2(r.accum)}</b></td>
+          <td>{r.any ? (!r.assigned ? <span className="ux-pill warn">ยังไม่กำหนดพื้นที่ปลูก</span> : <Bar pct={r.pct} color={r.accum >= r.total ? "var(--ok)" : "#c09a3a"} />) : <span className="ux-pill bad">ยังไม่ส่ง</span>}</td>
+          <td>{f2(r.straw)}</td><td>{f2(r.value)}</td><td>{f2(r.bales)}</td><td>{f2(r.baleValue)}</td><td>{r.lastMonth ? thaiMonth(r.lastMonth) : "–"}</td>
           <td>{r.late ? <span className="ux-pill bad">{r.late}</span> : "–"}</td></tr>))}</tbody>
-      <tfoot><tr><td className="sticky" style={{ background: "#eaf3f6" }}>รวมทั้งจังหวัด</td><td>{f2(a.sums.total)}</td><td>{f2(a.sums.target)}</td><td>{f2(a.sums.accum)}</td><td>{f2(a.pct)}%</td><td>{f2(a.sums.straw)}</td><td>{f2(a.sums.value)}</td><td></td><td>{a.sums.late}</td></tr></tfoot></table></div>);
+      <tfoot><tr><td className="sticky" style={{ background: "#eaf3f6" }}>รวมทั้งจังหวัด</td><td>{f2(a.sums.total)}</td><td>{f2(a.sums.target)}</td>{a.months.map(m => <td key={m}>{f2fix(a.rows.reduce((x, r) => x + (r.byMonth[m] ?? 0), 0))}</td>)}<td>{f2(a.sums.accum)}</td><td>{f2(a.pct)}%</td><td>{f2(a.sums.straw)}</td><td>{f2(a.sums.value)}</td><td>{f2(a.sums.bales)}</td><td>{f2(a.sums.baleValue)}</td><td></td><td>{a.sums.late}</td></tr></tfoot></table></div>);
 }
 
 /** บันทึกการส่งรายงานปุ๋ย (ใครส่งเมื่อไร ตรงเวลาหรือไม่) */

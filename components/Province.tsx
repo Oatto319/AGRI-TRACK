@@ -1,7 +1,6 @@
 "use client";
 import { createContext, startTransition, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Shell from "./Shell";
-import MonthPicker from "@/components/MonthPicker";
 import { DEFAULT_SETTINGS, currentMonth, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type Report, type Settings } from "@/lib/data";
 import { aggregate } from "@/lib/summary";
 
@@ -41,15 +40,15 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
   );
 }
 
-// ตัวกรองแดชบอร์ด: เลือกเป็น "ปีงบประมาณ" (ต.ค. – ก.ย.) แทนการเลือกช่วงเดือน
-export function FilterBar({ download }: { download?: boolean }) {
+// ตัวเลือกปีงบประมาณ (ต.ค. – ก.ย.) — ใช้ร่วมกันทั้งแดชบอร์ดและหน้าตาราง
+export function FiscalSelect() {
   const { from, to, setFrom, setTo, valid, reports, area } = useProvince();
   // ห้ามเรียก currentMonth() ตอน render (Next.js prerender ไม่ยอมให้อ่านเวลาปัจจุบันใน Client Component) — อ่านหลัง mount
   const [cur, setCur] = useState("");
   useEffect(() => { startTransition(() => setCur(currentMonth())); }, []);
   const curFy = cur ? fiscalYearOf(cur) : 0;
   const fy = to ? fiscalYearOf(to) : curFy;
-  const custom = !!from && !!to && !isFiscalRange(from, to); // ช่วงเดือนที่ตั้งไว้จากหน้าตาราง ไม่ตรงปีงบประมาณ
+  const custom = !!from && !!to && !isFiscalRange(from, to); // ช่วงเดือนที่ตั้งไว้ ไม่ตรงปีงบประมาณ
   const years = useMemo(() => {
     const ms = [...(reports ?? []).map(r => r.month), ...(area ?? []).map(r => r.month)];
     const all = [...(curFy ? [curFy - 2, curFy + 1] : []), ...(fy ? [fy] : []), ...ms.map(fiscalYearOf)];
@@ -59,18 +58,25 @@ export function FilterBar({ download }: { download?: boolean }) {
   }, [reports, area, curFy, fy]);
   const choose = (v: number) => { const r = fiscalRange(v); setFrom(r.from); setTo(r.to); };
   return (
-    <div className="db-filter">
-      <div className="field">
-        <label htmlFor="fy">ปีงบประมาณ</label>
-        <div className="fy-sel">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4M16 3v4M3 10h18" /></svg>
-          <select id="fy" value={custom ? "custom" : fy || ""} disabled={!fy} onChange={e => e.target.value !== "custom" && choose(Number(e.target.value))}>
-            {custom && <option value="custom">กำหนดเอง ({thaiMonth(from)} – {thaiMonth(to)})</option>}
-            {years.map(y => <option key={y} value={y}>ปีงบประมาณ {y}{y === curFy ? " (ปัจจุบัน)" : ""}</option>)}
-          </select>
-        </div>
-        {valid && !custom && <small className="fy-note">{thaiMonth(from)} – {thaiMonth(to)}</small>}
+    <div className="field">
+      <label htmlFor="fy">ปีงบประมาณ</label>
+      <div className="fy-sel">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="3" /><path d="M8 3v4M16 3v4M3 10h18" /></svg>
+        <select id="fy" value={custom ? "custom" : fy || ""} disabled={!fy} onChange={e => e.target.value !== "custom" && choose(Number(e.target.value))}>
+          {custom && <option value="custom">กำหนดเอง ({thaiMonth(from)} – {thaiMonth(to)})</option>}
+          {years.map(y => <option key={y} value={y}>ปีงบประมาณ {y}{y === curFy ? " (ปัจจุบัน)" : ""}</option>)}
+        </select>
       </div>
+      {valid && !custom && <small className="fy-note">{thaiMonth(from)} – {thaiMonth(to)}</small>}
+    </div>);
+}
+
+// ตัวกรองแดชบอร์ด: เลือกเป็น "ปีงบประมาณ" (ต.ค. – ก.ย.) แทนการเลือกช่วงเดือน
+export function FilterBar({ download }: { download?: boolean }) {
+  const { from, to, valid } = useProvince();
+  return (
+    <div className="db-filter">
+      <FiscalSelect />
       {download && valid && <a className="btn go" href={`/api/export?from=${from}&to=${to}`} download>📥 ดาวน์โหลด Excel</a>}
     </div>);
 }

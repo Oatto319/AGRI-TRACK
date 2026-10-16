@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { AREA_TARGET_PCT, FIELDS, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Report } from "./data";
+import { AREA_TARGET_PCT, BALES_PER_RAI, BALE_PRICE, FIELDS, rangeLabel, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type AreaReport, type Report } from "./data";
 import { aggregate, aggregateArea } from "./summary";
 
 type Agg = ReturnType<typeof aggregate>;
@@ -33,7 +33,7 @@ function buildSheet(workbook: ExcelJS.Workbook, name: string, a: Agg, subtitle: 
 export async function buildWorkbook(reports: Report[], from: string, to: string, rounds = 1, area: AreaReport[] = [], areaTotals: Record<string, number> = {}): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const all = aggregate(reports, from, to, rounds);
-  buildSheet(workbook, "สรุปสะสม", all, `ตั้งแต่เดือน ${thaiMonth(from)} ถึง ${thaiMonth(to)}`, true);
+  buildSheet(workbook, "สรุปสะสม", all, `${rangeLabel(from, to)} (${thaiMonth(from)} ถึง ${thaiMonth(to)})`, true);
   for (const m of all.months) {
     const one = aggregate(reports, m, m, rounds);
     buildSheet(workbook, thaiMonth(m), one, `ประจำเดือน ${thaiMonth(m)}`, false);
@@ -46,12 +46,13 @@ export async function buildWorkbook(reports: Report[], from: string, to: string,
       !r.submittedAt ? "ไม่มีบันทึกวันที่ส่ง" : r.late ? "ส่งช้า" : "ตรงเวลา", r.reporter.name, r.reporter.position, r.reporter.phone])]);
   ws.columns = [16, 16, 8, 14, 22, 10, 20, 20, 14].map(width => ({ width }));
   const ar = aggregateArea(area, to, areaTotals), aw = workbook.addWorksheet("พื้นที่และฟางข้าว");
-  aw.addRows([["ข้อมูลพื้นที่และฟางข้าว"], [`ฤดูกาล ${thaiMonth(ar.season.start)} ถึง ${thaiMonth(ar.season.end)} (สะสมถึง ${thaiMonth(ar.months[ar.months.length - 1])})`], [],
-    ["ที่", "อำเภอ", "พื้นที่ปลูกพืชทั้งหมด (ไร่)", `เป้าหมายร้อยละ ${AREA_TARGET_PCT} ของพื้นที่ (ไร่)`, "พื้นที่สะสมทั้งหมด (ไร่)", "คิดเป็นร้อยละของพื้นที่ทั้งหมด (%)", "คิดเป็นร้อยละของเป้าหมาย (%)", "ปริมาณฟางข้าว (ตัน)", "คิดเป็นมูลค่า (บาท)", "ส่งช้า (ครั้ง)"],
-    ...ar.rows.map((r, i) => [i + 1, r.name, r.total, r.target, r.accum, Number(r.pct.toFixed(2)), Number(r.ofTarget.toFixed(2)), r.straw, r.value, r.late]),
-    ["", "รวม", ar.sums.total, ar.sums.target, ar.sums.accum, Number(ar.pct.toFixed(2)), Number(ar.ofTarget.toFixed(2)), ar.sums.straw, ar.sums.value, ar.sums.late], [],
+  aw.addRows([["ข้อมูลพื้นที่และฟางข้าว"], [`${rangeLabel(from, to)} · ฤดูกาล ${thaiMonth(ar.season.start)} ถึง ${thaiMonth(ar.season.end)} (สะสมถึง ${thaiMonth(ar.months[ar.months.length - 1])})`], [],
+    ["ที่", "อำเภอ", "พื้นที่ปลูกพืชทั้งหมด (ไร่)", `เป้าหมายร้อยละ ${AREA_TARGET_PCT} ของพื้นที่ (ไร่)`, ...ar.months.map(m => `${thaiMonthShort(m)} (ไร่)`), "พื้นที่สะสมทั้งหมด (ไร่)", "คิดเป็นร้อยละของพื้นที่ทั้งหมด (%)", "ปริมาณฟางข้าว (ตัน)", "คิดเป็นมูลค่า (บาท)", "ฟางก้อน (ก้อน)", "ราคาฟางก้อน (บาท)", "ส่งช้า (ครั้ง)"],
+    ...ar.rows.map((r, i) => [i + 1, r.name, r.total, r.target, ...ar.months.map(m => r.byMonth[m] ?? 0), r.accum, Number(r.pct.toFixed(2)), r.straw, r.value, r.bales, r.baleValue, r.late]),
+    ["", "รวม", ar.sums.total, ar.sums.target, ...ar.months.map(m => ar.rows.reduce((x, r) => x + (r.byMonth[m] ?? 0), 0)), ar.sums.accum, Number(ar.pct.toFixed(2)), ar.sums.straw, ar.sums.value, ar.sums.bales, ar.sums.baleValue, ar.sums.late], [],
     ["หมายเหตุ: พื้นที่ปลูกพืชทั้งหมดจังหวัดเป็นผู้กำหนด · พื้นที่สะสม = ผลรวมพื้นที่ที่อำเภอรายงานรายเดือนช่วงพฤศจิกายน–มิถุนายนของฤดูกาล"],
-    ["ฟางข้าว (ตัน) = (ไร่สะสม × 500 กก.) ÷ 1,000 · มูลค่า (บาท) = ไร่สะสม × 725 บาท"]]);
-  aw.columns = [6, 16, 22, 26, 22, 26, 24, 20, 20, 12].map(width => ({ width }));
+    ["ฟางข้าว (ตัน) = (ไร่สะสม × 500 กก.) ÷ 1,000 · มูลค่า (บาท) = ไร่สะสม × 725 บาท"],
+    [`ฟางก้อน (ก้อน) = ไร่สะสม × ${BALES_PER_RAI} ก้อน · ราคาฟางก้อน (บาท) = จำนวนก้อน × ${BALE_PRICE} บาท`]]);
+  aw.columns = [6, 16, 22, 26, ...ar.months.map(() => 14), 22, 26, 20, 20, 18, 20, 12].map(width => ({ width }));
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

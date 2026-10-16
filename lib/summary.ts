@@ -1,4 +1,4 @@
-import { DISTRICTS, FIELDS, TARGET_PER_TAMBON, areaPct, areaSeasonOf, areaTarget, effectiveTotal, strawTons, strawValue, type AreaReport, type FieldKey, type Report } from "./data";
+import { DISTRICTS, FIELDS, TARGET_PER_TAMBON, areaPct, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, type AreaReport, type FieldKey, type Report } from "./data";
 
 export const fmt = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 export const sumValues = (v: Report["values"]) => FIELDS.reduce((a, f) => a + (v[f.key] ?? 0), 0);
@@ -32,6 +32,7 @@ export function aggregate(reports: Report[], from: string, to: string, rounds = 
 // สรุปข้อมูลพื้นที่และฟางข้าวของ "ฤดูกาล" (พ.ย.–มิ.ย.) ที่เดือน `to` อยู่ (เฉพาะรายงานที่ส่งแล้ว)
 // พื้นที่สะสม = ผลรวมไร่รายเดือนทุกรอบตั้งแต่ พ.ย. จนถึงเดือน `to` (ไม่เกิน มิ.ย.) · พื้นที่ปลูกทั้งหมดมาจากที่จังหวัดกำหนด
 // ฟางข้าว = (ไร่สะสม × 500) ÷ 1000 ตัน · มูลค่า = ไร่สะสม × 725 บาท
+// ฟางก้อน = ไร่สะสม × 25 ก้อน · ราคาฟางก้อน = จำนวนก้อน × 35 บาท
 export function aggregateArea(reports: AreaReport[], to: string, totals: Record<string, number> = {}) {
   const season = areaSeasonOf(to), last = to < season.end ? to : season.end;
   const months = monthsBetween(season.start, last);
@@ -41,10 +42,10 @@ export function aggregateArea(reports: AreaReport[], to: string, totals: Record<
     const accum = mine.reduce((a, r) => a + (r.values.area ?? 0), 0), assigned = (totals[d.name] ?? 0) > 0, total = effectiveTotal(totals[d.name], accum), target = areaTarget(total);
     const byMonth: Record<string, number> = Object.fromEntries(months.map(m => [m, mine.filter(r => r.month === m).reduce((a, r) => a + (r.values.area ?? 0), 0)]));
     return { name: d.name, total, assigned, target, accum, pct: areaPct(accum, total), ofTarget: target > 0 ? (accum / target) * 100 : 0,
-      straw: strawTons(accum), value: strawValue(accum), byMonth,
+      straw: strawTons(accum), value: strawValue(accum), bales: strawBales(accum), baleValue: baleValue(accum), byMonth,
       any: mine.length, late: mine.filter(r => r.late).length, lastMonth: mine[mine.length - 1]?.month };
   });
   const s = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
-  const sums = { total: s(r => r.total), assigned: rows.every(r => r.assigned), target: s(r => r.target), accum: s(r => r.accum), straw: s(r => r.straw), value: s(r => r.value), late: s(r => r.late) };
+  const sums = { total: s(r => r.total), assigned: rows.every(r => r.assigned), target: s(r => r.target), accum: s(r => r.accum), straw: s(r => r.straw), value: s(r => r.value), bales: s(r => r.bales), baleValue: s(r => r.baleValue), late: s(r => r.late) };
   return { rows, sums, season, months, pct: areaPct(sums.accum, sums.total), ofTarget: sums.target > 0 ? (sums.accum / sums.target) * 100 : 0 };
 }

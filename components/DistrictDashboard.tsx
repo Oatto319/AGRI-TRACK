@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AREA_FIELDS, AREA_TARGET_PCT, DEFAULT_SETTINGS, FIELDS, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Report, type Settings, type Topic } from "@/lib/data";
+import { AREA_FIELDS, AREA_TARGET_PCT, DEFAULT_SETTINGS, FIELDS, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Report, type Settings, type Topic } from "@/lib/data";
 import { aggregate, aggregateArea, fmt, sumValues } from "@/lib/summary";
 import { COLORS, Donut, Kpi, RankRows, Trend } from "@/components/Charts";
 import { useDistrict } from "@/components/District";
@@ -135,6 +135,8 @@ export default function DistrictDashboard() {
           <Kpi label="พื้นที่สะสมทั้งหมด" value={f2(d.ar.accum)} unit="ไร่" color="#059669" tone="emerald" pct={d.ar.pct} note={`คิดเป็น ${f2(d.ar.pct)}% ของพื้นที่ทั้งหมด · ${f2(d.ar.ofTarget)}% ของเป้าหมาย`} />
           <Kpi label="ปริมาณฟางข้าว" value={f2(d.ar.straw)} unit="ตัน" tone="emerald" note="ไร่สะสม × 500 กก. ÷ 1,000" />
           <Kpi label="คิดเป็นมูลค่า" value={f2(d.ar.value)} unit="บาท" tone="blue" note={d.ar.late ? `ส่งช้า ${d.ar.late} ครั้ง` : "ไร่สะสม × 725 บาท"} />
+          <Kpi label="ฟางก้อน" value={f2(d.ar.bales)} unit="ก้อน" tone="amber" note="ไร่สะสม × 25 ก้อน" />
+          <Kpi label="ราคาฟางก้อน" value={f2(d.ar.baleValue)} unit="บาท" tone="emerald" note="จำนวนก้อน × 35 บาท" />
         </div>
         <div className="db-grid">
           <section className="db-card"><h2>พื้นที่ไถกลบรายเดือนและพื้นที่สะสม</h2>
@@ -155,12 +157,12 @@ export default function DistrictDashboard() {
                 {FIELDS.map(f => <td key={f.key}>{r ? fmt(r.values[f.key] ?? 0) : "–"}</td>)}<td><b>{r ? fmt(sumValues(r.values)) : "–"}</b></td>
                 <td><Link className="btn alt" href={`/district/report?month=${m}&round=${rd}`}>{r ? "แก้ไข" : "กรอก"}</Link></td></tr>); }))}</tbody></table></div></section>
         <section className="db-card" style={{ marginTop: "1rem" }}><h2>รายละเอียดรายเดือน · พื้นที่และฟางข้าว</h2>
-          <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน</th><th>รอบ</th><th>สถานะ</th><th>กำหนดส่ง</th><th>ส่งเมื่อ</th><th>พื้นที่เดือนนี้ (ไร่)</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th></th></tr></thead>
+          <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน</th><th>รอบ</th><th>สถานะ</th><th>กำหนดส่ง</th><th>ส่งเมื่อ</th><th>พื้นที่เดือนนี้ (ไร่)</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>ฟางก้อน (ก้อน)</th><th>ราคาฟางก้อน (บาท)</th><th></th></tr></thead>
             <tbody>{[...d.arMonths].reverse().flatMap(m => Array.from({ length: nR("area", m) }, (_, i) => i + 1).map(rd => { const r = area.find(x => x.month === m && x.round === rd); const due = r?.dueDate ?? dueOf("area", m, rd); return (
               <tr key={`${m}-${rd}`}><td style={{ textAlign: "left" }}>{thaiMonth(m)}</td><td>{rd}</td>
                 <td><span className={`pill ${r ? (r.status === "submitted" ? (r.late ? "no" : "ok") : "warn") : "no"}`}>{r ? (r.status === "submitted" ? (r.late ? "ส่งช้า" : "ส่งแล้ว") : "ร่าง") : "ยังไม่ส่ง"}</span></td>
                 <td>{thaiDate(due)}</td><td>{r?.submittedAt ? thaiDateTime(r.submittedAt) : "–"}</td>
-                <td>{r ? f2(r.values.area ?? 0) : "–"}</td><td>{r ? f2(strawTons(r.values.area ?? 0)) : "–"}</td><td>{r ? f2(strawValue(r.values.area ?? 0)) : "–"}</td>
+                <td>{r ? f2(r.values.area ?? 0) : "–"}</td><td>{r ? f2(strawTons(r.values.area ?? 0)) : "–"}</td><td>{r ? f2(strawValue(r.values.area ?? 0)) : "–"}</td><td>{r ? f2(strawBales(r.values.area ?? 0)) : "–"}</td><td>{r ? f2(baleValue(r.values.area ?? 0)) : "–"}</td>
                 <td><Link className="btn alt" href={`/district/area?month=${m}&round=${rd}`}>{r ? "แก้ไข" : "กรอก"}</Link></td></tr>); }))}</tbody></table></div></section>
       </>}
     </div>

@@ -127,6 +127,10 @@ export const dueDateOf = (month: string, day: number) => {
   const [y, m] = month.split("-").map(Number), last = new Date(y, m, 0).getDate();
   return `${month}-${String(Math.min(day, last)).padStart(2, "0")}`;
 };
+// เดือนแบบย่อ + ปี พ.ศ. 2 หลัก เช่น "ธ.ค. 68" (ใช้เป็นหัวคอลัมน์รายเดือน)
+export const thaiMonthShort = (ym: string) => { const [y, m] = ym.split("-").map(Number); return `${TH_S[m - 1]} ${String(y + 543).slice(2)}`; };
+// ป้ายช่วงเวลา: ถ้าเป็นปีงบประมาณเต็มปี แสดง "ปีงบประมาณ 2569" ไม่เช่นนั้นแสดงช่วงเดือน
+export const rangeLabel = (from: string, to: string) => (isFiscalRange(from, to) ? `ปีงบประมาณ ${fiscalYearOf(to)}` : `${thaiMonth(from)} – ${thaiMonth(to)}`);
 export const thaiDate = (ymd: string) => { const [y, m, d] = ymd.slice(0, 10).split("-").map(Number); return `${d} ${TH_S[m - 1]} ${y + 543}`; };
 export const thaiDateTime = (iso: string) => { const b = new Date(new Date(iso).getTime() + 7 * 3600e3).toISOString(); return `${thaiDate(b)} ${b.slice(11, 16)} น.`; };
 
@@ -136,6 +140,8 @@ export const thaiDateTime = (iso: string) => { const b = new Date(new Date(iso).
 export const AREA_TARGET_PCT = 35; // เป้าหมาย = ร้อยละ 35 ของพื้นที่ปลูกพืชทั้งหมด
 export const STRAW_KG_PER_RAI = 500; // ฟางข้าว 500 กก./ไร่ (0.5 ตัน)
 export const STRAW_VALUE_PER_RAI = 725; // บาท/ไร่ (ธาตุอาหารหลัก 23 กก./ไร่)
+export const BALES_PER_RAI = 25; // ฟางก้อน 25 ก้อน/ไร่ (1 ไร่ = 25 ก้อน)
+export const BALE_PRICE = 35; // ราคาฟางก้อน 35 บาท/ก้อน
 export const AREA_FIELDS = [
   { key: "area", label: "พื้นที่ไถกลบฟางข้าวในเดือนนี้", unit: "ไร่" },
 ] as const;
@@ -150,9 +156,11 @@ export interface AreaReport {
 // พื้นที่ปลูกพืชทั้งหมดที่ใช้คำนวณ: ถ้าจังหวัดกำหนดไว้ (>0) ใช้ค่านั้น · ถ้ายังไม่กำหนด ใช้พื้นที่สะสมทั้งหมดแทน เพื่อให้เป้าหมายและร้อยละแสดงผลได้
 export const effectiveTotal = (set: number | undefined, accum: number) => (set && set > 0 ? set : accum);
 export const areaTarget = (total: number) => (total * AREA_TARGET_PCT) / 100;
-export const areaPct = (accum: number, total: number) => (total > 0 ? (accum / total) * 100 : 0); // สะสม ÷ พื้นที่ปลูกทั้งหมด × 100
+export const areaPct = (accum: number, total: number) => (total > 0 ? Math.min(100, (accum / total) * 100) : 0); // สะสม ÷ พื้นที่ปลูกทั้งหมด × 100 (ไม่เกิน 100%)
 export const strawTons = (rai: number) => (rai * STRAW_KG_PER_RAI) / 1000; // (ไร่ × 500) ÷ 1000 = ตัน
 export const strawValue = (rai: number) => rai * STRAW_VALUE_PER_RAI; // ไร่ × 725 บาท
+export const strawBales = (rai: number) => rai * BALES_PER_RAI; // ฟางก้อน (ก้อน) = ไร่ × 25
+export const baleValue = (rai: number) => strawBales(rai) * BALE_PRICE; // ราคาฟางก้อน (บาท) = จำนวนก้อน × 35
 export const isAreaMonth = (ym: string) => { const m = Number(ym.slice(5, 7)); return m >= 11 || m <= 6; };
 // ฤดูกาลของเดือนนั้น: พ.ย. ปีหนึ่ง – มิ.ย. ปีถัดไป (เดือน ก.ค.–ต.ค. ให้ถือเป็นฤดูกาลที่เพิ่งจบ)
 export const areaSeasonOf = (ym: string) => {

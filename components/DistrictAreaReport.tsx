@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
+import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, BALES_PER_RAI, BALE_PRICE, baleValue, strawBales, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
 import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
@@ -104,8 +104,10 @@ export default function DistrictAreaReport() {
             <NumField id="area" label="พื้นที่ไถกลบฟางข้าวเดือนนี้" unit="ไร่" value={vals.area ?? ""} disabled={!inSeason} onChange={v => setVals({ ...vals, area: v })} />
             <ReadField id="st" label="ปริมาณฟางข้าว" value={f2(strawTons(thisArea))} unit="ตัน" />
             <ReadField id="sv" label="คิดเป็นมูลค่า" value={f2(strawValue(thisArea))} unit="บาท" />
+            <ReadField id="sb" label="ฟางก้อน" value={f2(strawBales(thisArea))} unit="ก้อน" />
+            <ReadField id="sp" label="ราคาฟางก้อน" value={f2(baleValue(thisArea))} unit="บาท" />
           </div>
-          <p className="ux-hint">ฟางข้าว (ตัน) = ไร่ × {STRAW_KG_PER_RAI} กก. ÷ 1,000 · มูลค่า = ไร่ × {STRAW_VALUE_PER_RAI} บาท</p>
+          <p className="ux-hint">ฟางข้าว (ตัน) = ไร่ × {STRAW_KG_PER_RAI} กก. ÷ 1,000 · มูลค่า = ไร่ × {STRAW_VALUE_PER_RAI} บาท · ฟางก้อน = ไร่ × {BALES_PER_RAI} ก้อน · ราคาฟางก้อน = ก้อน × {BALE_PRICE} บาท</p>
         </Step>
 
         <Step n={3} title="ผู้รายงาน" hint="ระบบจำชื่อจากครั้งก่อนให้อัตโนมัติ" done={!!rep.name.trim()}>
@@ -122,6 +124,8 @@ export default function DistrictAreaReport() {
             <ReadField id="pc" label="คิดเป็นร้อยละของพื้นที่ทั้งหมด" value={f2(pct)} unit="%" />
             <ReadField id="sa" label="ปริมาณฟางข้าวสะสม" value={f2(strawTons(accum))} unit="ตัน" />
             <ReadField id="va" label="คิดเป็นมูลค่าสะสม" value={f2(strawValue(accum))} unit="บาท" />
+            <ReadField id="ba" label="ฟางก้อนสะสม" value={f2(strawBales(accum))} unit="ก้อน" />
+            <ReadField id="bp" label="ราคาฟางก้อนสะสม" value={f2(baleValue(accum))} unit="บาท" />
           </div>
           <p className="ux-hint">{!assigned ? "จังหวัดยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดของอำเภอนี้ จึงใช้พื้นที่สะสมเป็นฐานคำนวณไปก่อน" : `คิดเป็น ${f2(ofTarget)}% ของเป้าหมาย`}{assigned && accum > total ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p>
         </section>}

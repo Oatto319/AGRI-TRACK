@@ -11,15 +11,51 @@ interface Cache { client?: Promise<MongoClient>; ready?: Promise<void> }
 const g = globalThis as typeof globalThis & { __agriMongo?: Cache };
 const cache: Cache = (g.__agriMongo ??= {});
 
-const dnsServers = process.env.MONGODB_DNS_SERVERS?.split(",").map(x => x.trim()).filter(Boolean);
-if (dnsServers?.length) dns.setServers(dnsServers);
-else if (process.env.MONGODB_URI?.startsWith("mongodb+srv://")) dns.setServers(["8.8.8.8"]);
+async function resolveAtlasUri(uri: string): Promise<string> {
+  if (!uri.startsWith("mongodb+srv://")) return uri;
+
+  const parsed = new URL(uri);
+  const resolver = new dns.Resolver();
+  const dnsServers = process.env.MONGODB_DNS_SERVERS?.split(",").map(x => x.trim()).filter(Boolean);
+  resolver.setServers(dnsServers?.length ? dnsServers : ["8.8.8.8"]);
+  const [records, txtRecords] = await Promise.all([
+    new Promise<dns.SrvRecord[]>((resolve, reject) => {
+      resolver.resolveSrv(`_mongodb._tcp.${parsed.hostname}`, (error, result) => error ? reject(error) : resolve(result));
+    }),
+    new Promise<string[][]>((resolve, reject) => {
+      resolver.resolveTxt(parsed.hostname, (error, result) => error ? reject(error) : resolve(result));
+    }),
+  ]);
+  if (records.length === 0) throw new Error("MongoDB Atlas returned no SRV records");
+
+  const domainSuffix = parsed.hostname.split(".").slice(1).join(".");
+  if (!domainSuffix) throw new Error("MongoDB Atlas URI has an invalid hostname");
+  const hosts = records.map(({ name, port }) => {
+    const hostname = name.replace(/\.$/, "");
+    if (!hostname.endsWith(`.${domainSuffix}`)) throw new Error("MongoDB Atlas returned an invalid SRV hostname");
+    return `${hostname}:${port}`;
+  });
+  const options = new URLSearchParams(parsed.searchParams);
+  const txtOptions = new URLSearchParams(txtRecords.flat().join(""));
+  for (const key of ["authSource", "replicaSet", "loadBalanced"]) {
+    if (!options.has(key) && txtOptions.has(key)) options.set(key, txtOptions.get(key)!);
+  }
+  if (!options.has("tls") && !options.has("ssl")) options.set("tls", "true");
+
+  const authority = uri.slice(uri.indexOf("//") + 2).split(/[/?#]/, 1)[0];
+  const at = authority.lastIndexOf("@");
+  const userInfo = at < 0 ? "" : authority.slice(0, at + 1);
+  const query = options.toString();
+  return `mongodb://${userInfo}${hosts.join(",")}${parsed.pathname}${query ? `?${query}` : ""}`;
+}
 
 export async function db(): Promise<Db> {
   const uri = process.env.MONGODB_URI;
   if (!uri) throw new Error("ยังไม่ได้ตั้งค่า MONGODB_URI (ดู .env.example)");
   if (!cache.client) {
-    cache.client = new MongoClient(uri, { serverSelectionTimeoutMS: 8000 }).connect();
+    cache.client = resolveAtlasUri(uri).then(resolvedUri =>
+      new MongoClient(resolvedUri, { serverSelectionTimeoutMS: 8000 }).connect()
+    );
     cache.client.catch(() => { cache.client = undefined; cache.ready = undefined; }); // เชื่อมไม่สำเร็จ -> ลองใหม่ได้ครั้งหน้า
   }
   const database = (await cache.client).db(process.env.MONGODB_DB || "agri_track");

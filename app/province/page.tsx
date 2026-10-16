@@ -129,6 +129,8 @@ export default function ProvinceDashboard() {
                   <div className="pv-mini">
                     <div><small>ฟางข้าว</small><b>{f2(ar.sums.straw)} ตัน</b></div>
                     <div><small>มูลค่า</small><b>{f2(ar.sums.value)} บาท</b></div>
+                    <div><small>ฟางก้อน</small><b>{f2(ar.sums.bales)} ก้อน</b></div>
+                    <div><small>ราคาฟางก้อน</small><b>{f2(ar.sums.baleValue)} บาท</b></div>
                   </div>
                 </section>
               </div>
