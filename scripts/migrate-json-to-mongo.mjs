@@ -33,9 +33,10 @@ const reportKey = d => ({ district: d.district, month: d.month, round: d.round }
 try {
   await mdb.collection("reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true });
   await mdb.collection("area_reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true });
+  await mdb.collection("burn_reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true });
   await mdb.collection("app_users").createIndex({ username: 1 }, { unique: true });
 
-  for (const [file, collection] of [["reports.json", "reports"], ["area-reports.json", "area_reports"]]) {
+  for (const [file, collection] of [["reports.json", "reports"], ["area-reports.json", "area_reports"], ["burn-reports.json", "burn_reports"]]) {
     const list = await readJson(file);
     if (!list) { console.log(`ข้าม ${file} (ไม่พบไฟล์)`); continue; }
     await upsertAll(collection, list.map(toRow), reportKey);

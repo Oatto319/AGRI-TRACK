@@ -2,10 +2,10 @@
 import { createContext, startTransition, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Shell from "./Shell";
 import PdfButton from "./PdfButton";
-import { DEFAULT_SETTINGS, currentMonth, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type Report, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, currentMonth, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings } from "@/lib/data";
 import { aggregate } from "@/lib/summary";
 
-interface Ctx { settings: Settings; setSettings: (s: Settings) => void; reports: Report[] | null; area: AreaReport[] | null; error: string | null; from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; valid: boolean; agg: ReturnType<typeof aggregate> | null }
+interface Ctx { settings: Settings; setSettings: (s: Settings) => void; reports: Report[] | null; area: AreaReport[] | null; burn: BurnReport[] | null; error: string | null; from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; valid: boolean; agg: ReturnType<typeof aggregate> | null }
 const C = createContext<Ctx | null>(null);
 const load = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดไม่สำเร็จ"); return (await r.json()) as T; };
 export const useProvince = () => { const v = useContext(C); if (!v) throw new Error("ProvinceFrame missing"); return v; };
@@ -14,12 +14,13 @@ export const useProvince = () => { const v = useContext(C); if (!v) throw new Er
 export function ProvinceFrame({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<Report[] | null>(null);
   const [area, setArea] = useState<AreaReport[] | null>(null);
+  const [burn, setBurn] = useState<BurnReport[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   useEffect(() => {
-    Promise.all([load<Report[]>("/api/reports"), load<Settings>("/api/settings"), load<AreaReport[]>("/api/area")]).then(([all, st, ar]) => {
-      setSettings(st); setArea(ar);
+    Promise.all([load<Report[]>("/api/reports"), load<Settings>("/api/settings"), load<AreaReport[]>("/api/area"), load<BurnReport[]>("/api/burn")]).then(([all, st, ar, bn]) => {
+      setSettings(st); setArea(ar); setBurn(bn);
       setReports(all);
       const ms = all.filter(r => r.status === "submitted").map(r => r.month).sort(), cur = currentMonth();
       // ค่าเริ่มต้น = ปีงบประมาณของเดือนล่าสุดที่มีรายงานส่งแล้ว (ถ้ายังไม่มีข้อมูล ใช้ปีงบประมาณปัจจุบัน)
@@ -30,7 +31,7 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
   const valid = !!from && !!to && from <= to;
   const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length) : null), [reports, from, to, valid, settings]);
   return (
-    <C.Provider value={{ settings, setSettings, reports, area, error, from, to, setFrom, setTo, valid, agg }}>
+    <C.Provider value={{ settings, setSettings, reports, area, burn, error, from, to, setFrom, setTo, valid, agg }}>
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
         { href: "/province", label: "1. ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ", icon: "home" },
         { href: "/province/table", label: "2. ตารางข้อมูลรายอำเภอ", hint: "ดูรายละเอียด + ดาวน์โหลด Excel", icon: "table" },

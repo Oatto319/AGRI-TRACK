@@ -145,7 +145,7 @@ export default function ProvinceSettings() {
               <div>
                 <label className="ux-lbl" htmlFor="sc-topic">รายการที่ต้องรายงาน</label>
                 <select id="sc-topic" className="ux-select" value={topic} onChange={e => setTopic(e.target.value as Topic)}>
-                  {TOPICS.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                  {TOPICS.filter(t => t.key !== "burn").map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
                 </select>
               </div>
               <div>

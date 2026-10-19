@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AREA_FIELDS, AREA_TARGET_PCT, DEFAULT_SETTINGS, FIELDS, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Report, type Settings, type Topic } from "@/lib/data";
+import { AREA_FIELDS, AREA_TARGET_PCT, BURN_FIELDS, DEFAULT_SETTINGS, FIELDS, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings, type Topic } from "@/lib/data";
 import { aggregate, aggregateArea, fmt, sumValues } from "@/lib/summary";
 import { COLORS, Donut, Kpi, RankRows, Trend } from "@/components/Charts";
 import { useDistrict } from "@/components/District";
@@ -17,14 +17,15 @@ export default function DistrictDashboard() {
   const [from, setFrom] = useState(""); const [to, setTo] = useState("");
   const [cm, setCm] = useState(""); // เดือนที่ใช้ตรวจรายการที่ต้องกรอก
   const [area, setArea] = useState<AreaReport[]>([]);
+  const [burn, setBurn] = useState<BurnReport[]>([]);
   const [cr, setCr] = useState(1); // รอบที่ใช้ตรวจรายการที่ต้องกรอก
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const [loadError, setLoadError] = useState("");
   useEffect(() => {
     const get = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดรายงานไม่สำเร็จ"); return (await r.json()) as T; };
-    Promise.all([get<Report[]>("/api/reports"), get<Settings>("/api/settings"), get<AreaReport[]>(`/api/area?district=${encodeURIComponent(district)}`)])
-      .then(([all, st, ar]) => {
-      setSettings(st); setArea(ar);
+    Promise.all([get<Report[]>("/api/reports"), get<Settings>("/api/settings"), get<AreaReport[]>(`/api/area?district=${encodeURIComponent(district)}`), get<BurnReport[]>(`/api/burn?district=${encodeURIComponent(district)}`)])
+      .then(([all, st, ar, bn]) => {
+      setSettings(st); setArea(ar); setBurn(bn);
       const current = currentMonth();
       setCm(current);
       setReports(all);
@@ -37,7 +38,7 @@ export default function DistrictDashboard() {
   // จำนวนรอบ/วันกำหนดส่งแยกตามหัวข้อและปีงบประมาณของเดือนนั้น
   const nR = (t: Topic, m: string) => dueDaysFor(settings, t, m).length;
   const dueOf = (t: Topic, m: string, rd: number) => dueDateOf(m, dueDaysFor(settings, t, m)[rd - 1] ?? 31);
-  const tabsN = cm ? Math.max(nR("fert", cm), nR("area", cm)) : 1;
+  const tabsN = cm ? Math.max(nR("fert", cm), nR("area", cm), nR("burn", cm)) : 1;
   const d = useMemo(() => {
     if (!reports || !valid) return null;
     const rounds = dueDaysFor(settings, "fert", to).length;
@@ -62,7 +63,7 @@ export default function DistrictDashboard() {
             <div><span className="ux-lbl">งานที่ต้องกรอกของเดือน</span><MonthPicker id="cm" value={cm} onChange={setCm} /></div>
             {tabsN > 1 && <div className="ux-tabs" role="group" aria-label="รอบรายงาน">{Array.from({ length: tabsN }, (_, i) => i).map(i => (
               <button key={i} type="button" className="ux-tab" aria-pressed={Math.min(cr, tabsN) === i + 1} onClick={() => setCr(i + 1)}>
-                <b>รอบที่ {i + 1} {d.rec(cm, i + 1)?.status === "submitted" && <span className="ok">✓</span>}</b><small>ส่งภายใน {thaiDate(dueOf(nR("fert", cm) > i ? "fert" : "area", cm, i + 1))}</small></button>))}</div>}
+                <b>รอบที่ {i + 1} {d.rec(cm, i + 1)?.status === "submitted" && <span className="ok">✓</span>}</b><small>ส่งภายใน {thaiDate(dueOf(nR("fert", cm) > i ? "fert" : nR("area", cm) > i ? "area" : "burn", cm, i + 1))}</small></button>))}</div>}
           </div>
           <div className="ux-tasks">
             {(() => {
@@ -93,6 +94,19 @@ export default function DistrictDashboard() {
                   <div className="pg" aria-hidden="true"><i style={{ width: v !== undefined ? "100%" : "0%" }} /></div>
                   <p className="miss">{v !== undefined ? "กรอกพื้นที่แล้ว ส่วนฟางข้าวและมูลค่าระบบคำนวณให้" : <>ยังไม่ได้กรอก: <b>{AREA_FIELDS[0].label}</b></>}</p>
                   <Link className={`ux-btn gold ${st === "submitted" ? "line" : ""}`} href={href}>{st === "submitted" ? "ดู / แก้ไขข้อมูล" : v !== undefined ? "กรอกต่อ" : "เริ่มกรอกพื้นที่"}</Link>
+                </article>);
+            })()}
+            {(() => {
+              const rd = Math.min(cr, nR("burn", cm)), br = burn.find(x => x.month === cm && x.round === rd), st = br?.status ?? "none", due = dueOf("burn", cm, rd);
+              const items = BURN_FIELDS.map(f => ({ label: f.label, val: br?.values[f.key] }));
+              const done = items.filter(i => i.val !== undefined).length, miss = items.filter(i => i.val === undefined);
+              return (
+                <article className="ux-task" style={{ ["--tc" as string]: "#c2410c" }}>
+                  <header><i>{I.alert}</i><div><h2>การเรียนรู้/ประชาสัมพันธ์หยุดเผา</h2><p>เดือน{thaiMonth(cm)}{nR("burn", cm) > 1 ? ` · รอบที่ ${rd}` : ""} · ส่งภายใน {thaiDate(due)}</p></div></header>
+                  <div className="st"><StatusPill status={st === "none" ? undefined : st} late={br?.late} />กรอกแล้ว {done} จาก {items.length} ช่อง{br?.submittedAt && <> · ส่งเมื่อ {thaiDateTime(br.submittedAt)}</>}</div>
+                  <div className="pg" aria-hidden="true"><i style={{ width: `${(done / items.length) * 100}%` }} /></div>
+                  <p className="miss">{miss.length ? <>ยังไม่ได้กรอก: <b>{miss.slice(0, 2).map(m => m.label).join(", ")}{miss.length > 2 ? ` และอีก ${miss.length - 2} ช่อง` : ""}</b></> : "กรอกครบทุกช่องแล้ว"}</p>
+                  <Link className={`ux-btn ${st === "submitted" ? "line" : ""}`} href={`/district/burn?month=${cm}&round=${rd}`}>{st === "submitted" ? "ดู / แก้ไขข้อมูล" : done ? "กรอกต่อ" : "เริ่มกรอกข้อมูลหยุดเผา"}</Link>
                 </article>);
             })()}
           </div>

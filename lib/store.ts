@@ -1,4 +1,4 @@
-import { AREA_FIELDS, AREA_LEGACY_KEYS, DEFAULT_SETTINGS, DISTRICTS, FIELDS, validateAreaTotals, validateDueDays, validateSchedules, validateAreaSets, type AreaReport, type Report, type Settings } from "./data";
+import { AREA_FIELDS, AREA_LEGACY_KEYS, BURN_FIELDS, DEFAULT_SETTINGS, DISTRICTS, FIELDS, validateAreaTotals, validateDueDays, validateSchedules, validateAreaSets, type AreaReport, type BurnReport, type Report, type Settings } from "./data";
 import { db } from "./mongo";
 
 // เก็บข้อมูลใน MongoDB — คอลเลกชัน reports, area_reports, settings (ดู lib/mongo.ts)
@@ -26,6 +26,7 @@ function validReport(value: unknown, keys: readonly string[]): boolean {
 }
 
 const isReport = (v: unknown): v is Report => validReport(v, FIELDS.map(f => f.key));
+const isBurnReport = (v: unknown): v is BurnReport => validReport(v, BURN_FIELDS.map(f => f.key));
 const isAreaReport = (v: unknown): v is AreaReport => validReport(v, [...AREA_FIELDS.map(f => f.key), ...AREA_LEGACY_KEYS]);
 
 // แถวในฐานข้อมูล <-> รูปแบบ JSON ที่แอปใช้
@@ -35,7 +36,7 @@ const fromRow = (r: Row) => ({
   ...(r.due_date != null ? { dueDate: r.due_date } : {}),
   ...(r.late != null ? { late: r.late } : {}),
 });
-const toRow = (r: Report | AreaReport) => ({
+const toRow = (r: Report | AreaReport | BurnReport) => ({
   district: r.district, month: r.month, round: r.round ?? 1, status: r.status, reporter: r.reporter, amounts: r.values, updated_at: r.updatedAt,
   submitted_at: r.submittedAt ?? null, due_date: r.dueDate ?? null, late: r.late ?? null,
 });
@@ -52,7 +53,13 @@ function parseArea(row: Row): AreaReport {
   return { ...v, round: v.round ?? 1, values: v.values.area === undefined ? {} : { area: v.values.area } };
 }
 
-type Table = "reports" | "area_reports";
+function parseBurn(row: Row): BurnReport {
+  const v = fromRow(row);
+  if (!isBurnReport(v)) throw new Error(`Invalid report row in burn_reports (${String(row.district)} ${String(row.month)} รอบ ${String(row.round)})`);
+  return { ...v, round: v.round ?? 1 };
+}
+
+type Table = "reports" | "area_reports" | "burn_reports";
 const NO_ID = { projection: { _id: 0 } } as const; // ไม่ต้องการ _id ของ Mongo ในข้อมูลที่แอปใช้
 
 async function fetchAll(table: Table): Promise<Row[]> {
@@ -61,9 +68,10 @@ async function fetchAll(table: Table): Promise<Row[]> {
 }
 export async function readAll(): Promise<Report[]> { return (await fetchAll("reports")).map(parseReport); }
 export async function readAreaAll(): Promise<AreaReport[]> { return (await fetchAll("area_reports")).map(parseArea); }
+export async function readBurnAll(): Promise<BurnReport[]> { return (await fetchAll("burn_reports")).map(parseBurn); }
 
 // อ่านรายงานเดิม (ถ้ามี) -> fn คืนรายงานใหม่ (โยน Error เพื่อปฏิเสธ) -> เขียนกลับ (upsert ตามคีย์ อำเภอ+เดือน+รอบ)
-async function mutate<T extends Report | AreaReport>(table: Table, parse: (r: Row) => T, district: string, month: string, round: number, fn: (old?: T) => T): Promise<T> {
+async function mutate<T extends Report | AreaReport | BurnReport>(table: Table, parse: (r: Row) => T, district: string, month: string, round: number, fn: (old?: T) => T): Promise<T> {
   const col = (await db()).collection(table), key = { district, month, round };
   const data = await col.findOne(key, NO_ID);
   const r = fn(data ? parse(data as Row) : undefined);
@@ -92,3 +100,4 @@ export async function writeSettings(s: Settings) {
   await (await db()).collection<{ _id: string; data: Settings; updated_at: string }>("settings")
     .replaceOne({ _id: "main" }, { data: s, updated_at: new Date().toISOString() }, { upsert: true }); // upsert ใช้ _id จาก filter
 }
+export const updateBurn = (district: string, month: string, round: number, fn: (old?: BurnReport) => BurnReport) => mutate("burn_reports", parseBurn, district, month, round, fn);

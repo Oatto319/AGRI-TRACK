@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { readAll, readAreaAll, readSettings } from "@/lib/store";
+import { readAll, readAreaAll, readBurnAll, readSettings } from "@/lib/store";
 import { buildWorkbook } from "@/lib/export";
 import { areaTotalsFor, dueDaysFor } from "@/lib/data";
 
@@ -8,7 +8,7 @@ export async function GET(req: NextRequest) {
   const ok = /^\d{4}-(0[1-9]|1[0-2])$/;
   if (!ok.test(from) || !ok.test(to) || from > to) return new Response("ช่วงเดือนไม่ถูกต้อง", { status: 400 });
   const settings = await readSettings();
-  const buf = await buildWorkbook(await readAll(), from, to, dueDaysFor(settings, "fert", to).length, await readAreaAll(), areaTotalsFor(settings, to));
+  const buf = await buildWorkbook(await readAll(), from, to, dueDaysFor(settings, "fert", to).length, await readAreaAll(), areaTotalsFor(settings, to), await readBurnAll(), dueDaysFor(settings, "burn", to).length);
   return new Response(new Uint8Array(buf), { headers: {
     "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     "Content-Disposition": `attachment; filename="organic-fertilizer-${from}_${to}.xlsx"`,

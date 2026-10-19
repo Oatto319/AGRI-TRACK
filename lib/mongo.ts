@@ -63,6 +63,7 @@ export async function db(): Promise<Db> {
   cache.ready ??= Promise.all([
     database.collection("reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true }),
     database.collection("area_reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true }),
+    database.collection("burn_reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true }),
     database.collection("app_users").createIndex({ username: 1 }, { unique: true }),
   ]).then(() => undefined);
   try { await cache.ready; } catch (e) { cache.ready = undefined; throw e; }

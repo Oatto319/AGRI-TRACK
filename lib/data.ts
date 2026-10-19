@@ -40,6 +40,7 @@ export interface Report {
 export const TOPICS = [
   { key: "fert", label: "ปุ๋ยอินทรีย์" },
   { key: "area", label: "ไถกลบฟางข้าว" },
+  { key: "burn", label: "สร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผา" },
 ] as const;
 export type Topic = (typeof TOPICS)[number]["key"];
 export interface Schedule { id: string; topic: Topic; fy: number; dueDays: number[] } // fy = ปีงบประมาณ พ.ศ.
@@ -168,3 +169,19 @@ export const areaSeasonOf = (ym: string) => {
   return { start: `${s}-11`, end: `${s + 1}-06` };
 };
 export const nearestAreaMonth = (ym: string) => (isAreaMonth(ym) ? ym : areaSeasonOf(ym).end);
+
+// ---------- สร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผา (แบบฟอร์มแยกอีกหน้า ใช้รอบและกำหนดส่งตามหัวข้อ "burn" ที่จังหวัดตั้งค่า) ----------
+// อำเภอรายงานผลการดำเนินงานของเดือนนั้น (นับเป็นจำนวนเต็ม) รายงานได้ทุกเดือน · ระบบรวมทุกรอบเป็นยอดของเดือน และสะสมตามช่วงเดือนที่เลือก
+export const BURN_FIELDS = [
+  { key: "activities", label: "จำนวนกิจกรรมเรียนรู้/ประชาสัมพันธ์ที่จัด", unit: "ครั้ง" },
+  { key: "villages", label: "หมู่บ้าน/ชุมชนที่ดำเนินการ", unit: "หมู่บ้าน" },
+  { key: "participants", label: "ผู้เข้าร่วมกิจกรรม", unit: "ราย" },
+  { key: "media", label: "สื่อประชาสัมพันธ์ที่เผยแพร่ (ป้าย/โปสเตอร์/ออนไลน์/เสียงตามสาย)", unit: "ชิ้น" },
+] as const;
+export type BurnKey = (typeof BURN_FIELDS)[number]["key"];
+export interface BurnReport {
+  district: string; month: string; round: number;
+  values: Partial<Record<BurnKey, number>>;
+  reporter: Reporter; status: "draft" | "submitted"; updatedAt: string;
+  submittedAt?: string; dueDate?: string; late?: boolean;
+}

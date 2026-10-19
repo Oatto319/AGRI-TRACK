@@ -1,12 +1,13 @@
 "use client";
-import { AREA_TARGET_PCT, FIELDS, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type Report } from "@/lib/data";
-import { fmt, type aggregate, type aggregateArea } from "@/lib/summary";
+import { AREA_TARGET_PCT, BURN_FIELDS, FIELDS, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type Report } from "@/lib/data";
+import { fmt, type aggregate, type aggregateArea, type aggregateBurn } from "@/lib/summary";
 import { f2 } from "@/components/Entry";
 
 const f2fix = (v: number) => v.toLocaleString("th-TH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 type Agg = ReturnType<typeof aggregate>;
 type AreaAgg = ReturnType<typeof aggregateArea>;
+type BurnAgg = ReturnType<typeof aggregateBurn>;
 
 const Bar = ({ pct, color }: { pct: number; color?: string }) => (
   <div className="ux-bar"><i><u style={{ width: `${Math.max(0, Math.min(100, pct))}%`, background: color }} /></i><span>{Math.round(pct)}%</span></div>);
@@ -52,6 +53,19 @@ export function AreaTable({ a }: { a: AreaAgg }) {
           <td>{f2(r.straw)}</td><td>{f2(r.value)}</td><td>{f2(r.bales)}</td><td>{f2(r.baleValue)}</td><td>{r.lastMonth ? thaiMonth(r.lastMonth) : "–"}</td>
           <td>{r.late ? <span className="ux-pill bad">{r.late}</span> : "–"}</td></tr>))}</tbody>
       <tfoot><tr><td className="sticky" style={{ background: "#eaf3f6" }}>รวมทั้งจังหวัด</td><td>{f2(a.sums.total)}</td><td>{f2(a.sums.target)}</td>{a.months.map(m => <td key={m}>{f2fix(a.rows.reduce((x, r) => x + (r.byMonth[m] ?? 0), 0))}</td>)}<td>{f2(a.sums.accum)}</td><td>{f2(a.pct)}%</td><td>{f2(a.sums.straw)}</td><td>{f2(a.sums.value)}</td><td>{f2(a.sums.bales)}</td><td>{f2(a.sums.baleValue)}</td><td></td><td>{a.sums.late}</td></tr></tfoot></table></div>);
+}
+
+/** ตารางสร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผารายอำเภอ */
+export function BurnTable({ b }: { b: BurnAgg }) {
+  const n = b.months.length;
+  return (
+    <div className="ux-tw"><table className="ux-table"><thead><tr>
+      <th className="sticky">อำเภอ</th>{BURN_FIELDS.map(f => <th key={f.key}>{f.label} ({f.unit})</th>)}<th>เดือนที่ส่งครบ</th><th>ส่งช้า</th></tr></thead>
+      <tbody>{b.rows.map(r => (
+        <tr key={r.name}><td className="sticky">{r.name}</td>{BURN_FIELDS.map(f => <td key={f.key}>{r.any ? f2(r.sums[f.key]) : "–"}</td>)}
+          <td><span className={`ux-pill ${r.sent === n && n > 0 ? "ok" : r.sent ? "warn" : "bad"}`}>{r.sent}/{n}</span></td>
+          <td>{r.late ? <span className="ux-pill bad">{r.late}</span> : "–"}</td></tr>))}</tbody>
+      <tfoot><tr><td className="sticky" style={{ background: "#eaf3f6" }}>รวมทั้งจังหวัด</td>{BURN_FIELDS.map(f => <td key={f.key}>{f2(b.sums[f.key])}</td>)}<td></td><td>{b.late}</td></tr></tfoot></table></div>);
 }
 
 /** บันทึกการส่งรายงานปุ๋ย (ใครส่งเมื่อไร ตรงเวลาหรือไม่) */

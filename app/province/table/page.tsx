@@ -1,18 +1,19 @@
 "use client";
 import { useMemo, useState } from "react";
-import { AREA_TARGET_PCT, areaTotalsFor, fiscalYearOf, rangeLabel, thaiMonth } from "@/lib/data";
-import { aggregateArea, fmt } from "@/lib/summary";
+import { AREA_TARGET_PCT, BURN_FIELDS, areaTotalsFor, dueDaysFor, fiscalYearOf, rangeLabel, thaiMonth } from "@/lib/data";
+import { aggregateArea, aggregateBurn, fmt } from "@/lib/summary";
 import { I, PageHead, f2 } from "@/components/Entry";
-import { AreaTable, FertTable, KpiRow, SubmitLog } from "@/components/ProvinceTables";
+import { AreaTable, BurnTable, FertTable, KpiRow, SubmitLog } from "@/components/ProvinceTables";
 import { FiscalSelect, useProvince } from "@/components/Province";
 import PdfButton from "@/components/PdfButton";
 
-type Tab = "fert" | "area" | "log";
+type Tab = "fert" | "area" | "burn" | "log";
 
 export default function ProvinceTable() {
-  const { reports, area, error, from, to, valid, agg, settings } = useProvince();
+  const { reports, area, burn, error, from, to, valid, agg, settings } = useProvince();
   const [tab, setTab] = useState<Tab>("fert");
   const a = useMemo(() => (area && valid ? aggregateArea(area, to, areaTotalsFor(settings, to)) : null), [area, to, settings, valid]);
+  const b = useMemo(() => (burn && valid ? aggregateBurn(burn, from, to, dueDaysFor(settings, "burn", to).length) : null), [burn, from, to, settings, valid]);
   const rows = agg?.rows ?? [];
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((x, r) => x + f(r), 0);
   const total = sum(r => r.total), target = sum(r => r.target), sent = rows.filter(r => r.any).length;
@@ -34,6 +35,7 @@ export default function ProvinceTable() {
         <div className="ux-seg" role="group" aria-label="เลือกตาราง">
           <button aria-pressed={tab === "fert"} onClick={() => setTab("fert")}>ปุ๋ยอินทรีย์</button>
           <button aria-pressed={tab === "area"} onClick={() => setTab("area")}>พื้นที่และฟางข้าว</button>
+          <button aria-pressed={tab === "burn"} onClick={() => setTab("burn")}>การเรียนรู้/ประชาสัมพันธ์หยุดเผา</button>
           <button aria-pressed={tab === "log"} onClick={() => setTab("log")}>บันทึกการส่งรายงาน</button>
         </div>
 
@@ -60,6 +62,17 @@ export default function ProvinceTable() {
           <section className="ux-card"><h2>พื้นที่และฟางข้าว · {rangeLabel(from, to)} · ฤดูกาล {thaiMonth(a.season.start)} – {thaiMonth(a.season.end)} (ส่งแล้ว {a.rows.filter(r => r.any).length} จาก {a.rows.length} อำเภอ)</h2>
             <p className="ux-note">คอลัมน์รายเดือน = พื้นที่ไถกลบ (ไร่) ที่อำเภอรายงานในเดือนนั้น · พื้นที่สะสม = ผลรวมตั้งแต่ พ.ย. ถึง {thaiMonth(a.months[a.months.length - 1])} · ฟางข้าว = ไร่ × 500 กก. ÷ 1,000 · มูลค่า = ไร่ × 725 บาท · ฟางก้อน = ไร่ × 25 ก้อน · ราคาฟางก้อน = ก้อน × 35 บาท · แถบสี: เขียว = ครบพื้นที่ปลูกทั้งหมด ทอง = ยังไม่ครบ</p>
             <div style={{ marginTop: ".9rem" }}><AreaTable a={a} /></div></section>
+        </> : <p className="ux-empty">กำลังโหลด…</p>)}
+
+        {tab === "burn" && (b ? <>
+          <KpiRow items={[
+            { icon: I.alert, color: "#c2410c", label: BURN_FIELDS[0].label, value: f2(b.sums.activities), unit: BURN_FIELDS[0].unit },
+            { icon: I.box, color: "#1d5f73", label: BURN_FIELDS[1].label, value: f2(b.sums.villages), unit: BURN_FIELDS[1].unit },
+            { icon: I.user, color: "#059669", label: BURN_FIELDS[2].label, value: f2(b.sums.participants), unit: BURN_FIELDS[2].unit },
+            { icon: I.send, color: "#b08a2c", label: "สื่อประชาสัมพันธ์", value: f2(b.sums.media), unit: BURN_FIELDS[3].unit }]} />
+          <section className="ux-card"><h2>สร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผา · {rangeLabel(from, to)} (ส่งแล้ว {b.rows.filter(r => r.any).length} จาก {b.rows.length} อำเภอ)</h2>
+            <p className="ux-note">ตัวเลขคือผลรวมที่อำเภอรายงานตลอดช่วงที่เลือก (เฉพาะรายงานที่ส่งแล้ว) · เดือนที่ส่งครบ = ส่งครบทุกรอบที่จังหวัดกำหนด</p>
+            <div style={{ marginTop: ".9rem" }}><BurnTable b={b} /></div></section>
         </> : <p className="ux-empty">กำลังโหลด…</p>)}
 
         {tab === "log" && reports && <section className="ux-card"><h2>บันทึกการส่งรายงานปุ๋ย · {rangeLabel(from, to)}</h2>

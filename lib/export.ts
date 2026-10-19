@@ -1,6 +1,6 @@
 import ExcelJS from "exceljs";
-import { AREA_TARGET_PCT, BALES_PER_RAI, BALE_PRICE, FIELDS, rangeLabel, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type AreaReport, type Report } from "./data";
-import { aggregate, aggregateArea } from "./summary";
+import { AREA_TARGET_PCT, BALES_PER_RAI, BURN_FIELDS, BALE_PRICE, FIELDS, rangeLabel, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type AreaReport, type BurnReport, type Report } from "./data";
+import { aggregate, aggregateArea, aggregateBurn } from "./summary";
 
 type Agg = ReturnType<typeof aggregate>;
 
@@ -30,7 +30,7 @@ function buildSheet(workbook: ExcelJS.Workbook, name: string, a: Agg, subtitle: 
   worksheet.columns = head.map((_, i) => ({ width: i === 1 ? 16 : i >= 4 && i < 4 + nf ? 14 : 13 }));
 }
 
-export async function buildWorkbook(reports: Report[], from: string, to: string, rounds = 1, area: AreaReport[] = [], areaTotals: Record<string, number> = {}): Promise<Buffer> {
+export async function buildWorkbook(reports: Report[], from: string, to: string, rounds = 1, area: AreaReport[] = [], areaTotals: Record<string, number> = {}, burn: BurnReport[] = [], burnRounds = 1): Promise<Buffer> {
   const workbook = new ExcelJS.Workbook();
   const all = aggregate(reports, from, to, rounds);
   buildSheet(workbook, "สรุปสะสม", all, `${rangeLabel(from, to)} (${thaiMonth(from)} ถึง ${thaiMonth(to)})`, true);
@@ -54,5 +54,11 @@ export async function buildWorkbook(reports: Report[], from: string, to: string,
     ["ฟางข้าว (ตัน) = (ไร่สะสม × 500 กก.) ÷ 1,000 · มูลค่า (บาท) = ไร่สะสม × 725 บาท"],
     [`ฟางก้อน (ก้อน) = ไร่สะสม × ${BALES_PER_RAI} ก้อน · ราคาฟางก้อน (บาท) = จำนวนก้อน × ${BALE_PRICE} บาท`]]);
   aw.columns = [6, 16, 22, 26, ...ar.months.map(() => 14), 22, 26, 20, 20, 18, 20, 12].map(width => ({ width }));
+  const br = aggregateBurn(burn, from, to, burnRounds), bw = workbook.addWorksheet("การหยุดเผา");
+  bw.addRows([["สร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผา"], [`${rangeLabel(from, to)} (${thaiMonth(from)} ถึง ${thaiMonth(to)})`], [],
+    ["ที่", "อำเภอ", ...BURN_FIELDS.map(f => `${f.label} (${f.unit})`), "เดือนที่ส่งครบ", "ส่งช้า (ครั้ง)"],
+    ...br.rows.map((r, i) => [i + 1, r.name, ...BURN_FIELDS.map(f => r.sums[f.key]), `${r.sent}/${br.months.length}`, r.late]),
+    ["", "รวม", ...BURN_FIELDS.map(f => br.sums[f.key]), "", br.late]]);
+  bw.columns = [6, 16, ...BURN_FIELDS.map(() => 26), 16, 14].map(width => ({ width }));
   return Buffer.from(await workbook.xlsx.writeBuffer());
 }

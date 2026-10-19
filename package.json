@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "seed:users": "node --env-file=.env.local scripts/seed-users.mjs",
+    "import:area": "node --env-file=.env.local scripts/import-area-reports.mjs",
     "migrate:json": "node --env-file=.env.local scripts/migrate-json-to-mongo.mjs"
   },
   "dependencies": {

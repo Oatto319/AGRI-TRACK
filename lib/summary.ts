@@ -1,4 +1,4 @@
-import { DISTRICTS, FIELDS, TARGET_PER_TAMBON, areaPct, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, type AreaReport, type FieldKey, type Report } from "./data";
+import { BURN_FIELDS, DISTRICTS, FIELDS, TARGET_PER_TAMBON, areaPct, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, type AreaReport, type BurnKey, type BurnReport, type FieldKey, type Report } from "./data";
 
 export const fmt = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 export const sumValues = (v: Report["values"]) => FIELDS.reduce((a, f) => a + (v[f.key] ?? 0), 0);
@@ -48,4 +48,20 @@ export function aggregateArea(reports: AreaReport[], to: string, totals: Record<
   const s = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
   const sums = { total: s(r => r.total), assigned: rows.every(r => r.assigned), target: s(r => r.target), accum: s(r => r.accum), straw: s(r => r.straw), value: s(r => r.value), bales: s(r => r.bales), baleValue: s(r => r.baleValue), late: s(r => r.late) };
   return { rows, sums, season, months, pct: areaPct(sums.accum, sums.total), ofTarget: sums.target > 0 ? (sums.accum / sums.target) * 100 : 0 };
+}
+
+// สรุปงานสร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผา ช่วงเดือน from–to (เฉพาะรายงานที่ส่งแล้ว รวมทุกรอบ)
+// got[m] = จำนวนรอบที่ส่งแล้วของเดือน · sent = จำนวนเดือนที่ส่งครบทุกรอบ
+export function aggregateBurn(reports: BurnReport[], from: string, to: string, rounds = 1) {
+  const months = monthsBetween(from, to);
+  const sub = reports.filter(r => r.status === "submitted" && r.month >= from && r.month <= to);
+  const rows = DISTRICTS.map(d => {
+    const mine = sub.filter(r => r.district === d.name);
+    const sums = Object.fromEntries(BURN_FIELDS.map(f => [f.key, mine.reduce((a, r) => a + (r.values[f.key] ?? 0), 0)])) as Record<BurnKey, number>;
+    const got: Record<string, number> = {};
+    months.forEach(m => { got[m] = new Set(mine.filter(x => x.month === m && x.round <= rounds).map(x => x.round)).size; });
+    return { name: d.name, sums, got, sent: months.filter(m => got[m] >= rounds).length, any: mine.length, late: mine.filter(r => r.late).length };
+  });
+  const sums = Object.fromEntries(BURN_FIELDS.map(f => [f.key, rows.reduce((a, r) => a + r.sums[f.key], 0)])) as Record<BurnKey, number>;
+  return { months, rows, sums, rounds, late: rows.reduce((a, r) => a + r.late, 0) };
 }
