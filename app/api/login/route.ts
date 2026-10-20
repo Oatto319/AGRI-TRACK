@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyLogin } from "@/lib/users";
+import { SESSION_COOKIE, cookieOptions, makeToken } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
   let body: unknown;
@@ -16,5 +17,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `เซิร์ฟเวอร์เชื่อมฐานข้อมูลไม่ได้: ${detail}` }, { status: 500 });
   }
   if (!session) return NextResponse.json({ error: "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง" }, { status: 401 });
-  return NextResponse.json(session); // { role, district? } — อำเภอมาจากบัญชี ไม่ต้องเลือกเอง
+  let token;
+  try { token = makeToken(session); } catch (e) { console.error("[login]", e); return NextResponse.json({ error: e instanceof Error ? e.message : "สร้าง session ไม่ได้" }, { status: 500 }); }
+  const res = NextResponse.json(session); // { role, district? } — อำเภอมาจากบัญชี ไม่ต้องเลือกเอง
+  res.cookies.set(SESSION_COOKIE, token, cookieOptions); // สิทธิ์จริงอยู่ใน cookie นี้ (เซิร์ฟเวอร์ตรวจเองทุกครั้งที่แก้การตั้งค่า)
+  return res;
 }

@@ -1,13 +1,14 @@
 import ExcelJS from "exceljs";
-import { AREA_TARGET_PCT, BALES_PER_RAI, BURN_FIELDS, BALE_PRICE, FIELDS, rangeLabel, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type AreaReport, type BurnReport, type Report } from "./data";
+import { DEFAULT_CONFIG, lbx, rangeLabel, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type AppConfig, type AreaReport, type BurnReport, type Report } from "./data";
 import { aggregate, aggregateArea, aggregateBurn } from "./summary";
 
 type Agg = ReturnType<typeof aggregate>;
 
-function buildSheet(workbook: ExcelJS.Workbook, name: string, a: Agg, subtitle: string, withMonths: boolean) {
+function buildSheet(workbook: ExcelJS.Workbook, name: string, a: Agg, subtitle: string, withMonths: boolean, cfg: AppConfig) {
+  const FIELDS = cfg.fertFields, totalLabel = lbx(cfg, "t.total", "รวม (ตัน)");
   const nf = FIELDS.length, mc = withMonths ? a.months.length : 0;
-  const head = ["ที่", "อำเภอ", "จำนวนเกษตรตำบล (ราย)", "เป้าหมายการผลิต (ตัน)", ...FIELDS.map(f => `${f.label} (ตัน)`), "รวม (ตัน)",
-    ...(withMonths ? a.months.map(thaiMonth) : []), ...(withMonths ? ["รวม (ตัน)"] : [])];
+  const head = ["ที่", lbx(cfg, "t.district", "อำเภอ"), lbx(cfg, "t.tambon", "จำนวนเกษตรตำบล (ราย)"), lbx(cfg, "t.target", "เป้าหมายการผลิต (ตัน)"), ...FIELDS.map(f => `${f.label} (ตัน)`), totalLabel,
+    ...(withMonths ? a.months.map(thaiMonth) : []), ...(withMonths ? [totalLabel] : [])];
   const group = ["", "", "", "", ...FIELDS.map(f => f.group), "", ...Array(mc).fill(withMonths ? "ระยะเวลาดำเนินการ" : ""), ...(withMonths ? [""] : [])];
   const body = a.rows.map((r, i) => [i + 1, r.name, r.tambon, r.target, ...FIELDS.map(f => r.sums[f.key]), r.total,
     ...(withMonths ? a.months.map(m => r.byMonth[m] ?? "") : []), ...(withMonths ? [r.total] : [])]);
@@ -30,13 +31,14 @@ function buildSheet(workbook: ExcelJS.Workbook, name: string, a: Agg, subtitle: 
   worksheet.columns = head.map((_, i) => ({ width: i === 1 ? 16 : i >= 4 && i < 4 + nf ? 14 : 13 }));
 }
 
-export async function buildWorkbook(reports: Report[], from: string, to: string, rounds = 1, area: AreaReport[] = [], areaTotals: Record<string, number> = {}, burn: BurnReport[] = [], burnRounds = 1): Promise<Buffer> {
+export async function buildWorkbook(reports: Report[], from: string, to: string, rounds = 1, area: AreaReport[] = [], areaTotals: Record<string, number> = {}, burn: BurnReport[] = [], burnRounds = 1, cfg: AppConfig = DEFAULT_CONFIG): Promise<Buffer> {
+  const BURN_FIELDS = cfg.burnFields, K = cfg.area;
   const workbook = new ExcelJS.Workbook();
-  const all = aggregate(reports, from, to, rounds);
-  buildSheet(workbook, "สรุปสะสม", all, `${rangeLabel(from, to)} (${thaiMonth(from)} ถึง ${thaiMonth(to)})`, true);
+  const all = aggregate(reports, from, to, rounds, cfg);
+  buildSheet(workbook, "สรุปสะสม", all, `${rangeLabel(from, to)} (${thaiMonth(from)} ถึง ${thaiMonth(to)})`, true, cfg);
   for (const m of all.months) {
-    const one = aggregate(reports, m, m, rounds);
-    buildSheet(workbook, thaiMonth(m), one, `ประจำเดือน ${thaiMonth(m)}`, false);
+    const one = aggregate(reports, m, m, rounds, cfg);
+    buildSheet(workbook, thaiMonth(m), one, `ประจำเดือน ${thaiMonth(m)}`, false, cfg);
   }
   const log = reports.filter(r => r.status === "submitted" && r.month >= from && r.month <= to)
     .sort((a, b) => (a.submittedAt ?? "").localeCompare(b.submittedAt ?? ""));
@@ -45,18 +47,18 @@ export async function buildWorkbook(reports: Report[], from: string, to: string,
     ...log.map(r => [r.district, thaiMonth(r.month), r.round, r.dueDate ? thaiDate(r.dueDate) : "", r.submittedAt ? thaiDateTime(r.submittedAt) : "",
       !r.submittedAt ? "ไม่มีบันทึกวันที่ส่ง" : r.late ? "ส่งช้า" : "ตรงเวลา", r.reporter.name, r.reporter.position, r.reporter.phone])]);
   ws.columns = [16, 16, 8, 14, 22, 10, 20, 20, 14].map(width => ({ width }));
-  const ar = aggregateArea(area, to, areaTotals), aw = workbook.addWorksheet("พื้นที่และฟางข้าว");
+  const ar = aggregateArea(area, to, areaTotals, K), aw = workbook.addWorksheet("พื้นที่และฟางข้าว");
   aw.addRows([["ข้อมูลพื้นที่และฟางข้าว"], [`${rangeLabel(from, to)} · ฤดูกาล ${thaiMonth(ar.season.start)} ถึง ${thaiMonth(ar.season.end)} (สะสมถึง ${thaiMonth(ar.months[ar.months.length - 1])})`], [],
-    ["ที่", "อำเภอ", "พื้นที่ปลูกพืชทั้งหมด (ไร่)", `เป้าหมายร้อยละ ${AREA_TARGET_PCT} ของพื้นที่ (ไร่)`, ...ar.months.map(m => `${thaiMonthShort(m)} (ไร่)`), "พื้นที่สะสมทั้งหมด (ไร่)", "คิดเป็นร้อยละของพื้นที่ทั้งหมด (%)", "ปริมาณฟางข้าว (ตัน)", "คิดเป็นมูลค่า (บาท)", "ฟางก้อน (ก้อน)", "ราคาฟางก้อน (บาท)", "ส่งช้า (ครั้ง)"],
+    ["ที่", lbx(cfg, "t.district", "อำเภอ"), lbx(cfg, "a.total", "พื้นที่ปลูกพืชทั้งหมด (ไร่)"), lbx(cfg, "a.target", `เป้าหมายร้อยละ ${K.targetPct} ของพื้นที่ (ไร่)`, { pct: K.targetPct }), ...ar.months.map(m => lbx(cfg, "a.month", `${thaiMonthShort(m)} (ไร่)`, { m: thaiMonthShort(m) })), lbx(cfg, "a.accum", "พื้นที่สะสมทั้งหมด (ไร่)"), lbx(cfg, "a.pct", "คิดเป็นร้อยละของพื้นที่ทั้งหมด (%)"), lbx(cfg, "a.straw", "ปริมาณฟางข้าว (ตัน)"), lbx(cfg, "a.value", "คิดเป็นมูลค่า (บาท)"), lbx(cfg, "a.bales", "ฟางก้อน (ก้อน)"), lbx(cfg, "a.baleValue", "ราคาฟางก้อน (บาท)"), lbx(cfg, "t.late", "ส่งช้า (ครั้ง)")],
     ...ar.rows.map((r, i) => [i + 1, r.name, r.total, r.target, ...ar.months.map(m => r.byMonth[m] ?? 0), r.accum, Number(r.pct.toFixed(2)), r.straw, r.value, r.bales, r.baleValue, r.late]),
     ["", "รวม", ar.sums.total, ar.sums.target, ...ar.months.map(m => ar.rows.reduce((x, r) => x + (r.byMonth[m] ?? 0), 0)), ar.sums.accum, Number(ar.pct.toFixed(2)), ar.sums.straw, ar.sums.value, ar.sums.bales, ar.sums.baleValue, ar.sums.late], [],
     ["หมายเหตุ: พื้นที่ปลูกพืชทั้งหมดจังหวัดเป็นผู้กำหนด · พื้นที่สะสม = ผลรวมพื้นที่ที่อำเภอรายงานรายเดือนช่วงพฤศจิกายน–มิถุนายนของฤดูกาล"],
-    ["ฟางข้าว (ตัน) = (ไร่สะสม × 500 กก.) ÷ 1,000 · มูลค่า (บาท) = ไร่สะสม × 725 บาท"],
-    [`ฟางก้อน (ก้อน) = ไร่สะสม × ${BALES_PER_RAI} ก้อน · ราคาฟางก้อน (บาท) = จำนวนก้อน × ${BALE_PRICE} บาท`]]);
+    [`ฟางข้าว (ตัน) = (ไร่สะสม × ${K.strawKgPerRai} กก.) ÷ 1,000 · มูลค่า (บาท) = ไร่สะสม × ${K.strawValuePerRai} บาท`],
+    [`ฟางก้อน (ก้อน) = ไร่สะสม × ${K.balesPerRai} ก้อน · ราคาฟางก้อน (บาท) = จำนวนก้อน × ${K.balePrice} บาท`]]);
   aw.columns = [6, 16, 22, 26, ...ar.months.map(() => 14), 22, 26, 20, 20, 18, 20, 12].map(width => ({ width }));
-  const br = aggregateBurn(burn, from, to, burnRounds), bw = workbook.addWorksheet("การหยุดเผา");
+  const br = aggregateBurn(burn, from, to, burnRounds, cfg), bw = workbook.addWorksheet("การหยุดเผา");
   bw.addRows([["สร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผา"], [`${rangeLabel(from, to)} (${thaiMonth(from)} ถึง ${thaiMonth(to)})`], [],
-    ["ที่", "อำเภอ", ...BURN_FIELDS.map(f => `${f.label} (${f.unit})`), "เดือนที่ส่งครบ", "ส่งช้า (ครั้ง)"],
+    ["ที่", lbx(cfg, "t.district", "อำเภอ"), ...BURN_FIELDS.map(f => `${f.label} (${f.unit})`), lbx(cfg, "b.sent", "เดือนที่ส่งครบ"), lbx(cfg, "b.late", "ส่งช้า (ครั้ง)")],
     ...br.rows.map((r, i) => [i + 1, r.name, ...BURN_FIELDS.map(f => r.sums[f.key]), `${r.sent}/${br.months.length}`, r.late]),
     ["", "รวม", ...BURN_FIELDS.map(f => br.sums[f.key]), "", br.late]]);
   bw.columns = [6, 16, ...BURN_FIELDS.map(() => 26), 16, 14].map(width => ({ width }));

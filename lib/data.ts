@@ -13,7 +13,8 @@ export const DISTRICTS = [
 ];
 
 // ช่องที่อำเภอกรอกในแต่ละเดือน (หน่วย: ตัน) — ตรงกับคอลัมน์ในไฟล์ Excel
-export const FIELDS = [
+export interface FieldDef { key: string; label: string; group: string }
+export const FIELDS: FieldDef[] = [
   { key: "manure", label: "ปุ๋ยคอก", group: "ปุ๋ยอินทรีย์" },
   { key: "compost", label: "ปุ๋ยหมัก", group: "ปุ๋ยอินทรีย์" },
   { key: "crotalaria", label: "ปอเทือง", group: "ปุ๋ยพืชสด" },
@@ -22,8 +23,8 @@ export const FIELDS = [
   { key: "mungbean", label: "ถั่วเขียว", group: "ปุ๋ยพืชสด" },
   { key: "othergm", label: "อื่นๆ", group: "ปุ๋ยพืชสด" },
   { key: "biomass", label: "วัตถุดิบผลิตน้ำหมักชีวภาพ", group: "วัสดุอินทรีย์" },
-] as const;
-export type FieldKey = (typeof FIELDS)[number]["key"];
+];
+export type FieldKey = string; // คีย์ช่องปุ๋ยจังหวัดเพิ่ม/ลดได้เอง (ดู AppConfig)
 
 export interface Reporter { name: string; position: string; phone: string }
 export interface Report {
@@ -46,8 +47,7 @@ export type Topic = (typeof TOPICS)[number]["key"];
 export interface Schedule { id: string; topic: Topic; fy: number; dueDays: number[] } // fy = ปีงบประมาณ พ.ศ.
 // พื้นที่ปลูกพืชทั้งหมดรายอำเภอ แยกตามปีงบประมาณ (areaTotals เดิมใช้เป็นค่าสำรองสำหรับปีที่ยังไม่มีรายการ)
 export interface AreaSet { id: string; fy: number; totals: Record<string, number> }
-export interface Settings { dueDays: number[]; areaTotals: Record<string, number>; schedules: Schedule[]; areaSets: AreaSet[] }
-export const DEFAULT_SETTINGS: Settings = { dueDays: [31], areaTotals: {}, schedules: [], areaSets: [] };
+export interface Settings { dueDays: number[]; areaTotals: Record<string, number>; schedules: Schedule[]; areaSets: AreaSet[]; config: AppConfig }
 export const MAX_ROUNDS = 4;
 export function validateDueDays(d: unknown): string | null {
   if (!Array.isArray(d) || d.length < 1 || d.length > MAX_ROUNDS) return `จำนวนครั้งต่อเดือนต้องอยู่ระหว่าง 1–${MAX_ROUNDS}`;
@@ -156,12 +156,14 @@ export interface AreaReport {
 }
 // พื้นที่ปลูกพืชทั้งหมดที่ใช้คำนวณ: ถ้าจังหวัดกำหนดไว้ (>0) ใช้ค่านั้น · ถ้ายังไม่กำหนด ใช้พื้นที่สะสมทั้งหมดแทน เพื่อให้เป้าหมายและร้อยละแสดงผลได้
 export const effectiveTotal = (set: number | undefined, accum: number) => (set && set > 0 ? set : accum);
-export const areaTarget = (total: number) => (total * AREA_TARGET_PCT) / 100;
+export interface AreaConst { targetPct: number; strawKgPerRai: number; strawValuePerRai: number; balesPerRai: number; balePrice: number }
+export const DEFAULT_AREA_CONST: AreaConst = { targetPct: AREA_TARGET_PCT, strawKgPerRai: STRAW_KG_PER_RAI, strawValuePerRai: STRAW_VALUE_PER_RAI, balesPerRai: BALES_PER_RAI, balePrice: BALE_PRICE };
+export const areaTarget = (total: number, k: AreaConst = DEFAULT_AREA_CONST) => (total * k.targetPct) / 100;
 export const areaPct = (accum: number, total: number) => (total > 0 ? Math.min(100, (accum / total) * 100) : 0); // สะสม ÷ พื้นที่ปลูกทั้งหมด × 100 (ไม่เกิน 100%)
-export const strawTons = (rai: number) => (rai * STRAW_KG_PER_RAI) / 1000; // (ไร่ × 500) ÷ 1000 = ตัน
-export const strawValue = (rai: number) => rai * STRAW_VALUE_PER_RAI; // ไร่ × 725 บาท
-export const strawBales = (rai: number) => rai * BALES_PER_RAI; // ฟางก้อน (ก้อน) = ไร่ × 25
-export const baleValue = (rai: number) => strawBales(rai) * BALE_PRICE; // ราคาฟางก้อน (บาท) = จำนวนก้อน × 35
+export const strawTons = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => (rai * k.strawKgPerRai) / 1000; // (ไร่ × 500) ÷ 1000 = ตัน
+export const strawValue = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => rai * k.strawValuePerRai; // ไร่ × 725 บาท
+export const strawBales = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => rai * k.balesPerRai; // ฟางก้อน (ก้อน) = ไร่ × 25
+export const baleValue = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => strawBales(rai, k) * k.balePrice; // ราคาฟางก้อน (บาท) = จำนวนก้อน × 35
 export const isAreaMonth = (ym: string) => { const m = Number(ym.slice(5, 7)); return m >= 11 || m <= 6; };
 // ฤดูกาลของเดือนนั้น: พ.ย. ปีหนึ่ง – มิ.ย. ปีถัดไป (เดือน ก.ค.–ต.ค. ให้ถือเป็นฤดูกาลที่เพิ่งจบ)
 export const areaSeasonOf = (ym: string) => {
@@ -172,16 +174,128 @@ export const nearestAreaMonth = (ym: string) => (isAreaMonth(ym) ? ym : areaSeas
 
 // ---------- สร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผา (แบบฟอร์มแยกอีกหน้า ใช้รอบและกำหนดส่งตามหัวข้อ "burn" ที่จังหวัดตั้งค่า) ----------
 // อำเภอรายงานผลการดำเนินงานของเดือนนั้น (นับเป็นจำนวนเต็ม) รายงานได้ทุกเดือน · ระบบรวมทุกรอบเป็นยอดของเดือน และสะสมตามช่วงเดือนที่เลือก
-export const BURN_FIELDS = [
+export interface BurnFieldDef { key: string; label: string; unit: string }
+export const BURN_FIELDS: BurnFieldDef[] = [
   { key: "activities", label: "จำนวนกิจกรรมเรียนรู้/ประชาสัมพันธ์ที่จัด", unit: "ครั้ง" },
   { key: "villages", label: "หมู่บ้าน/ชุมชนที่ดำเนินการ", unit: "หมู่บ้าน" },
   { key: "participants", label: "ผู้เข้าร่วมกิจกรรม", unit: "ราย" },
   { key: "media", label: "สื่อประชาสัมพันธ์ที่เผยแพร่ (ป้าย/โปสเตอร์/ออนไลน์/เสียงตามสาย)", unit: "ชิ้น" },
-] as const;
-export type BurnKey = (typeof BURN_FIELDS)[number]["key"];
+];
+export type BurnKey = string; // คีย์ช่องหยุดเผาจังหวัดเพิ่ม/ลดได้เอง (ดู AppConfig)
 export interface BurnReport {
   district: string; month: string; round: number;
   values: Partial<Record<BurnKey, number>>;
   reporter: Reporter; status: "draft" | "submitted"; updatedAt: string;
   submittedAt?: string; dueDate?: string; late?: boolean;
 }
+
+// ---------- ค่าที่จังหวัดแก้ไขเองได้ในหน้า "ตั้งค่าหัวข้อและรายการ" (ไม่ต้องแก้โค้ด) ----------
+// เก็บใน Settings.config (MongoDB) · ถ้ายังไม่เคยตั้งค่า ใช้ค่าเริ่มต้นด้านล่างซึ่งตรงกับค่าเดิมของระบบทุกประการ
+// หมายเหตุ: ลบช่องออกจากรายการ = ซ่อนจากแบบฟอร์ม/ตาราง/Excel ข้อมูลที่อำเภอเคยกรอกยังอยู่ในฐานข้อมูล
+export interface AppConfig {
+  fiscalYears: number[];              // ปีงบประมาณ (พ.ศ.) ที่จังหวัดเพิ่มเอง — แสดงในตัวเลือกปีงบประมาณทุกหน้า
+  targetPerTambon: number;            // เป้าหมายปุ๋ย (ตัน) ต่อเกษตรตำบล 1 ราย
+  fertFields: FieldDef[];             // ช่องปุ๋ยอินทรีย์ / ปุ๋ยพืชสด / วัสดุอินทรีย์ (เพิ่ม ลบ เปลี่ยนชื่อ จัดกลุ่ม)
+  burnFields: BurnFieldDef[];         // ช่องรายงานการหยุดเผา
+  area: AreaConst;                    // ตัวคูณไถกลบฟางข้าว / ฟางก้อน
+  topics: Partial<Record<Topic, string>>; // ชื่อหัวข้อที่ต้องรายงาน (แทนชื่อเริ่มต้นใน TOPICS)
+  labels: Record<string, string>;     // หัวข้อตาราง/ข้อความที่แก้ไขได้ (คีย์ตาม LABEL_DEFS)
+}
+
+// หัวข้อตารางและข้อความที่แก้ไขได้ — {pct} จะถูกแทนด้วยร้อยละเป้าหมาย, {m} ด้วยชื่อเดือน
+export const LABEL_DEFS: { key: string; text: string; group: string }[] = [
+  { key: "tab.fert", text: "ปุ๋ยอินทรีย์", group: "ชื่อแท็บในหน้าตารางจังหวัด" },
+  { key: "tab.area", text: "พื้นที่และฟางข้าว", group: "ชื่อแท็บในหน้าตารางจังหวัด" },
+  { key: "tab.burn", text: "การเรียนรู้/ประชาสัมพันธ์หยุดเผา", group: "ชื่อแท็บในหน้าตารางจังหวัด" },
+  { key: "tab.log", text: "บันทึกการส่งรายงาน", group: "ชื่อแท็บในหน้าตารางจังหวัด" },
+  { key: "sec.fert", text: "ปุ๋ยอินทรีย์และวัสดุอินทรีย์", group: "ชื่อหัวข้อของแต่ละตาราง" },
+  { key: "sec.area", text: "พื้นที่และฟางข้าว", group: "ชื่อหัวข้อของแต่ละตาราง" },
+  { key: "sec.burn", text: "สร้างการเรียนรู้/ประชาสัมพันธ์เรื่องการหยุดเผา", group: "ชื่อหัวข้อของแต่ละตาราง" },
+  { key: "t.district", text: "อำเภอ", group: "ตารางปุ๋ยอินทรีย์" },
+  { key: "t.tambon", text: "เกษตรตำบล", group: "ตารางปุ๋ยอินทรีย์" },
+  { key: "t.target", text: "เป้าหมาย (ตัน)", group: "ตารางปุ๋ยอินทรีย์" },
+  { key: "t.total", text: "รวม (ตัน)", group: "ตารางปุ๋ยอินทรีย์" },
+  { key: "t.reach", text: "ถึงเป้าหมาย", group: "ตารางปุ๋ยอินทรีย์" },
+  { key: "t.sent", text: "เดือนที่ส่งครบ", group: "ตารางปุ๋ยอินทรีย์" },
+  { key: "t.late", text: "ส่งช้า", group: "ตารางปุ๋ยอินทรีย์" },
+  { key: "t.sumRow", text: "รวมทั้งจังหวัด", group: "ตารางปุ๋ยอินทรีย์" },
+  { key: "a.field", text: "พื้นที่ไถกลบฟางข้าวในเดือนนี้", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.total", text: "พื้นที่ปลูกพืชทั้งหมด (ไร่)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.target", text: "เป้าหมายร้อยละ {pct} (ไร่)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.month", text: "{m} (ไร่)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.accum", text: "พื้นที่สะสม (ไร่)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.pct", text: "คิดเป็นของพื้นที่ปลูกทั้งหมด (100%)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.straw", text: "ฟางข้าว (ตัน)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.value", text: "มูลค่า (บาท)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.bales", text: "ฟางก้อน (ก้อน)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.baleValue", text: "ราคาฟางก้อน (บาท)", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "a.last", text: "รายงานล่าสุด", group: "ตารางพื้นที่และฟางข้าว" },
+  { key: "b.sent", text: "เดือนที่ส่งครบ", group: "ตารางการหยุดเผา" },
+  { key: "b.late", text: "ส่งช้า", group: "ตารางการหยุดเผา" },
+  { key: "l.month", text: "เดือน", group: "ตารางบันทึกการส่ง" },
+  { key: "l.round", text: "รอบ", group: "ตารางบันทึกการส่ง" },
+  { key: "l.due", text: "กำหนดส่ง", group: "ตารางบันทึกการส่ง" },
+  { key: "l.sentAt", text: "ส่งเมื่อ", group: "ตารางบันทึกการส่ง" },
+  { key: "l.status", text: "สถานะ", group: "ตารางบันทึกการส่ง" },
+];
+export const DEFAULT_LABELS: Record<string, string> = Object.fromEntries(LABEL_DEFS.map(l => [l.key, l.text]));
+
+export const DEFAULT_CONFIG: AppConfig = {
+  fiscalYears: [], targetPerTambon: TARGET_PER_TAMBON, fertFields: FIELDS, burnFields: BURN_FIELDS,
+  area: DEFAULT_AREA_CONST, topics: {}, labels: {},
+};
+export const DEFAULT_SETTINGS: Settings = { dueDays: [31], areaTotals: {}, schedules: [], areaSets: [], config: DEFAULT_CONFIG };
+
+/** ค่าตั้งค่าที่ใช้งานจริง: ส่วนที่จังหวัดไม่เคยตั้ง ใช้ค่าเริ่มต้น (รองรับข้อมูลเก่าที่ยังไม่มี config) */
+export const cfgOf = (s: Settings | undefined | null): AppConfig => ({ ...DEFAULT_CONFIG, ...(s?.config ?? {}) });
+/** ข้อความหัวข้อที่แก้ไขได้ · vars แทนค่า {pct} {m} */
+export const lb = (cfg: AppConfig, key: string, vars?: Record<string, string | number>) => {
+  let t = cfg.labels[key]?.trim() || DEFAULT_LABELS[key] || key;
+  if (vars) for (const [k, v] of Object.entries(vars)) t = t.split(`{${k}}`).join(String(v));
+  return t;
+};
+export const topicLabelOf = (cfg: AppConfig, t: Topic) => cfg.topics[t]?.trim() || TOPICS.find(x => x.key === t)?.label || t;
+/** ปีงบประมาณที่แสดงให้เลือก: ปีที่จังหวัดเพิ่ม + ปีที่มีข้อมูล/ปีปัจจุบัน (extra) — ล่าสุดอยู่บนสุด ไม่มีช่องว่างตกหล่น */
+export const fiscalYearOptions = (cfg: AppConfig, extra: number[]) => Array.from(new Set([...cfg.fiscalYears, ...extra.filter(Boolean)])).sort((a, b) => b - a);
+
+const KEY_RE = /^[a-zA-Z][a-zA-Z0-9_]{0,39}$/;
+const isRec = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+const okText = (x: unknown, max: number): x is string => typeof x === "string" && x.trim().length > 0 && x.length <= max;
+const okNum = (x: unknown, min: number, max: number): x is number => typeof x === "number" && Number.isFinite(x) && x >= min && x <= max;
+
+export function validateConfig(c: unknown): string | null {
+  if (!isRec(c)) return "ข้อมูลการตั้งค่าไม่ถูกต้อง";
+  if (!Array.isArray(c.fiscalYears) || c.fiscalYears.length > 30 || !c.fiscalYears.every(y => Number.isInteger(y) && y >= 2500 && y <= 2700)) return "ปีงบประมาณต้องเป็นปี พ.ศ. 2500–2700";
+  if (new Set(c.fiscalYears).size !== c.fiscalYears.length) return "มีปีงบประมาณซ้ำกัน";
+  if (!okNum(c.targetPerTambon, 0, 1e6)) return "เป้าหมายต่อเกษตรตำบลต้องเป็นตัวเลขที่ไม่ติดลบ";
+  if (!Array.isArray(c.fertFields) || c.fertFields.length < 1 || c.fertFields.length > 30) return "ต้องมีช่องปุ๋ยอย่างน้อย 1 ช่อง (ไม่เกิน 30 ช่อง)";
+  const fk = new Set<string>();
+  for (const f of c.fertFields) {
+    if (!isRec(f) || !KEY_RE.test(String(f.key))) return "รหัสช่องปุ๋ยไม่ถูกต้อง";
+    if (!okText(f.label, 80)) return "ชื่อช่องปุ๋ยต้องไม่ว่าง (ไม่เกิน 80 ตัวอักษร)";
+    if (!okText(f.group, 60)) return `กรุณาระบุกลุ่มของ “${String(f.label)}” (ไม่เกิน 60 ตัวอักษร)`;
+    if (fk.has(String(f.key))) return "รหัสช่องปุ๋ยซ้ำกัน";
+    fk.add(String(f.key));
+  }
+  if (!Array.isArray(c.burnFields) || c.burnFields.length < 1 || c.burnFields.length > 20) return "ต้องมีช่องรายงานการหยุดเผาอย่างน้อย 1 ช่อง (ไม่เกิน 20 ช่อง)";
+  const bk = new Set<string>();
+  for (const f of c.burnFields) {
+    if (!isRec(f) || !KEY_RE.test(String(f.key))) return "รหัสช่องหยุดเผาไม่ถูกต้อง";
+    if (!okText(f.label, 120)) return "ชื่อช่องหยุดเผาต้องไม่ว่าง (ไม่เกิน 120 ตัวอักษร)";
+    if (!okText(f.unit, 30)) return `กรุณาระบุหน่วยของ “${String(f.label)}”`;
+    if (bk.has(String(f.key))) return "รหัสช่องหยุดเผาซ้ำกัน";
+    bk.add(String(f.key));
+  }
+  if (!isRec(c.area)) return "ข้อมูลตัวคูณไถกลบฟางข้าวไม่ถูกต้อง";
+  if (!okNum(c.area.targetPct, 0, 100)) return "เป้าหมายร้อยละต้องอยู่ระหว่าง 0–100";
+  for (const [k, name] of [["strawKgPerRai", "น้ำหนักฟางข้าวต่อไร่"], ["strawValuePerRai", "มูลค่าต่อไร่"], ["balesPerRai", "จำนวนฟางก้อนต่อไร่"], ["balePrice", "ราคาฟางก้อน"]] as const)
+    if (!okNum(c.area[k], 0, 1e7)) return `${name}ต้องเป็นตัวเลขที่ไม่ติดลบ`;
+  if (!isRec(c.topics)) return "ข้อมูลชื่อหัวข้อไม่ถูกต้อง";
+  for (const [k, v] of Object.entries(c.topics)) if (!TOPICS.some(t => t.key === k) || !okText(v, 100)) return "ชื่อหัวข้อที่ต้องรายงานไม่ถูกต้อง (ไม่เกิน 100 ตัวอักษร)";
+  if (!isRec(c.labels)) return "ข้อมูลหัวข้อตารางไม่ถูกต้อง";
+  for (const [k, v] of Object.entries(c.labels)) if (!(k in DEFAULT_LABELS) || typeof v !== "string" || v.length > 150) return "หัวข้อตารางไม่ถูกต้อง (ไม่เกิน 150 ตัวอักษร)";
+  return null;
+}
+/** เหมือน lb แต่ถ้าจังหวัดยังไม่ได้แก้ข้อความนี้ ให้ใช้ข้อความ fallback (ใช้กับ Excel เพื่อคงหัวคอลัมน์เดิม) */
+export const lbx = (cfg: AppConfig, key: string, fallback: string, vars?: Record<string, string | number>) =>
+  cfg.labels[key]?.trim() ? lb(cfg, key, vars) : fallback;

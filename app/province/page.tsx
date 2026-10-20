@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo } from "react";
-import { AREA_TARGET_PCT, FIELDS, areaTotalsFor, fiscalYearOf, thaiMonth } from "@/lib/data";
+import { areaTotalsFor, cfgOf, fiscalYearOf, thaiMonth } from "@/lib/data";
 import { aggregateArea, fmt } from "@/lib/summary";
 import { AreaCombo, AreaHBars, BarChart, Icons, PV_COLORS, RankBoard, Ring, Sparkline, StatusBar, TypeDonut, cumulate } from "@/components/ProvinceCharts";
 import { FilterBar, useProvince } from "@/components/Province";
@@ -16,6 +16,7 @@ const monthLabel = (ym: string, multiYear: boolean) => {
 
 export default function ProvinceDashboard() {
   const { reports, area, error, from, to, valid, agg, settings } = useProvince();
+  const cfg = useMemo(() => cfgOf(settings), [settings]), FIELDS = cfg.fertFields, AREA_TARGET_PCT = cfg.area.targetPct;
 
   const rows = agg?.rows ?? [];
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
@@ -27,7 +28,7 @@ export default function ProvinceDashboard() {
   const reachedPct = rows.length ? Math.round((reachedF / rows.length) * 100) : 0;
   const pct = target ? Math.min(100, Math.round((total / target) * 100)) : 0;
 
-  const ar = useMemo(() => (area && valid ? aggregateArea(area, to, areaTotalsFor(settings, to)) : null), [area, to, settings, valid]);
+  const ar = useMemo(() => (area && valid ? aggregateArea(area, to, areaTotalsFor(settings, to), cfg.area) : null), [area, to, settings, valid, cfg]);
 
   // กราฟข้อมูลไถกลบและต่อซังข้าว: พื้นที่รายเดือน + สะสม (ทั้งจังหวัด) และเทียบรายอำเภอ
   const areaSeries = cumulate(ar?.months ?? [], (ar?.months ?? []).map(m => (ar?.rows ?? []).reduce((a, r) => a + (r.byMonth[m] ?? 0), 0)));
@@ -100,7 +101,7 @@ export default function ProvinceDashboard() {
             <div className="pv-col">
               <section className="pv-card">
                 <h2>สัดส่วนตามชนิด</h2>
-                <TypeDonut unit="ตัน" parts={FIELDS.map((f, i) => ({ label: f.label, value: sum(r => r.sums[f.key]), color: PV_COLORS[i] }))} />
+                <TypeDonut unit="ตัน" parts={FIELDS.map((f, i) => ({ label: f.label, value: sum(r => r.sums[f.key]), color: PV_COLORS[i % PV_COLORS.length] }))} />
               </section>
               <section className="pv-card">
                 <h2>ผลผลิตรายเดือน</h2>

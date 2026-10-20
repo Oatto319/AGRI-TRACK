@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, DISTRICTS, FIELDS, MAX_ROUNDS, TARGET_PER_TAMBON, bkkDate, currentMonth, dueDateOf, dueDaysFor, thaiDate, thaiDateTime, thaiMonth, type Report, type Reporter, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, DISTRICTS, MAX_ROUNDS, bkkDate, cfgOf, currentMonth, dueDateOf, dueDaysFor, thaiDate, thaiDateTime, thaiMonth, type Report, type Reporter, type Settings } from "@/lib/data";
 import { fmt, sumValues } from "@/lib/summary";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
@@ -16,6 +16,7 @@ export default function DistrictReport() {
   const [today, setToday] = useState(""); // วันที่ปัจจุบัน (เวลาไทย) อ่านหลัง mount เท่านั้น
   const [round, setRound] = useState(1);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const cfg = cfgOf(settings), FIELDS = cfg.fertFields; // ช่องที่จังหวัดตั้งไว้ (เพิ่ม/ลบ/เปลี่ยนชื่อได้)
   const [all, setAll] = useState<Report[]>([]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
@@ -82,6 +83,7 @@ export default function DistrictReport() {
     "ปุ๋ยพืชสด": { icon: I.sprout, c: "#1f7a85", l: "#eaf5f7" },
     "วัสดุอินทรีย์": { icon: I.box, c: "#b08a2c", l: "#fbf5e3" },
   };
+  const EXTRA_GROUPS = [{ icon: I.box, c: "#7a5ea8", l: "#f3eefb" }, { icon: I.leaf, c: "#c2410c", l: "#fdf0e8" }, { icon: I.sprout, c: "#1d5f73", l: "#e8f1f5" }]; // กลุ่มใหม่ที่จังหวัดเพิ่ม
   const groups = Array.from(new Set(FIELDS.map(f => f.group)));
   const filled = FIELDS.filter(f => vals[f.key] !== undefined && vals[f.key] !== "").length;
   const phoneOk = /^[0-9\- ]{9,12}$/.test(rep.phone);
@@ -95,7 +97,7 @@ export default function DistrictReport() {
 
   return (<>
     <PageHead title="กรอกรายงานปุ๋ยอินทรีย์รายเดือน" sub={`อำเภอ${district} · กรอกปริมาณที่ผลิตหรือส่งเสริมในเดือนที่เลือก ทำตามขั้นตอน 1 → 3 แล้วกด “ส่งรายงาน”`}
-      chips={[{ label: "เกษตรตำบล", value: `${info.tambon} ราย` }, { label: "เป้าหมาย", value: `${fmt(info.tambon * TARGET_PER_TAMBON)} ตัน` }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
+      chips={[{ label: "เกษตรตำบล", value: `${info.tambon} ราย` }, { label: "เป้าหมาย", value: `${fmt(info.tambon * cfg.targetPerTambon)} ตัน` }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
     <div className="ux-split">
       <div className="ux-stack">
         <Step n={1} title="เลือกเดือนที่รายงาน" hint="ระบบเลือกเดือนปัจจุบันให้แล้ว เปลี่ยนได้ถ้าต้องการกรอกย้อนหลัง" done={!!month}>
@@ -106,7 +108,7 @@ export default function DistrictReport() {
         </Step>
 
         <Step n={2} title="กรอกปริมาณ (หน่วย: ตัน)" hint={`ต้องกรอกครบทุกช่อง ถ้าเดือนนี้ไม่มีให้ใส่ 0${rounds > 1 ? " · กรอกเฉพาะปริมาณของรอบนี้" : ""}`} done={filled === FIELDS.length}>
-          {groups.map(g => { const gf = FIELDS.filter(f => f.group === g), sum = gf.reduce((a, f) => a + (Number(vals[f.key]) || 0), 0), st = GROUP[g];
+          {groups.map((g, gi) => { const gf = FIELDS.filter(f => f.group === g), sum = gf.reduce((a, f) => a + (Number(vals[f.key]) || 0), 0), st = GROUP[g] ?? EXTRA_GROUPS[gi % EXTRA_GROUPS.length];
             return (
               <div className="ux-grp" key={g} style={{ ["--gc" as string]: st?.c, ["--gc-l" as string]: st?.l }}>
                 <header><i>{st?.icon}</i><b>{g}</b><span>รวม {fmt(sum)} ตัน</span></header>
@@ -126,7 +128,7 @@ export default function DistrictReport() {
       <aside className="ux-side" aria-label="สรุปและส่งรายงาน">
         <div className="ux-sum">
           <small>รวม{rounds > 1 ? "รอบนี้" : "เดือนนี้"}</small>
-          <div className="big">{fmt(sumValues(live))} <span>ตัน</span></div>
+          <div className="big">{fmt(sumValues(live, FIELDS))} <span>ตัน</span></div>
           <div className="pg" aria-hidden="true"><i style={{ width: `${(filled / FIELDS.length) * 100}%` }} /></div>
           <small>กรอกแล้ว {filled} จาก {FIELDS.length} ช่อง</small>
           <div className="row"><span>เดือน</span><b>{month ? thaiMonth(month) : "–"}{rounds > 1 ? ` · รอบ ${rd}` : ""}</b></div>
@@ -151,7 +153,7 @@ export default function DistrictReport() {
         {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
           <li key={`${r.month}-${r.round}`}><button type="button" className={r.month === month && r.round === rd ? "cur" : ""} onClick={() => { setMonth(r.month); setRound(r.round); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
             <span><b>{thaiMonth(r.month)}</b>{rounds > 1 && <> · รอบ {r.round}</>}<small>{r.submittedAt ? `ส่งเมื่อ ${thaiDateTime(r.submittedAt)}` : "ยังไม่ได้ส่ง"}</small></span>
-            <b>{fmt(sumValues(r.values))} ตัน</b><StatusPill status={r.status} late={r.late} /></button></li>))}
+            <b>{fmt(sumValues(r.values, FIELDS))} ตัน</b><StatusPill status={r.status} late={r.late} /></button></li>))}
         {!all.length && <li className="ux-empty">ยังไม่มีรายงาน · เริ่มกรอกด้านบนได้เลย</li>}
       </ul>
     </section>

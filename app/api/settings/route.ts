@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, connection } from "next/server";
-import { validateAreaSets, validateAreaTotals, validateDueDays, validateSchedules } from "@/lib/data";
+import { validateAreaSets, validateAreaTotals, validateConfig, validateDueDays, validateSchedules } from "@/lib/data";
+import { readSession } from "@/lib/session";
 import { readSettings, writeSettings } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
@@ -7,13 +8,17 @@ const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
 export async function GET() { await connection(); return NextResponse.json(await readSettings()); } // connection(): บังคับให้อ่านฐานข้อมูลทุกครั้งที่เรียก ไม่ถูก prerender ตอน build
 
 // ส่งมาเฉพาะ schedules (รายการที่ต้องรายงานรายปีงบประมาณ) หรือ dueDays (ค่าเริ่มต้น) หรือเฉพาะ areaTotals (พื้นที่ปลูกพืชทั้งหมดรายอำเภอ) หรือทั้งสองอย่างก็ได้ — ค่าที่ไม่ได้ส่งมาคงเดิม
-// หมายเหตุ: ยังไม่มีการตรวจสิทธิ์ (ระบบล็อกอินเป็นตัวอย่าง) — ควรจำกัดให้เฉพาะเจ้าหน้าที่จังหวัดก่อนใช้งานจริง
 export async function PUT(req: NextRequest) {
+  // เฉพาะเจ้าหน้าที่จังหวัดที่ล็อกอินแล้วเท่านั้นที่แก้การตั้งค่า/หัวข้อ/ปีงบประมาณ/ช่องปุ๋ยได้ (ตรวจจาก cookie ที่เซิร์ฟเวอร์เซ็นไว้)
+  let session;
+  try { session = readSession(req); } catch (e) { return NextResponse.json({ error: e instanceof Error ? e.message : "ตรวจสิทธิ์ไม่ได้" }, { status: 500 }); }
+  if (!session) return NextResponse.json({ error: "กรุณาเข้าสู่ระบบใหม่" }, { status: 401 });
+  if (session.role !== "province") return NextResponse.json({ error: "เฉพาะเจ้าหน้าที่จังหวัดเท่านั้นที่แก้ไขการตั้งค่าได้" }, { status: 403 });
   let body: unknown;
   try { body = await req.json(); } catch { return bad("ข้อมูลไม่ถูกต้อง"); }
   if (typeof body !== "object" || body === null || Array.isArray(body)) return bad("ข้อมูลไม่ถูกต้อง");
   const cur = await readSettings();
-  let { dueDays, areaTotals, schedules, areaSets } = cur;
+  let { dueDays, areaTotals, schedules, areaSets, config } = cur;
   if ("dueDays" in body) {
     const error = validateDueDays(body.dueDays);
     if (error) return bad(error);
@@ -34,8 +39,13 @@ export async function PUT(req: NextRequest) {
     if (error) return bad(error);
     areaSets = body.areaSets as typeof areaSets;
   }
-  if (!("dueDays" in body) && !("areaTotals" in body) && !("schedules" in body) && !("areaSets" in body)) return bad("ไม่พบข้อมูลที่ต้องการบันทึก");
-  const next = { dueDays, areaTotals, schedules, areaSets };
+  if ("config" in body) {
+    const error = validateConfig(body.config);
+    if (error) return bad(error);
+    config = body.config as typeof config;
+  }
+  if (!("dueDays" in body) && !("areaTotals" in body) && !("schedules" in body) && !("areaSets" in body) && !("config" in body)) return bad("ไม่พบข้อมูลที่ต้องการบันทึก");
+  const next = { dueDays, areaTotals, schedules, areaSets, config };
   await writeSettings(next);
   return NextResponse.json(next);
 }

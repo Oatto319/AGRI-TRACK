@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AREA_FIELDS, AREA_TARGET_PCT, BURN_FIELDS, DEFAULT_SETTINGS, FIELDS, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings, type Topic } from "@/lib/data";
+import { AREA_FIELDS, DEFAULT_SETTINGS, areaTotalsFor, cfgOf, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings, type Topic } from "@/lib/data";
 import { aggregate, aggregateArea, fmt, sumValues } from "@/lib/summary";
 import { COLORS, Donut, Kpi, RankRows, Trend } from "@/components/Charts";
 import { useDistrict } from "@/components/District";
@@ -20,6 +20,7 @@ export default function DistrictDashboard() {
   const [burn, setBurn] = useState<BurnReport[]>([]);
   const [cr, setCr] = useState(1); // รอบที่ใช้ตรวจรายการที่ต้องกรอก
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const cfg = useMemo(() => cfgOf(settings), [settings]), K = cfg.area, FIELDS = cfg.fertFields, BURN_FIELDS = cfg.burnFields, AREA_TARGET_PCT = K.targetPct;
   const [loadError, setLoadError] = useState("");
   useEffect(() => {
     const get = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดรายงานไม่สำเร็จ"); return (await r.json()) as T; };
@@ -42,16 +43,16 @@ export default function DistrictDashboard() {
   const d = useMemo(() => {
     if (!reports || !valid) return null;
     const rounds = dueDaysFor(settings, "fert", to).length;
-    const agg = aggregate(reports, from, to, rounds), me = agg.rows.find(r => r.name === district)!;
+    const agg = aggregate(reports, from, to, rounds, cfg), me = agg.rows.find(r => r.name === district)!;
     const ranked = [...agg.rows].sort((a, b) => b.total - a.total), sentRows = agg.rows.filter(r => r.any);
     const mine = reports.filter(r => r.district === district);
-    const arAll = aggregateArea(area, to, areaTotalsFor(settings, to)), ar = arAll.rows.find(r => r.name === district)!;
+    const arAll = aggregateArea(area, to, areaTotalsFor(settings, to), K), ar = arAll.rows.find(r => r.name === district)!;
     return { agg, me, ar, arRows: arAll.rows, season: arAll.season, arMonths: arAll.months, ranked, rounds, rank: ranked.findIndex(r => r.name === district) + 1, avg: sentRows.length ? sentRows.reduce((a, r) => a + r.total, 0) / sentRows.length : 0,
       rec: (m: string, rd: number) => mine.find(r => r.month === m && r.round === rd),
       mstat: (m: string) => { const g = me.got[m] ?? 0; return g >= dueDaysFor(settings, "fert", m).length ? "ok" : g > 0 || mine.some(r => r.month === m) ? "warn" : "no"; },
       mlate: (m: string) => mine.some(r => r.month === m && r.late),
       pct: me.target ? Math.round((me.total / me.target) * 100) : 0 };
-  }, [reports, valid, from, to, district, settings, area]);
+  }, [reports, valid, from, to, district, settings, area, cfg, K]);
   return (
     <div className="db">
       <PageHead title={`สวัสดี อำเภอ${district}`} sub="เริ่มจากการ์ด “งานที่ต้องกรอก” ด้านล่าง กดปุ่มในการ์ดเพื่อไปกรอกได้ทันที" />
@@ -131,7 +132,7 @@ export default function DistrictDashboard() {
           <section className="db-card"><h2>ผลผลิตรายเดือน (ตัน)</h2>
             <Trend data={d.agg.months.map(m => ({ label: thaiMonth(m), value: d.me.byMonth[m] ?? 0 }))} /></section>
           <section className="db-card"><h2>สัดส่วนตามชนิด</h2>
-            <Donut parts={FIELDS.map((f, i) => ({ label: f.label, value: d.me.sums[f.key], color: COLORS[i] }))} /></section>
+            <Donut parts={FIELDS.map((f, i) => ({ label: f.label, value: d.me.sums[f.key], color: COLORS[i % COLORS.length] }))} /></section>
         </div>
         <div className="db-grid">
           <section className="db-card"><h2>เทียบกับอำเภออื่น (10 อันดับแรก)</h2>
@@ -147,10 +148,10 @@ export default function DistrictDashboard() {
           <Kpi label="พื้นที่ปลูกพืชทั้งหมด" value={f2(d.ar.total)} unit="ไร่" tone="blue" note={d.ar.assigned ? "จังหวัดเป็นผู้กำหนด" : "จังหวัดยังไม่ได้กำหนด · ใช้พื้นที่สะสมแทน"} />
           <Kpi label={`เป้าหมายร้อยละ ${AREA_TARGET_PCT} ของพื้นที่`} value={f2(d.ar.target)} unit="ไร่" tone="amber" />
           <Kpi label="พื้นที่สะสมทั้งหมด" value={f2(d.ar.accum)} unit="ไร่" color="#059669" tone="emerald" pct={d.ar.pct} note={`คิดเป็น ${f2(d.ar.pct)}% ของพื้นที่ทั้งหมด · ${f2(d.ar.ofTarget)}% ของเป้าหมาย`} />
-          <Kpi label="ปริมาณฟางข้าว" value={f2(d.ar.straw)} unit="ตัน" tone="emerald" note="ไร่สะสม × 500 กก. ÷ 1,000" />
+          <Kpi label="ปริมาณฟางข้าว" value={f2(d.ar.straw)} unit="ตัน" tone="emerald" note={`ไร่สะสม × ${K.strawKgPerRai} กก. ÷ 1,000`} />
           <Kpi label="คิดเป็นมูลค่า" value={f2(d.ar.value)} unit="บาท" tone="blue" note={d.ar.late ? `ส่งช้า ${d.ar.late} ครั้ง` : "ไร่สะสม × 725 บาท"} />
-          <Kpi label="ฟางก้อน" value={f2(d.ar.bales)} unit="ก้อน" tone="amber" note="ไร่สะสม × 25 ก้อน" />
-          <Kpi label="ราคาฟางก้อน" value={f2(d.ar.baleValue)} unit="บาท" tone="emerald" note="จำนวนก้อน × 35 บาท" />
+          <Kpi label="ฟางก้อน" value={f2(d.ar.bales)} unit="ก้อน" tone="amber" note={`ไร่สะสม × ${K.balesPerRai} ก้อน`} />
+          <Kpi label="ราคาฟางก้อน" value={f2(d.ar.baleValue)} unit="บาท" tone="emerald" note={`จำนวนก้อน × ${K.balePrice} บาท`} />
         </div>
         <div className="db-grid">
           <section className="db-card"><h2>พื้นที่ไถกลบรายเดือนและพื้นที่สะสม</h2>
@@ -168,7 +169,7 @@ export default function DistrictDashboard() {
               <tr key={`${m}-${rd}`}><td style={{ textAlign: "left" }}>{thaiMonth(m)}</td><td>{rd}</td>
                 <td><span className={`pill ${r ? (r.status === "submitted" ? (r.late ? "no" : "ok") : "warn") : "no"}`}>{r ? (r.status === "submitted" ? (r.late ? "ส่งช้า" : "ส่งแล้ว") : "ร่าง") : "ยังไม่ส่ง"}</span></td>
                 <td>{thaiDate(due)}</td><td>{r?.submittedAt ? thaiDateTime(r.submittedAt) : "–"}</td>
-                {FIELDS.map(f => <td key={f.key}>{r ? fmt(r.values[f.key] ?? 0) : "–"}</td>)}<td><b>{r ? fmt(sumValues(r.values)) : "–"}</b></td>
+                {FIELDS.map(f => <td key={f.key}>{r ? fmt(r.values[f.key] ?? 0) : "–"}</td>)}<td><b>{r ? fmt(sumValues(r.values, FIELDS)) : "–"}</b></td>
                 <td><Link className="btn alt" href={`/district/report?month=${m}&round=${rd}`}>{r ? "แก้ไข" : "กรอก"}</Link></td></tr>); }))}</tbody></table></div></section>
         <section className="db-card" style={{ marginTop: "1rem" }}><h2>รายละเอียดรายเดือน · พื้นที่และฟางข้าว</h2>
           <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน</th><th>รอบ</th><th>สถานะ</th><th>กำหนดส่ง</th><th>ส่งเมื่อ</th><th>พื้นที่เดือนนี้ (ไร่)</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>ฟางก้อน (ก้อน)</th><th>ราคาฟางก้อน (บาท)</th><th></th></tr></thead>
@@ -176,7 +177,7 @@ export default function DistrictDashboard() {
               <tr key={`${m}-${rd}`}><td style={{ textAlign: "left" }}>{thaiMonth(m)}</td><td>{rd}</td>
                 <td><span className={`pill ${r ? (r.status === "submitted" ? (r.late ? "no" : "ok") : "warn") : "no"}`}>{r ? (r.status === "submitted" ? (r.late ? "ส่งช้า" : "ส่งแล้ว") : "ร่าง") : "ยังไม่ส่ง"}</span></td>
                 <td>{thaiDate(due)}</td><td>{r?.submittedAt ? thaiDateTime(r.submittedAt) : "–"}</td>
-                <td>{r ? f2(r.values.area ?? 0) : "–"}</td><td>{r ? f2(strawTons(r.values.area ?? 0)) : "–"}</td><td>{r ? f2(strawValue(r.values.area ?? 0)) : "–"}</td><td>{r ? f2(strawBales(r.values.area ?? 0)) : "–"}</td><td>{r ? f2(baleValue(r.values.area ?? 0)) : "–"}</td>
+                <td>{r ? f2(r.values.area ?? 0) : "–"}</td><td>{r ? f2(strawTons(r.values.area ?? 0, K)) : "–"}</td><td>{r ? f2(strawValue(r.values.area ?? 0, K)) : "–"}</td><td>{r ? f2(strawBales(r.values.area ?? 0, K)) : "–"}</td><td>{r ? f2(baleValue(r.values.area ?? 0, K)) : "–"}</td>
                 <td><Link className="btn alt" href={`/district/area?month=${m}&round=${rd}`}>{r ? "แก้ไข" : "กรอก"}</Link></td></tr>); }))}</tbody></table></div></section>
       </>}
     </div>

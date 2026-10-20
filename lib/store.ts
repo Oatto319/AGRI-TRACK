@@ -1,4 +1,4 @@
-import { AREA_FIELDS, AREA_LEGACY_KEYS, BURN_FIELDS, DEFAULT_SETTINGS, DISTRICTS, FIELDS, validateAreaTotals, validateDueDays, validateSchedules, validateAreaSets, type AreaReport, type BurnReport, type Report, type Settings } from "./data";
+import { DEFAULT_CONFIG, DEFAULT_SETTINGS, DISTRICTS, validateAreaTotals, validateConfig, validateDueDays, validateSchedules, validateAreaSets, type AppConfig, type AreaReport, type BurnReport, type Report, type Settings } from "./data";
 import { db } from "./mongo";
 
 // เก็บข้อมูลใน MongoDB — คอลเลกชัน reports, area_reports, settings (ดู lib/mongo.ts)
@@ -6,7 +6,8 @@ type Row = Record<string, unknown>;
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
-function validReport(value: unknown, keys: readonly string[]): boolean {
+// ช่องตัวเลขเพิ่ม/ลดได้ตามการตั้งค่าของจังหวัด จึงไม่ตรวจชื่อคีย์ที่นี่ — คีย์ที่ถูกลบออกจากการตั้งค่าจะถูกข้ามตอนสรุปผล (ข้อมูลยังอยู่ในฐานข้อมูล)
+function validReport(value: unknown): boolean {
   if (!isRecord(value) || !isRecord(value.values) || !isRecord(value.reporter)) return false;
   return typeof value.district === "string" &&
     DISTRICTS.some(district => district.name === value.district) &&
@@ -20,14 +21,13 @@ function validReport(value: unknown, keys: readonly string[]): boolean {
     (value.submittedAt === undefined || typeof value.submittedAt === "string") &&
     (value.dueDate === undefined || typeof value.dueDate === "string") &&
     (value.late === undefined || typeof value.late === "boolean") &&
-    Object.entries(value.values).every(([key, amount]) =>
-      keys.includes(key) &&
+    Object.values(value.values).every(amount =>
       typeof amount === "number" && Number.isFinite(amount) && amount >= 0);
 }
 
-const isReport = (v: unknown): v is Report => validReport(v, FIELDS.map(f => f.key));
-const isBurnReport = (v: unknown): v is BurnReport => validReport(v, BURN_FIELDS.map(f => f.key));
-const isAreaReport = (v: unknown): v is AreaReport => validReport(v, [...AREA_FIELDS.map(f => f.key), ...AREA_LEGACY_KEYS]);
+const isReport = (v: unknown): v is Report => validReport(v);
+const isBurnReport = (v: unknown): v is BurnReport => validReport(v);
+const isAreaReport = (v: unknown): v is AreaReport => validReport(v);
 
 // แถวในฐานข้อมูล <-> รูปแบบ JSON ที่แอปใช้
 const fromRow = (r: Row) => ({
@@ -89,7 +89,10 @@ function parseSettings(s: unknown): Settings {
   if (validateSchedules(schedules)) throw new Error("Invalid schedules in table settings");
   const areaSets = s.areaSets === undefined ? [] : s.areaSets; // ข้อมูลเก่าไม่มี areaSets
   if (validateAreaSets(areaSets)) throw new Error("Invalid areaSets in table settings");
-  return { dueDays: s.dueDays as number[], areaTotals: areaTotals as Record<string, number>, schedules: schedules as Settings["schedules"], areaSets: areaSets as Settings["areaSets"] };
+  // ข้อมูลเก่าไม่มี config -> ใช้ค่าเริ่มต้น · ถ้ามีเพียงบางส่วนให้เติมส่วนที่ขาดด้วยค่าเริ่มต้น
+  const config: AppConfig = { ...DEFAULT_CONFIG, ...(isRecord(s.config) ? (s.config as Partial<AppConfig>) : {}) };
+  if (validateConfig(config)) throw new Error("Invalid config in table settings");
+  return { dueDays: s.dueDays as number[], areaTotals: areaTotals as Record<string, number>, schedules: schedules as Settings["schedules"], areaSets: areaSets as Settings["areaSets"], config };
 }
 // การตั้งค่าเก็บเป็นเอกสารเดียว (_id = "main") ในคอลเลกชัน settings
 export async function readSettings(): Promise<Settings> {

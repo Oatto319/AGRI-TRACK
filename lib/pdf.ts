@@ -1,7 +1,7 @@
 import PDFDocument from "pdfkit";
 import fs from "node:fs";
 import path from "node:path";
-import { DISTRICTS, FIELDS, areaTotalsFor, bkkDate, dueDaysFor, fiscalRange, thaiDate, thaiMonth, type AreaReport, type Report, type Settings } from "./data";
+import { DISTRICTS, areaTotalsFor, cfgOf, bkkDate, dueDaysFor, fiscalRange, thaiDate, thaiMonth, type AreaReport, type Report, type Settings } from "./data";
 import { aggregate, aggregateArea, monthsBetween, sumValues } from "./summary";
 
 /**
@@ -32,8 +32,8 @@ export interface YearStat {
 
 export function yearStat(reports: Report[], area: AreaReport[], settings: Settings, fy: number): YearStat {
   const { from, to } = fiscalRange(fy);
-  const agg = aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length);
-  const ar = aggregateArea(area, to, areaTotalsFor(settings, to));
+  const cfg = cfgOf(settings), agg = aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length, cfg);
+  const ar = aggregateArea(area, to, areaTotalsFor(settings, to), cfg.area);
   const rows = agg.rows;
   const total = rows.reduce((a, r) => a + r.total, 0), target = rows.reduce((a, r) => a + r.target, 0);
   const sub = reports.filter(r => r.status === "submitted" && r.month >= from && r.month <= to);
@@ -41,7 +41,7 @@ export function yearStat(reports: Report[], area: AreaReport[], settings: Settin
   const late = rows.reduce((a, r) => a + r.late, 0) + ar.sums.late;
   const submitted = sub.length + subA.length;
   const byMonth = new Map<string, number>();
-  sub.forEach(r => byMonth.set(r.month, (byMonth.get(r.month) ?? 0) + sumValues(r.values)));
+  sub.forEach(r => byMonth.set(r.month, (byMonth.get(r.month) ?? 0) + sumValues(r.values, cfg.fertFields)));
   const months = monthsBetween(from, to);
   const quarters = [0, 1, 2, 3].map(q => months.slice(q * 3, q * 3 + 3).reduce((a, m) => a + (byMonth.get(m) ?? 0), 0));
   const pctOf = (r: (typeof rows)[number]) => (r.target ? (r.total / r.target) * 100 : 0);
@@ -76,6 +76,7 @@ const W = 595.28, H = 841.89, M = 36, CW = W - 2 * M;
 
 // ---------- ตัวสร้างเอกสาร ----------
 export async function buildPdf(reports: Report[], area: AreaReport[], settings: Settings, fy: number): Promise<Buffer> {
+  const cfg = cfgOf(settings), K = cfg.area;
   const years = [fy - 2, fy - 1, fy].map(y => yearStat(reports, area, settings, y));
   const [a, b, c] = years;
   const fdir = path.join(process.cwd(), "assets", "fonts");
@@ -217,7 +218,7 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     { l: "ร้อยละบรรลุเป้าหมายปุ๋ย (%)", v: y => y.pct, f: v => v.toFixed(1) + "%" },
     { g: "ไถกลบฟางข้าว", color: C.blue },
     { l: "พื้นที่ไถกลบสะสม (ไร่)", v: y => y.area.accum, f: n1 },
-    { l: "ร้อยละของเป้าหมาย 35% ของพื้นที่ปลูก (%)", v: y => y.area.ofTarget, f: v => v.toFixed(1) + "%" },
+    { l: `ร้อยละของเป้าหมาย ${K.targetPct}% ของพื้นที่ปลูก (%)`, v: y => y.area.ofTarget, f: v => v.toFixed(1) + "%" },
     { l: "ปริมาณฟางข้าว (ตัน)", v: y => y.area.straw, f: n1 },
     { g: "ฟางก้อน", color: C.orange },
     { l: "ฟางก้อน (ก้อน)", v: y => y.area.bales, f: n0 },
@@ -248,8 +249,8 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   text("หมายเหตุการคำนวณ", M + 14, ny + 8, { size: 9, bold: true, color: C.dark });
   const notes = [
     `ใช้เฉพาะรายงานที่ส่งแล้ว · ปีงบประมาณ ${c.fy} = ${thaiMonth(c.from)} ถึง ${thaiMonth(c.to)} · % YoY เทียบปี ${c.fy} กับปี ${b.fy} (แสดง "–" เมื่อปีก่อนหน้าไม่มีข้อมูล)`,
-    "ร้อยละบรรลุเป้าหมายปุ๋ย = ปุ๋ยรวม ÷ (เกษตรตำบล × 140 ตัน) · ไถกลบนับช่วง พ.ย. – มิ.ย. · ฟางข้าว = ไร่ × 500 กก. ÷ 1,000",
-    "ฟางก้อน = ไร่สะสม × 25 ก้อน · ราคาฟางก้อน = จำนวนก้อน × 35 บาท",
+    `ร้อยละบรรลุเป้าหมายปุ๋ย = ปุ๋ยรวม ÷ (เกษตรตำบล × ${cfg.targetPerTambon} ตัน) · ไถกลบนับช่วง พ.ย. – มิ.ย. · ฟางข้าว = ไร่ × ${K.strawKgPerRai} กก. ÷ 1,000`,
+    `ฟางก้อน = ไร่สะสม × ${K.balesPerRai} ก้อน · ราคาฟางก้อน = จำนวนก้อน × ${K.balePrice} บาท`,
   ];
   let nyy = ny + 22;
   notes.forEach(n => wrap(n, CW - 40, 7.5).forEach((ln, i) => { if (i === 0) doc.save().circle(M + 18, nyy + 4.5, 1.2).fill(C.green).restore(); text(ln, M + 26, nyy, { size: 7.5, color: "#334155" }); nyy += 10.5; }));

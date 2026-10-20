@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { BURN_FIELDS, DEFAULT_SETTINGS, MAX_ROUNDS, bkkDate, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, thaiDate, thaiDateTime, thaiMonth, type BurnKey, type BurnReport, type Reporter, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, MAX_ROUNDS, bkkDate, cfgOf, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, thaiDate, thaiDateTime, thaiMonth, type BurnReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
 import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
@@ -8,7 +8,6 @@ import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPil
 const toStr = (v: BurnReport["values"]) => Object.fromEntries(Object.entries(v).map(([k, n]) => [k, String(n)]));
 const load = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดไม่สำเร็จ"); return (await r.json()) as T; };
 const f0 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 0 });
-const keyOf = (k: BurnKey) => BURN_FIELDS.find(f => f.key === k)!;
 
 export default function DistrictBurnReport() {
   const { district } = useDistrict();
@@ -16,6 +15,7 @@ export default function DistrictBurnReport() {
   const [today, setToday] = useState(""); // อ่านวันที่หลัง mount เท่านั้น
   const [round, setRound] = useState(1);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const BURN_FIELDS = cfgOf(settings).burnFields, first = BURN_FIELDS[0]; // ช่องที่จังหวัดตั้งไว้ · ช่องแรกใช้เป็นตัวเลขสรุปด้านข้าง
   const [all, setAll] = useState<BurnReport[]>([]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
@@ -117,7 +117,7 @@ export default function DistrictBurnReport() {
       <aside className="ux-side" aria-label="สรุปและส่งข้อมูล">
         <div className="ux-sum">
           <small>กิจกรรมสะสมปีงบประมาณ {fy || ""}</small>
-          <div className="big">{f0(accum("activities"))} <span>{keyOf("activities").unit}</span></div>
+          <div className="big">{f0(accum(first.key))} <span>{first.unit}</span></div>
           <div className="row"><span>ผู้เข้าร่วมสะสม</span><b>{f0(accum("participants"))} ราย</b></div>
           <div className="row"><span>เดือนที่กรอก</span><b>{month ? thaiMonth(month) : "–"}{rounds > 1 ? ` · รอบ ${rd}` : ""}</b></div>
           <div className="row"><span>สถานะ</span><b>{status === "submitted" ? "ส่งแล้ว" : status === "draft" ? "ร่าง" : "ยังไม่ได้กรอก"}</b></div>

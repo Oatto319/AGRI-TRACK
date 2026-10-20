@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { BURN_FIELDS, DISTRICTS, bkkDate, dueDateOf, dueDaysFor, type BurnReport } from "@/lib/data";
+import { DISTRICTS, bkkDate, cfgOf, dueDateOf, dueDaysFor, type BurnReport } from "@/lib/data";
 import { readBurnAll, readSettings, updateBurn } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
@@ -31,7 +31,7 @@ export async function PUT(req: NextRequest) {
   const inputReporter = body.reporter === undefined ? {} : isRecord(body.reporter) ? body.reporter : null;
   if (!inputReporter) return bad("ข้อมูลผู้รายงานไม่ถูกต้อง");
   const values: BurnReport["values"] = {};
-  for (const f of BURN_FIELDS) {
+  for (const f of cfgOf(settings).burnFields) {
     const v = inputValues[f.key];
     if (v === undefined || v === null || v === "") { if (body.status === "submitted") return bad(`กรอก${f.label} (ถ้าไม่มีให้ใส่ 0)`); continue; }
     if (typeof v !== "number" && typeof v !== "string") return bad(`${f.label}ต้องเป็นตัวเลข`);

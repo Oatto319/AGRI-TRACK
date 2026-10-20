@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { AREA_TARGET_PCT, DEFAULT_SETTINGS, MAX_ROUNDS, STRAW_KG_PER_RAI, STRAW_VALUE_PER_RAI, BALES_PER_RAI, BALE_PRICE, baleValue, strawBales, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, MAX_ROUNDS, cfgOf, lbx, baleValue, strawBales, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
 import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
@@ -15,6 +15,7 @@ export default function DistrictAreaReport() {
   const [today, setToday] = useState(""); // อ่านวันที่หลัง mount เท่านั้น
   const [round, setRound] = useState(1);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
+  const cfg = cfgOf(settings), K = cfg.area; // ตัวคูณที่จังหวัดตั้งไว้
   const [all, setAll] = useState<AreaReport[]>([]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
@@ -33,7 +34,7 @@ export default function DistrictAreaReport() {
   // พื้นที่ปลูกทั้งหมดจังหวัดเป็นผู้กำหนด · สะสม = รายงานที่ส่งแล้วในฤดูกาล (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
   const others = season ? all.filter(x => x.status === "submitted" && x.month >= season.start && x.month <= season.end && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values.area ?? 0), 0) : 0;
   const accum = others + thisArea;
-  const assigned = (areaTotalsFor(settings, month)[district] ?? 0) > 0, total = effectiveTotal(areaTotalsFor(settings, month)[district], accum), target = areaTarget(total), pct = areaPct(accum, total);
+  const assigned = (areaTotalsFor(settings, month)[district] ?? 0) > 0, total = effectiveTotal(areaTotalsFor(settings, month)[district], accum), target = areaTarget(total, K), pct = areaPct(accum, total);
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search), q = sp.get("month"), r = Number(sp.get("round") ?? 1);
@@ -101,13 +102,13 @@ export default function DistrictAreaReport() {
 
         <Step n={2} title="กรอกพื้นที่ที่ไถกลบในเดือนนี้" hint="กรอกเฉพาะช่องแรก ช่องสีเทาคำนวณให้อัตโนมัติ" done={hasArea}>
           <div className="ux-two">
-            <NumField id="area" label="พื้นที่ไถกลบฟางข้าวเดือนนี้" unit="ไร่" value={vals.area ?? ""} disabled={!inSeason} onChange={v => setVals({ ...vals, area: v })} />
-            <ReadField id="st" label="ปริมาณฟางข้าว" value={f2(strawTons(thisArea))} unit="ตัน" />
-            <ReadField id="sv" label="คิดเป็นมูลค่า" value={f2(strawValue(thisArea))} unit="บาท" />
-            <ReadField id="sb" label="ฟางก้อน" value={f2(strawBales(thisArea))} unit="ก้อน" />
-            <ReadField id="sp" label="ราคาฟางก้อน" value={f2(baleValue(thisArea))} unit="บาท" />
+            <NumField id="area" label={lbx(cfg, "a.field", "พื้นที่ไถกลบฟางข้าวเดือนนี้")} unit="ไร่" value={vals.area ?? ""} disabled={!inSeason} onChange={v => setVals({ ...vals, area: v })} />
+            <ReadField id="st" label="ปริมาณฟางข้าว" value={f2(strawTons(thisArea, K))} unit="ตัน" />
+            <ReadField id="sv" label="คิดเป็นมูลค่า" value={f2(strawValue(thisArea, K))} unit="บาท" />
+            <ReadField id="sb" label="ฟางก้อน" value={f2(strawBales(thisArea, K))} unit="ก้อน" />
+            <ReadField id="sp" label="ราคาฟางก้อน" value={f2(baleValue(thisArea, K))} unit="บาท" />
           </div>
-          <p className="ux-hint">ฟางข้าว (ตัน) = ไร่ × {STRAW_KG_PER_RAI} กก. ÷ 1,000 · มูลค่า = ไร่ × {STRAW_VALUE_PER_RAI} บาท · ฟางก้อน = ไร่ × {BALES_PER_RAI} ก้อน · ราคาฟางก้อน = ก้อน × {BALE_PRICE} บาท</p>
+          <p className="ux-hint">ฟางข้าว (ตัน) = ไร่ × {K.strawKgPerRai} กก. ÷ 1,000 · มูลค่า = ไร่ × {K.strawValuePerRai} บาท · ฟางก้อน = ไร่ × {K.balesPerRai} ก้อน · ราคาฟางก้อน = ก้อน × {K.balePrice} บาท</p>
         </Step>
 
         <Step n={3} title="ผู้รายงาน" hint="ระบบจำชื่อจากครั้งก่อนให้อัตโนมัติ" done={!!rep.name.trim()}>
@@ -119,13 +120,13 @@ export default function DistrictAreaReport() {
           <p className="ux-note">คำนวณอัตโนมัติ · ดูเท่านั้น ไม่ต้องกรอก (นับรายงานที่ส่งแล้ว รวมค่าที่กำลังกรอก)</p>
           <div className="ux-two" style={{ marginTop: ".9rem" }}>
             <ReadField id="ta" label="พื้นที่ปลูกพืชทั้งหมด" value={f2(total)} unit="ไร่" />
-            <ReadField id="tg" label={`เป้าหมายร้อยละ ${AREA_TARGET_PCT}`} value={f2(target)} unit="ไร่" />
+            <ReadField id="tg" label={`เป้าหมายร้อยละ ${K.targetPct}`} value={f2(target)} unit="ไร่" />
             <ReadField id="ac" label="พื้นที่สะสมทั้งหมด" value={f2(accum)} unit="ไร่" />
             <ReadField id="pc" label="คิดเป็นร้อยละของพื้นที่ทั้งหมด" value={f2(pct)} unit="%" />
-            <ReadField id="sa" label="ปริมาณฟางข้าวสะสม" value={f2(strawTons(accum))} unit="ตัน" />
-            <ReadField id="va" label="คิดเป็นมูลค่าสะสม" value={f2(strawValue(accum))} unit="บาท" />
-            <ReadField id="ba" label="ฟางก้อนสะสม" value={f2(strawBales(accum))} unit="ก้อน" />
-            <ReadField id="bp" label="ราคาฟางก้อนสะสม" value={f2(baleValue(accum))} unit="บาท" />
+            <ReadField id="sa" label="ปริมาณฟางข้าวสะสม" value={f2(strawTons(accum, K))} unit="ตัน" />
+            <ReadField id="va" label="คิดเป็นมูลค่าสะสม" value={f2(strawValue(accum, K))} unit="บาท" />
+            <ReadField id="ba" label="ฟางก้อนสะสม" value={f2(strawBales(accum, K))} unit="ก้อน" />
+            <ReadField id="bp" label="ราคาฟางก้อนสะสม" value={f2(baleValue(accum, K))} unit="บาท" />
           </div>
           <p className="ux-hint">{!assigned ? "จังหวัดยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดของอำเภอนี้ จึงใช้พื้นที่สะสมเป็นฐานคำนวณไปก่อน" : `คิดเป็น ${f2(ofTarget)}% ของเป้าหมาย`}{assigned && accum > total ? " · พื้นที่สะสมมากกว่าพื้นที่ปลูกทั้งหมด โปรดตรวจสอบ" : ""}</p>
         </section>}
@@ -157,7 +158,7 @@ export default function DistrictAreaReport() {
       <ul className="ux-hist" style={{ marginTop: ".8rem" }}>
         {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
           <li key={`${r.month}-${r.round}`}><button type="button" className={r.month === month && r.round === rd ? "cur" : ""} onClick={() => { setMonth(r.month); setRound(r.round); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-            <span><b>{thaiMonth(r.month)}</b>{rounds > 1 && <> · รอบ {r.round}</>}<small>ฟางข้าว {f2(strawTons(r.values.area ?? 0))} ตัน · {r.submittedAt ? `ส่งเมื่อ ${thaiDateTime(r.submittedAt)}` : "ยังไม่ได้ส่ง"}</small></span>
+            <span><b>{thaiMonth(r.month)}</b>{rounds > 1 && <> · รอบ {r.round}</>}<small>ฟางข้าว {f2(strawTons(r.values.area ?? 0, K))} ตัน · {r.submittedAt ? `ส่งเมื่อ ${thaiDateTime(r.submittedAt)}` : "ยังไม่ได้ส่ง"}</small></span>
             <b>{f2(r.values.area ?? 0)} ไร่</b><StatusPill status={r.status} late={r.late} /></button></li>))}
         {!all.length && <li className="ux-empty">ยังไม่มีข้อมูล · เริ่มกรอกด้านบนได้เลย</li>}
       </ul>

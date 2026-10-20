@@ -173,3 +173,8 @@ body{background:var(--bg)}
 .ux-sched .tx p{margin:.2rem 0 0;font-size:.9rem;color:#475569}
 .ux-sched .act{display:flex;gap:.5rem}
 .ux-btn.danger{color:#be123c;border-color:#fecdd3}.ux-btn.danger:hover{background:#fff1f2}
+
+/* หน้า "ตั้งค่าหัวข้อและรายการ": ช่องข้อความในแถวแก้ไข */
+.ux-due input[type="text"],.ux-due input:not([type]),.ux-due input[list],.ux-due input[placeholder]:not([type="number"]){width:auto;flex:1 1 220px;min-width:0;text-align:left;font-size:1rem}
+.ux-due label{flex:1 1 220px;color:#334155}
+.ux-chip button{border:0;background:none;cursor:pointer;color:#64748b;font-size:1rem;padding:0 .2rem}

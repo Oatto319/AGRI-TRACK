@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { AREA_TARGET_PCT, DISTRICTS, MAX_ROUNDS, TOPICS, currentMonth, dueDateOf, fiscalRange, fiscalYearOf, thaiDate, thaiMonth, type AreaSet, type Schedule, type Settings, type Topic } from "@/lib/data";
+import { DISTRICTS, MAX_ROUNDS, TOPICS, cfgOf, fiscalYearOptions, topicLabelOf, currentMonth, dueDateOf, fiscalRange, fiscalYearOf, thaiDate, thaiMonth, type AreaSet, type Schedule, type Settings, type Topic } from "@/lib/data";
 import { useProvince } from "@/components/Province";
 import { I, PageHead, Step } from "@/components/Entry";
 
@@ -10,6 +10,7 @@ const even = (k: number) => Array.from({ length: k }, (_, i) => String(Math.roun
 export default function ProvinceSettings() {
   const [q, setQ] = useState("");
   const { settings, setSettings } = useProvince();
+  const cfg = cfgOf(settings), AREA_TARGET_PCT = cfg.area.targetPct;
   const [days, setDays] = useState<string[]>(["31"]);
   const [topic, setTopic] = useState<Topic>("area");
   const [fyIn, setFyIn] = useState<number | null>(null); // null = ปีงบประมาณปัจจุบัน
@@ -28,8 +29,8 @@ export default function ProvinceSettings() {
   const list: Schedule[] = [...(settings.schedules ?? [])].sort((x, y) => y.fy - x.fy || x.topic.localeCompare(y.topic));
   const curFy = cur ? fiscalYearOf(cur) : 0;
   const fy = fyIn ?? curFy;
-  const fyOptions = Array.from(new Set([...(curFy ? [curFy - 1, curFy, curFy + 1, curFy + 2] : []), ...list.map(x => x.fy), ...(fy ? [fy] : [])])).sort((x, y) => y - x);
-  const topicLabel = (t: Topic) => TOPICS.find(x => x.key === t)?.label ?? t;
+  const fyOptions = fiscalYearOptions(cfg, [...(curFy ? [curFy - 1, curFy, curFy + 1, curFy + 2] : []), ...list.map(x => x.fy), ...(fy ? [fy] : [])]);
+  const topicLabel = (t: Topic) => topicLabelOf(cfg, t);
   const daysText = (d: number[]) => d.map((x, i) => `รอบ ${i + 1}: วันที่ ${x}`).join(" · ");
 
   async function putSchedules(next: Schedule[], okMsg: string) {
@@ -79,7 +80,7 @@ export default function ProvinceSettings() {
 
   const aList: AreaSet[] = [...(settings.areaSets ?? [])].sort((x, y) => y.fy - x.fy);
   const aFy = afyIn ?? curFy;
-  const aFyOptions = Array.from(new Set([...(curFy ? [curFy - 1, curFy, curFy + 1, curFy + 2] : []), ...aList.map(x => x.fy), ...(aFy ? [aFy] : [])])).sort((x, y) => y - x);
+  const aFyOptions = fiscalYearOptions(cfg, [...(curFy ? [curFy - 1, curFy, curFy + 1, curFy + 2] : []), ...aList.map(x => x.fy), ...(aFy ? [aFy] : [])]);
   const legacyCount = Object.values(settings.areaTotals ?? {}).filter(v => v > 0).length;
 
   async function putAreaSets(next: AreaSet[], okMsg: string) {
@@ -145,7 +146,7 @@ export default function ProvinceSettings() {
               <div>
                 <label className="ux-lbl" htmlFor="sc-topic">รายการที่ต้องรายงาน</label>
                 <select id="sc-topic" className="ux-select" value={topic} onChange={e => setTopic(e.target.value as Topic)}>
-                  {TOPICS.filter(t => t.key !== "burn").map(t => <option key={t.key} value={t.key}>{t.label}</option>)}
+                  {TOPICS.filter(t => t.key !== "burn").map(t => <option key={t.key} value={t.key}>{topicLabelOf(cfg, t.key)}</option>)}
                 </select>
               </div>
               <div>

@@ -2,7 +2,7 @@
 import { createContext, startTransition, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Shell from "./Shell";
 import PdfButton from "./PdfButton";
-import { DEFAULT_SETTINGS, currentMonth, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, cfgOf, currentMonth, fiscalYearOptions, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings } from "@/lib/data";
 import { aggregate } from "@/lib/summary";
 
 interface Ctx { settings: Settings; setSettings: (s: Settings) => void; reports: Report[] | null; area: AreaReport[] | null; burn: BurnReport[] | null; error: string | null; from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; valid: boolean; agg: ReturnType<typeof aggregate> | null }
@@ -29,13 +29,14 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
     }).catch(() => setError("ไม่สามารถโหลดรายงานได้ กรุณาลองใหม่อีกครั้ง"));
   }, []);
   const valid = !!from && !!to && from <= to;
-  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length) : null), [reports, from, to, valid, settings]);
+  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length, cfgOf(settings)) : null), [reports, from, to, valid, settings]);
   return (
     <C.Provider value={{ settings, setSettings, reports, area, burn, error, from, to, setFrom, setTo, valid, agg }}>
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
         { href: "/province", label: "1. ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ", icon: "home" },
         { href: "/province/table", label: "2. ตารางข้อมูลรายอำเภอ", hint: "ดูรายละเอียด + ดาวน์โหลด Excel", icon: "table" },
-        { href: "/province/settings", label: "3. ตั้งค่าการรายงาน", hint: "รอบ วันกำหนดส่ง พื้นที่ปลูก", icon: "gear" }]}>
+        { href: "/province/settings", label: "3. ตั้งค่าการรายงาน", hint: "รอบ วันกำหนดส่ง พื้นที่ปลูก", icon: "gear" },
+        { href: "/province/config", label: "4. ตั้งค่าหัวข้อและรายการ", hint: "ปีงบประมาณ ช่องปุ๋ย ชื่อหัวข้อตาราง", icon: "edit" }]}>
         {children}
       </Shell>
     </C.Provider>
@@ -44,7 +45,7 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
 
 // ตัวเลือกปีงบประมาณ (ต.ค. – ก.ย.) — ใช้ร่วมกันทั้งแดชบอร์ดและหน้าตาราง
 export function FiscalSelect() {
-  const { from, to, setFrom, setTo, valid, reports, area } = useProvince();
+  const { from, to, setFrom, setTo, valid, reports, area, settings } = useProvince();
   // ห้ามเรียก currentMonth() ตอน render (Next.js prerender ไม่ยอมให้อ่านเวลาปัจจุบันใน Client Component) — อ่านหลัง mount
   const [cur, setCur] = useState("");
   useEffect(() => { startTransition(() => setCur(currentMonth())); }, []);
@@ -56,8 +57,9 @@ export function FiscalSelect() {
     const all = [...(curFy ? [curFy - 2, curFy + 1] : []), ...(fy ? [fy] : []), ...ms.map(fiscalYearOf)];
     if (!all.length) return [];
     const lo = Math.min(...all), hi = Math.max(...all);
-    return Array.from({ length: hi - lo + 1 }, (_, i) => hi - i); // ปีล่าสุดอยู่บนสุด
-  }, [reports, area, curFy, fy]);
+    const span = Array.from({ length: hi - lo + 1 }, (_, i) => hi - i);
+    return fiscalYearOptions(cfgOf(settings), span); // รวมปีงบประมาณที่จังหวัดเพิ่มเองในหน้า "ตั้งค่าหัวข้อและรายการ" · ปีล่าสุดอยู่บนสุด
+  }, [reports, area, curFy, fy, settings]);
   const choose = (v: number) => { const r = fiscalRange(v); setFrom(r.from); setTo(r.to); };
   return (
     <div className="field">
