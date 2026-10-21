@@ -43,7 +43,7 @@ export function yearStat(reports: Report[], area: AreaReport[], settings: Settin
   const byMonth = new Map<string, number>();
   sub.forEach(r => byMonth.set(r.month, (byMonth.get(r.month) ?? 0) + sumValues(r.values, cfg.fertFields)));
   const months = monthsBetween(from, to);
-  const quarters = [0, 1, 2, 3].map(q => months.slice(q * 3, q * 3 + 3).reduce((a, m) => a + (byMonth.get(m) ?? 0), 0));
+  const quarters = [0, 1, 2, 3].map(q => months.slice(q * 2, q * 2 + 2).reduce((a, m) => a + (byMonth.get(m) ?? 0), 0));
   const pctOf = (r: (typeof rows)[number]) => (r.target ? (r.total / r.target) * 100 : 0);
   return {
     fy, from, to, sent: rows.filter(r => r.any).length, districts: rows.length, total, target, pct: target ? (total / target) * 100 : 0,
@@ -264,7 +264,7 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   const qs = years.flatMap(y => y.quarters.map((v, i) => ({ v, label: `Q${i + 1}/${yy(y.fy)}` })));
   const bi = qs.findIndex(q => q.v > 0), base = bi >= 0 ? qs[bi].v : 0;
   sectionTitle(`ดัชนีผลผลิตปุ๋ยอินทรีย์รายไตรมาส (Quarterly Production Index ${a.fy} - ${c.fy})`, M + 14, qy + 12, base ? `Base ${qs[bi].label} = 100` : "ยังไม่มีข้อมูล", CW - 28);
-  text("ไตรมาสตามปีงบประมาณ: Q1 = ต.ค.–ธ.ค. · Q2 = ม.ค.–มี.ค. · Q3 = เม.ย.–มิ.ย. · Q4 = ก.ค.–ก.ย.", M + 23, qy + 29, { size: 7.5, color: C.mute });
+  text("ช่วงตามปีงบประมาณ (2 เดือน): Q1 = พ.ย.–ธ.ค. · Q2 = ม.ค.–ก.พ. · Q3 = มี.ค.–เม.ย. · Q4 = พ.ค.–มิ.ย.", M + 23, qy + 29, { size: 7.5, color: C.mute });
   {
     const px = M + 50, py = qy + 50, pw3 = CW - 50 - 34, ph = qh - 50 - 32;
     const idx = qs.map(q => (base ? (q.v / base) * 100 : 0));

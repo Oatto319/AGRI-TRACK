@@ -103,10 +103,12 @@ const TH = ["มกราคม", "กุมภาพันธ์", "มีน�
 export const thaiMonth = (ym: string) => { const [y, m] = ym.split("-").map(Number); return `${TH[m - 1]} ${y + 543}`; };
 export const currentMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`; };
 
-// ---------- ปีงบประมาณ (1 ต.ค. – 30 ก.ย.) ----------
-// ปีงบประมาณ พ.ศ. 2569 = ต.ค. 2568 – ก.ย. 2569 · ค่าที่ใช้ทั้งหมดเป็น "YYYY-MM" (ค.ศ.) เหมือนส่วนอื่นของระบบ
-export const fiscalYearOf = (ym: string) => { const [y, m] = ym.split("-").map(Number); return y + 543 + (m >= 10 ? 1 : 0); }; // คืนค่าเป็น พ.ศ.
-export const fiscalRange = (fyBE: number) => ({ from: `${fyBE - 544}-10`, to: `${fyBE - 543}-09` });
+// ---------- ปีงบประมาณ (ช่วงรายงาน พ.ย. – มิ.ย.) ----------
+// ปีงบประมาณ พ.ศ. 2570 = พ.ย. 2569 – มิ.ย. 2570 (8 เดือน) · ค่าที่ใช้ทั้งหมดเป็น "YYYY-MM" (ค.ศ.) เหมือนส่วนอื่นของระบบ
+// เดือน ก.ค. – ต.ค. (นอกช่วงรายงาน) นับเป็นของปีงบประมาณถัดไป เพื่อให้ตั้งค่ากำหนดส่ง/พื้นที่ปลูกของปีหน้าล่วงหน้าได้
+export const FY_START_MONTH = 11, FY_END_MONTH = 6;
+export const fiscalYearOf = (ym: string) => { const [y, m] = ym.split("-").map(Number); return y + 543 + (m > FY_END_MONTH ? 1 : 0); }; // คืนค่าเป็น พ.ศ.
+export const fiscalRange = (fyBE: number) => ({ from: `${fyBE - 544}-${String(FY_START_MONTH).padStart(2, "0")}`, to: `${fyBE - 543}-${String(FY_END_MONTH).padStart(2, "0")}` });
 export const isFiscalRange = (from: string, to: string) => !!from && !!to && fiscalRange(fiscalYearOf(to)).from === from && fiscalRange(fiscalYearOf(to)).to === to;
 
 // วันกำหนดส่งของหัวข้อ ณ เดือนนั้น: ใช้รายการของปีงบประมาณที่เดือนนั้นอยู่ ถ้าไม่มีใช้ค่าเริ่มต้น settings.dueDays
