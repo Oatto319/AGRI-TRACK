@@ -42,7 +42,7 @@ export default function ProvinceTable() {
 
         {tab === "fert" && <>
           <KpiRow items={[
-            { icon: I.leaf, color: "#1d5f73", label: "ปุ๋ยอินทรีย์รวม", value: fmt(total), unit: "ตัน" },
+            { icon: I.leaf, color: "#266a40", label: "ปุ๋ยอินทรีย์รวม", value: fmt(total), unit: "ตัน" },
             { icon: I.check, color: "#b08a2c", label: "เป้าหมายรวม", value: fmt(target), unit: "ตัน" },
             { icon: I.send, color: "#059669", label: "อำเภอที่ส่งแล้ว", value: `${sent} / ${rows.length}`, unit: "อำเภอ" },
             { icon: I.alert, color: "#e11d48", label: "ส่งช้า", value: String(sum(r => r.late)), unit: "ครั้ง" }]} />
@@ -53,7 +53,7 @@ export default function ProvinceTable() {
 
         {tab === "area" && (a ? <>
           <KpiRow items={[
-            { icon: I.box, color: "#1d5f73", label: "พื้นที่ปลูกพืชทั้งหมด", value: f2(a.sums.total), unit: "ไร่" },
+            { icon: I.box, color: "#266a40", label: "พื้นที่ปลูกพืชทั้งหมด", value: f2(a.sums.total), unit: "ไร่" },
             { icon: I.check, color: "#b08a2c", label: `เป้าหมายร้อยละ ${K.targetPct}`, value: f2(a.sums.target), unit: "ไร่" },
             { icon: I.sprout, color: "#059669", label: "พื้นที่สะสมทั้งหมด", value: f2(a.sums.accum), unit: "ไร่" },
             { icon: I.leaf, color: "#2f8a5b", label: "ปริมาณฟางข้าว", value: f2(a.sums.straw), unit: "ตัน" },
@@ -66,7 +66,7 @@ export default function ProvinceTable() {
         </> : <p className="ux-empty">กำลังโหลด…</p>)}
 
         {tab === "burn" && (b ? <>
-          <KpiRow items={cfg.burnFields.slice(0, 6).map((f, i) => ({ icon: [I.alert, I.box, I.user, I.send, I.leaf, I.sprout][i % 6], color: ["#c2410c", "#1d5f73", "#059669", "#b08a2c", "#2f8a5b", "#7a5ea8"][i % 6], label: f.label, value: f2(b.sums[f.key] ?? 0), unit: f.unit }))} />
+          <KpiRow items={cfg.burnFields.slice(0, 6).map((f, i) => ({ icon: [I.alert, I.box, I.user, I.send, I.leaf, I.sprout][i % 6], color: ["#c2410c", "#266a40", "#059669", "#b08a2c", "#2f8a5b", "#7a5ea8"][i % 6], label: f.label, value: f2(b.sums[f.key] ?? 0), unit: f.unit }))} />
           <section className="ux-card"><h2>{lb(cfg, "sec.burn")} · {rangeLabel(from, to)} (ส่งแล้ว {b.rows.filter(r => r.any).length} จาก {b.rows.length} อำเภอ)</h2>
             <p className="ux-note">ตัวเลขคือผลรวมที่อำเภอรายงานตลอดช่วงที่เลือก (เฉพาะรายงานที่ส่งแล้ว) · เดือนที่ส่งครบ = ส่งครบทุกรอบที่จังหวัดกำหนด</p>
             <div style={{ marginTop: ".9rem" }}><BurnTable b={b} cfg={cfg} /></div></section>

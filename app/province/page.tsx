@@ -44,7 +44,7 @@ export default function ProvinceDashboard() {
   const rounds = agg?.rounds ?? 1;
 
   const areaRows = ar ? [
-    { icon: Icons.field, color: "#1f7a85", label: "พื้นที่ปลูกพืชทั้งหมด", value: `${f2(ar.sums.total)} ไร่`, bar: ar.sums.total > 0 ? 100 : 0, sub: ar.sums.assigned ? "จังหวัดเป็นผู้กำหนด" : "ยังไม่ได้กำหนดครบ · ใช้พื้นที่สะสมแทน (ตั้งค่าได้ที่หน้า 3)" },
+    { icon: Icons.field, color: "#297b48", label: "พื้นที่ปลูกพืชทั้งหมด", value: `${f2(ar.sums.total)} ไร่`, bar: ar.sums.total > 0 ? 100 : 0, sub: ar.sums.assigned ? "จังหวัดเป็นผู้กำหนด" : "ยังไม่ได้กำหนดครบ · ใช้พื้นที่สะสมแทน (ตั้งค่าได้ที่หน้า 3)" },
     { icon: Icons.target, color: "#c09a3a", label: `เป้าหมายร้อยละ ${AREA_TARGET_PCT}`, value: `${f2(ar.sums.target)} ไร่`, bar: ar.sums.total > 0 ? AREA_TARGET_PCT : 0, sub: ar.sums.assigned ? undefined : "คิดจากพื้นที่สะสมทั้งหมด" },
     { icon: Icons.check, color: "#2f8f5b", label: "พื้นที่สะสมทั้งหมด", value: `${f2(ar.sums.accum)} ไร่`, bar: Math.min(100, ar.pct), sub: `คิดเป็น ${f2(ar.pct)}% ของพื้นที่ปลูกพืชทั้งหมด` },
     { icon: Icons.straw, color: "#b36a3c", label: "ปริมาณฟางข้าว", value: `${f2(ar.sums.straw)} ตัน`, sub: `คิดเป็นมูลค่า ${f2(ar.sums.value)} บาท` },
@@ -119,14 +119,14 @@ export default function ProvinceDashboard() {
                   <h2>พื้นที่ไถกลบรายเดือนและพื้นที่สะสม</h2>
                   <p className="pv-note">แท่ง = พื้นที่ที่รายงานในเดือนนั้น (แกนซ้าย) · เส้น = พื้นที่สะสมตั้งแต่ พ.ย. (แกนขวา)</p>
                   <AreaCombo data={areaSeries} target={ar.sums.target} />
-                  <p className="pv-lg"><span><i style={{ background: "#1f7a85" }} />พื้นที่รายเดือน (ไร่)</span><span><i className="ln" style={{ background: "#c09a3a" }} />พื้นที่สะสม (ไร่)</span><span><i className="ds" />เป้าหมายร้อยละ {AREA_TARGET_PCT}</span></p>
+                  <p className="pv-lg"><span><i style={{ background: "#297b48" }} />พื้นที่รายเดือน (ไร่)</span><span><i className="ln" style={{ background: "#c09a3a" }} />พื้นที่สะสม (ไร่)</span><span><i className="ds" />เป้าหมายร้อยละ {AREA_TARGET_PCT}</span></p>
                 </section>
                 <section className="pv-card">
                   <h2>ความคืบหน้าเทียบเป้าหมายรายอำเภอ</h2>
                   <p className="pv-note">สถานะ {ar.rows.length} อำเภอ · เทียบพื้นที่สะสมกับเป้าหมายร้อยละ {AREA_TARGET_PCT}</p>
-                  <StatusBar parts={[{ label: "ถึงเป้า", value: reached, color: "#1f7a85" }, { label: "ยังไม่ถึงเป้า", value: below, color: "#c09a3a" }, { label: "ยังไม่มีข้อมูล", value: noData, color: "#cbd5e1" }]} />
+                  <StatusBar parts={[{ label: "ถึงเป้า", value: reached, color: "#297b48" }, { label: "ยังไม่ถึงเป้า", value: below, color: "#c09a3a" }, { label: "ยังไม่มีข้อมูล", value: noData, color: "#d5dcd0" }]} />
                   {areaRank.length === 0 ? <p className="pv-empty">ยังไม่มีข้อมูลในช่วงนี้</p> : <AreaHBars rows={areaRank} />}
-                  {areaRank.length > 0 && <p className="pv-key"><i style={{ background: "#1f7a85" }} />ถึงเป้าแล้ว <i style={{ background: "#c09a3a" }} />ยังไม่ถึงเป้า <i style={{ background: "#b36a3c", width: 3 }} />เส้นเป้าหมาย · 10 อันดับพื้นที่สะสมสูงสุด (ไร่)</p>}
+                  {areaRank.length > 0 && <p className="pv-key"><i style={{ background: "#297b48" }} />ถึงเป้าแล้ว <i style={{ background: "#c09a3a" }} />ยังไม่ถึงเป้า <i style={{ background: "#b36a3c", width: 3 }} />เส้นเป้าหมาย · 10 อันดับพื้นที่สะสมสูงสุด (ไร่)</p>}
                   <div className="pv-mini">
                     <div><small>ฟางข้าว</small><b>{f2(ar.sums.straw)} ตัน</b></div>
                     <div><small>มูลค่า</small><b>{f2(ar.sums.value)} บาท</b></div>

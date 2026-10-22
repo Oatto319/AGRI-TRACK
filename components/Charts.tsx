@@ -1,9 +1,9 @@
 import type { CSSProperties } from "react";
 import { fmt } from "@/lib/summary";
 
-export const COLORS = ["#2f7d4f", "#6aa84f", "#e3a72f", "#2e7fb8", "#8a5a2b", "#b97d10", "#7a5ea8", "#c0504d"];
+export const COLORS = ["#2f7d4f", "#6aa84f", "#e3a72f", "#3b8e8c", "#8a5a2b", "#b97d10", "#7a5ea8", "#c0504d"];
 
-const TONES = { emerald: "#059669", amber: "#d97706", rose: "#e11d48", blue: "#2563eb" };
+const TONES = { emerald: "#059669", amber: "#d97706", rose: "#e11d48", blue: "#39d776" };
 export function Kpi({ label, value, unit, color, pct, tone, note }: { label: string; value: string; unit?: string; color?: string; pct?: number; tone?: keyof typeof TONES; note?: string }) {
   const style = { ...(color ? { "--c": color } : {}), ...(tone ? { "--vc": TONES[tone] } : {}) } as CSSProperties;
   return (
@@ -20,12 +20,12 @@ export function Donut({ parts }: { parts: { label: string; value: number; color:
   return (
     <div className="db-donut">
       <svg viewBox="0 0 140 140" width="170" height="170" role="img" aria-label="สัดส่วนตามชนิด">
-        <circle cx="70" cy="70" r={R} fill="none" stroke="#eef1f7" strokeWidth="22" />
+        <circle cx="70" cy="70" r={R} fill="none" stroke="#f2f5f0" strokeWidth="22" />
         {total > 0 && parts.map(p => { const len = (p.value / total) * L, el = (
           <circle key={p.label} cx="70" cy="70" r={R} fill="none" stroke={p.color} strokeWidth="22"
             strokeDasharray={`${len} ${L - len}`} strokeDashoffset={-off} transform="rotate(-90 70 70)" />); off += len; return el; })}
-        <text x="70" y="68" textAnchor="middle" fontSize="15" fontWeight="700" fill="#1a2036">{fmt(total)}</text>
-        <text x="70" y="86" textAnchor="middle" fontSize="10" fill="#59627a">ตัน</text>
+        <text x="70" y="68" textAnchor="middle" fontSize="15" fontWeight="700" fill="#1d261b">{fmt(total)}</text>
+        <text x="70" y="86" textAnchor="middle" fontSize="10" fill="#687360">ตัน</text>
       </svg>
       <ul className="db-leg">{parts.map(p => <li key={p.label}><i style={{ background: p.color }} />{p.label}
         <span>{total ? Math.round((p.value / total) * 100) : 0}%</span></li>)}</ul>

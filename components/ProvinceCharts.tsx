@@ -1,7 +1,7 @@
 import { fmt } from "@/lib/summary";
 
 // สีของแต่ละชนิดในกราฟโดนัท (เรียงตาม FIELDS)
-export const PV_COLORS = ["#17324d", "#1f7a85", "#c09a3a", "#6f9fc4", "#8a9a4b", "#2f5f8f", "#b36a3c", "#7d8a99"];
+export const PV_COLORS = ["#2f7d4f", "#c19a36", "#8a5a2b", "#5aa469", "#b36a3c", "#7a8f3a", "#3b8e8c", "#d9b45a"]; // โทนเกษตร: เขียวนาข้าว ทองรวงข้าว น้ำตาลดิน
 
 /** วงแหวนเปอร์เซ็นต์ในการ์ด KPI (พื้นหลังสี) */
 export function Ring({ pct, label }: { pct: number; label: string }) {
@@ -34,15 +34,15 @@ export function BarChart({ data, unit }: { data: { label: string; value: number 
   return (
     <svg className="pv-bars" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="ผลผลิตรายเดือน">
       <defs>
-        <linearGradient id="pvBarG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2a8fa0" /><stop offset="1" stopColor="#17324d" /></linearGradient>
+        <linearGradient id="pvBarG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#36945a" /><stop offset="1" stopColor="#1b4a2e" /></linearGradient>
         <linearGradient id="pvBarP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e3bd55" /><stop offset="1" stopColor="#b08a2c" /></linearGradient>
       </defs>
       {Array.from({ length: 6 }, (_, i) => {
         const y = T + ih - (i / 5) * ih;
         return (
           <g key={i}>
-            <line x1={L} x2={W - R} y1={y} y2={y} stroke="#eef2f6" strokeWidth="1" />
-            <text x={L - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#94a3b8">{(i * step).toLocaleString("th-TH")}</text>
+            <line x1={L} x2={W - R} y1={y} y2={y} stroke="#f2f4f0" strokeWidth="1" />
+            <text x={L - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#a4b09c">{(i * step).toLocaleString("th-TH")}</text>
           </g>);
       })}
       {data.map((d, i) => {
@@ -52,9 +52,9 @@ export function BarChart({ data, unit }: { data: { label: string; value: number 
             {d.value > 0 && <>
               <path d={`M${x} ${T + ih}V${y + 6}Q${x} ${y} ${x + 6} ${y}H${x + bw - 6}Q${x + bw} ${y} ${x + bw} ${y + 6}V${T + ih}Z`} fill={i === peak ? "url(#pvBarP)" : "url(#pvBarG)"}>
                 <title>{`${d.label}: ${fmt(d.value)} ${unit}`}</title></path>
-              {data.length <= 14 && <text x={x + bw / 2} y={y - 5} textAnchor="middle" fontSize="10.5" fontWeight="600" fill={i === peak ? "#94701c" : "#475569"}>{fmt(d.value)}</text>}
+              {data.length <= 14 && <text x={x + bw / 2} y={y - 5} textAnchor="middle" fontSize="10.5" fontWeight="600" fill={i === peak ? "#94701c" : "#56614f"}>{fmt(d.value)}</text>}
             </>}
-            {i % every === 0 && <text x={L + band * i + band / 2} y={H - 9} textAnchor="middle" fontSize="11" fill="#64748b">{d.label}</text>}
+            {i % every === 0 && <text x={L + band * i + band / 2} y={H - 9} textAnchor="middle" fontSize="11" fill="#76826d">{d.label}</text>}
           </g>);
       })}
       {withData.length > 1 && <g>
@@ -71,7 +71,7 @@ export function TypeDonut({ parts, unit }: { parts: { label: string; value: numb
   return (
     <div className="pv-td">
       <svg viewBox="0 0 150 150" role="img" aria-label="สัดส่วนตามชนิด">
-        <circle cx="75" cy="75" r={R} fill="none" stroke="#eef2f6" strokeWidth="20" />
+        <circle cx="75" cy="75" r={R} fill="none" stroke="#f2f4f0" strokeWidth="20" />
         {total > 0 && parts.map(p => {
           const len = (p.value / total) * L, seg = Math.max(0, len - gap);
           const el = len > 0 && (
@@ -82,8 +82,8 @@ export function TypeDonut({ parts, unit }: { parts: { label: string; value: numb
           off += len;
           return el;
         })}
-        <text x="75" y="72" textAnchor="middle" fontSize="19" fontWeight="700" fill="#0f172a">{total > 0 ? fmt(total) : "–"}</text>
-        <text x="75" y="90" textAnchor="middle" fontSize="11" fill="#94a3b8">{unit}รวม</text>
+        <text x="75" y="72" textAnchor="middle" fontSize="19" fontWeight="700" fill="#1b2418">{total > 0 ? fmt(total) : "–"}</text>
+        <text x="75" y="90" textAnchor="middle" fontSize="11" fill="#a4b09c">{unit}รวม</text>
       </svg>
       <ul>{parts.map(p => (
         <li key={p.label} className={p.value > 0 ? "" : "zero"}>
@@ -136,8 +136,8 @@ export function AreaCombo({ data, target }: { data: { label: string; month: numb
         const y = T + ih - (i / 5) * ih;
         return (
           <g key={i}>
-            <line x1={L} x2={W - R} y1={y} y2={y} stroke="#e6ebf1" strokeWidth="1" />
-            <text x={L - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#64748b">{(i * stepL).toLocaleString("th-TH")}</text>
+            <line x1={L} x2={W - R} y1={y} y2={y} stroke="#ebefe8" strokeWidth="1" />
+            <text x={L - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#76826d">{(i * stepL).toLocaleString("th-TH")}</text>
             <text x={W - R + 8} y={y + 4} fontSize="11" fill="#94701c">{(i * stepR).toLocaleString("th-TH")}</text>
           </g>);
       })}
@@ -145,8 +145,8 @@ export function AreaCombo({ data, target }: { data: { label: string; month: numb
         const h = (d.month / topL) * ih, x = cx(i) - bw / 2;
         return (
           <g key={d.label + i}>
-            {d.month > 0 && <rect x={x} y={T + ih - h} width={bw} height={h} rx="3" fill="#1f7a85"><title>{`${d.label}: ${nf(d.month)} ไร่`}</title></rect>}
-            <text x={cx(i)} y={H - 9} textAnchor="middle" fontSize="11" fill="#64748b">{d.label}</text>
+            {d.month > 0 && <rect x={x} y={T + ih - h} width={bw} height={h} rx="3" fill="#297b48"><title>{`${d.label}: ${nf(d.month)} ไร่`}</title></rect>}
+            <text x={cx(i)} y={H - 9} textAnchor="middle" fontSize="11" fill="#76826d">{d.label}</text>
           </g>);
       })}
       {target > 0 && <g>
@@ -168,7 +168,7 @@ export function AreaHBars({ rows, highlight }: { rows: { name: string; accum: nu
         <li key={r.name} className={r.name === highlight ? "me" : ""}>
           <span className="nm">{r.name}</span>
           <div className="tk" title={`${r.name}: สะสม ${nf(r.accum)} ไร่ · เป้าหมาย ${nf(r.target)} ไร่`}>
-            <i style={{ width: `${(r.accum / max) * 100}%`, background: ok ? "#1f7a85" : "#c09a3a" }} />
+            <i style={{ width: `${(r.accum / max) * 100}%`, background: ok ? "#297b48" : "#c09a3a" }} />
             {r.target > 0 && <u style={{ left: `${(r.target / max) * 100}%` }} />}
           </div>
           <b>{nf(r.accum)}</b>
@@ -196,8 +196,8 @@ export function Sparkline({ values }: { values: number[] }) {
   const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join("");
   return (
     <svg className="pv-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-      <path d={`${line}L${W} ${H}L0 ${H}Z`} fill="#1f7a85" opacity=".14" />
-      <path d={line} fill="none" stroke="#1f7a85" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      <path d={`${line}L${W} ${H}L0 ${H}Z`} fill="#297b48" opacity=".14" />
+      <path d={line} fill="none" stroke="#297b48" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
     </svg>);
 }
 

@@ -72,7 +72,7 @@ export default function DistrictDashboard() {
               const items = [...FIELDS.map(f => ({ label: f.label, val: r?.values[f.key] })), ...([["name", "ชื่อผู้รายงาน"], ["position", "ตำแหน่ง"], ["phone", "โทรศัพท์"]] as const).map(([k, l]) => ({ label: l, val: r?.reporter[k] || undefined }))];
               const done = items.filter(i => i.val !== undefined).length, miss = items.filter(i => i.val === undefined);
               return (
-                <article className="ux-task" style={{ ["--tc" as string]: "#1d5f73" }}>
+                <article className="ux-task" style={{ ["--tc" as string]: "#266a40" }}>
                   <header><i>{I.leaf}</i><div><h2>รายงานปุ๋ยอินทรีย์</h2><p>เดือน{thaiMonth(cm)}{nR("fert", cm) > 1 ? ` · รอบที่ ${rd}` : ""} · ส่งภายใน {thaiDate(due)}</p></div></header>
                   <div className="st"><StatusPill status={st === "none" ? undefined : st} late={r?.late} />กรอกแล้ว {done} จาก {items.length} ช่อง{r?.submittedAt && <> · ส่งเมื่อ {thaiDateTime(r.submittedAt)}</>}</div>
                   <div className="pg" aria-hidden="true"><i style={{ width: `${(done / items.length) * 100}%` }} /></div>
@@ -82,7 +82,7 @@ export default function DistrictDashboard() {
             })()}
             {(() => {
               if (!isAreaMonth(cm)) return (
-                <article className="ux-task" style={{ ["--tc" as string]: "#94a3b8" }}>
+                <article className="ux-task" style={{ ["--tc" as string]: "#a4b09c" }}>
                   <header><i>{I.sprout}</i><div><h2>พื้นที่ไถกลบฟางข้าว</h2><p>เดือน{thaiMonth(cm)}</p></div></header>
                   <p className="miss">เดือนนี้ไม่ต้องกรอก · รายงานพื้นที่เฉพาะเดือนพฤศจิกายนถึงมิถุนายน</p>
                 </article>);
@@ -124,7 +124,7 @@ export default function DistrictDashboard() {
         <div className="db-kpis">
           <Kpi label="ผลผลิตรวมของอำเภอ" value={fmt(d.me.total)} unit="ตัน" tone="emerald" note={`เฉลี่ย ${fmt(d.me.sent ? d.me.total / d.me.sent : 0)} ตัน/เดือนที่ส่ง`} />
           <Kpi label={`เทียบเป้าหมาย ${fmt(d.me.target)} ตัน`} value={`${d.pct}%`} color="#f59e0b" tone="amber" pct={d.pct} note={d.me.target > d.me.total ? `ยังขาดอีก ${fmt(d.me.target - d.me.total)} ตัน` : "บรรลุเป้าหมายแล้ว"} />
-          <Kpi label="เดือนที่ส่งรายงานแล้ว" value={`${d.me.sent} / ${d.agg.months.length}`} unit="เดือน" color="#2563eb" pct={(d.me.sent / d.agg.months.length) * 100}
+          <Kpi label="เดือนที่ส่งรายงานแล้ว" value={`${d.me.sent} / ${d.agg.months.length}`} unit="เดือน" color="#39d776" pct={(d.me.sent / d.agg.months.length) * 100}
             tone={d.me.sent < d.agg.months.length ? "rose" : "emerald"} note={`${d.me.sent < d.agg.months.length ? `ค้างส่ง ${d.agg.months.length - d.me.sent} เดือน` : "ส่งครบทุกเดือน"}${d.me.late ? ` · ส่งช้า ${d.me.late} ครั้ง` : ""}`} />
           <Kpi label="อันดับในจังหวัด" value={d.me.sent ? `ที่ ${d.rank}` : "–"} unit="จาก 22" tone="blue" note={`เฉลี่ยจังหวัด ${fmt(d.avg)} ตัน/อำเภอ`} />
         </div>
@@ -156,7 +156,7 @@ export default function DistrictDashboard() {
         <div className="db-grid">
           <section className="db-card"><h2>พื้นที่ไถกลบรายเดือนและพื้นที่สะสม</h2>
             <AreaCombo data={cumulate(d.arMonths, d.arMonths.map(m => d.ar.byMonth[m] ?? 0))} target={d.ar.target} />
-            <p className="pv-lg"><span><i style={{ background: "#1f7a85" }} />พื้นที่รายเดือน (ไร่)</span><span><i className="ln" style={{ background: "#c09a3a" }} />พื้นที่สะสม (ไร่)</span><span><i className="ds" />เป้าหมายร้อยละ {AREA_TARGET_PCT}</span></p></section>
+            <p className="pv-lg"><span><i style={{ background: "#297b48" }} />พื้นที่รายเดือน (ไร่)</span><span><i className="ln" style={{ background: "#c09a3a" }} />พื้นที่สะสม (ไร่)</span><span><i className="ds" />เป้าหมายร้อยละ {AREA_TARGET_PCT}</span></p></section>
           <section className="db-card"><h2>เทียบพื้นที่สะสมกับอำเภออื่น (10 อันดับแรก)</h2>
             {(() => { const rk = [...d.arRows].sort((a, b) => b.accum - a.accum), top = rk.slice(0, 10), pos = rk.findIndex(r => r.name === district);
               const shown = pos >= 10 ? [...top.slice(0, 9), rk[pos]] : top;

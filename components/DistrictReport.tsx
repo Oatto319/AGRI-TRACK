@@ -80,10 +80,10 @@ export default function DistrictReport() {
 
   const GROUP: Record<string, { icon: React.ReactNode; c: string; l: string }> = {
     "ปุ๋ยอินทรีย์": { icon: I.leaf, c: "#2f8a5b", l: "#eef8f2" },
-    "ปุ๋ยพืชสด": { icon: I.sprout, c: "#1f7a85", l: "#eaf5f7" },
+    "ปุ๋ยพืชสด": { icon: I.sprout, c: "#297b48", l: "#f0f4ed" },
     "วัสดุอินทรีย์": { icon: I.box, c: "#b08a2c", l: "#fbf5e3" },
   };
-  const EXTRA_GROUPS = [{ icon: I.box, c: "#7a5ea8", l: "#f3eefb" }, { icon: I.leaf, c: "#c2410c", l: "#fdf0e8" }, { icon: I.sprout, c: "#1d5f73", l: "#e8f1f5" }]; // กลุ่มใหม่ที่จังหวัดเพิ่ม
+  const EXTRA_GROUPS = [{ icon: I.box, c: "#7a5ea8", l: "#f3eefb" }, { icon: I.leaf, c: "#c2410c", l: "#fdf0e8" }, { icon: I.sprout, c: "#266a40", l: "#eef2eb" }]; // กลุ่มใหม่ที่จังหวัดเพิ่ม
   const groups = Array.from(new Set(FIELDS.map(f => f.group)));
   const filled = FIELDS.filter(f => vals[f.key] !== undefined && vals[f.key] !== "").length;
   const phoneOk = /^[0-9\- ]{9,12}$/.test(rep.phone);
