@@ -215,3 +215,28 @@ body{background:var(--bg)}
 .cf-badge{flex:none;background:#fef3c7;color:#92400e;border-radius:99px;padding:.1rem .6rem;font-size:.78rem;font-weight:700}
 .cf-strip{display:flex;gap:.35rem;flex-wrap:wrap;padding:.5rem;background:#eff3ed;border-radius:10px;font-size:.8rem;font-weight:600;color:#266a40}
 .cf-strip span{background:#fff;border:1px solid #d2ecdc;border-radius:8px;padding:.1rem .5rem}
+
+/* ตัวเลือกปีงบประมาณที่จะแก้ไข (หน้าตั้งค่าหัวข้อและรายการ) */
+.cf-scope{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;margin:1rem 0 .2rem;padding:.9rem 1.1rem;background:#fff;border:2px solid var(--brand);border-radius:16px;box-shadow:0 6px 16px -10px rgba(27,74,46,.5)}
+.cf-scope .ux-select{min-height:46px;font-size:1.02rem;font-weight:600;max-width:100%;min-width:260px}
+.cf-scope-hint{flex:1 1 260px;color:var(--muted);font-size:.86rem}
+.cf-banner{display:flex;gap:.8rem;flex-wrap:wrap;align-items:center;justify-content:space-between;padding:.75rem 1rem;margin-bottom:1rem;border-radius:14px;background:#fff8e6;border:1px solid #f1dc9b;color:#5c4510}
+.cf-banner.own{background:#eef6ee;border-color:#cfe5d0;color:#1b4a2e}.cf-banner.base{background:#f1f3ea;border-color:#dfe3cf;color:#3a4430}
+.cf-banner b{display:block}.cf-banner span{font-size:.88rem}
+.cf-banner-act{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.cf-banner-act .ux-select{min-height:40px}
+
+.cf-year.editing{border-color:var(--brand);background:#fff;gap:.5rem}
+.cf-year .cf-row{margin-top:.3rem}
+.cf-year .ux-select,.cf-group .ux-select{min-height:44px}
+
+/* เลือกเดือนที่ต้องส่งตามปีงบประมาณ (district/area) */
+.fm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:.6rem;margin-top:.5rem}
+.fm-m{position:relative;display:grid;gap:.15rem;text-align:left;min-height:68px;padding:.6rem .8rem;border:1.5px solid #d9dfcc;border-radius:14px;background:#fff;font:inherit;color:var(--ink);cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s}
+.fm-m:hover{border-color:var(--brand);transform:translateY(-1px)}
+.fm-m b{font-size:.98rem}.fm-m small{font-size:.8rem;color:var(--muted)}
+.fm-m.ok{background:var(--ok-l);border-color:#a7e3c4}.fm-m.ok small{color:#065f46;font-weight:600}
+.fm-m.warn{background:var(--warn-l);border-color:#f3d28a}.fm-m.warn small{color:#92400e;font-weight:600}
+.fm-m.bad{background:var(--bad-l);border-color:#f6b3bf}.fm-m.bad small{color:#9f1239;font-weight:600}
+.fm-m.sel{border-color:var(--brand);box-shadow:0 0 0 3px rgba(38,106,64,.25)}
+.fm-m.now em{position:absolute;top:.4rem;right:.5rem;font-style:normal;font-size:.7rem;background:var(--gold);color:#fff;border-radius:99px;padding:0 .45rem}

@@ -32,7 +32,7 @@ export interface YearStat {
 
 export function yearStat(reports: Report[], area: AreaReport[], settings: Settings, fy: number): YearStat {
   const { from, to } = fiscalRange(fy);
-  const cfg = cfgOf(settings), agg = aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length, cfg);
+  const cfg = cfgOf(settings, fy), agg = aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length, cfg);
   const ar = aggregateArea(area, to, areaTotalsFor(settings, to), cfg.area);
   const rows = agg.rows;
   const total = rows.reduce((a, r) => a + r.total, 0), target = rows.reduce((a, r) => a + r.target, 0);
@@ -76,7 +76,7 @@ const W = 595.28, H = 841.89, M = 36, CW = W - 2 * M;
 
 // ---------- ตัวสร้างเอกสาร ----------
 export async function buildPdf(reports: Report[], area: AreaReport[], settings: Settings, fy: number): Promise<Buffer> {
-  const cfg = cfgOf(settings), K = cfg.area;
+  const cfg = cfgOf(settings, fy), K = cfg.area;
   const years = [fy - 2, fy - 1, fy].map(y => yearStat(reports, area, settings, y));
   const [a, b, c] = years;
   const fdir = path.join(process.cwd(), "assets", "fonts");

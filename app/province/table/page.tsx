@@ -1,6 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
-import { areaTotalsFor, cfgOf, dueDaysFor, lb, fiscalYearOf, rangeLabel, thaiMonth } from "@/lib/data";
+import { areaTotalsFor, cfgOfMonth, dueDaysFor, lb, fiscalYearOf, rangeLabel, thaiMonth } from "@/lib/data";
 import { aggregateArea, aggregateBurn, fmt } from "@/lib/summary";
 import { I, PageHead, f2 } from "@/components/Entry";
 import { AreaTable, BurnTable, FertTable, KpiRow, SubmitLog } from "@/components/ProvinceTables";
@@ -12,7 +12,7 @@ type Tab = "fert" | "area" | "burn" | "log";
 export default function ProvinceTable() {
   const { reports, area, burn, error, from, to, valid, agg, settings } = useProvince();
   const [tab, setTab] = useState<Tab>("fert");
-  const cfg = useMemo(() => cfgOf(settings), [settings]), K = cfg.area;
+  const cfg = useMemo(() => cfgOfMonth(settings, to), [settings, to]), K = cfg.area;
   const a = useMemo(() => (area && valid ? aggregateArea(area, to, areaTotalsFor(settings, to), cfg.area) : null), [area, to, settings, valid, cfg]);
   const b = useMemo(() => (burn && valid ? aggregateBurn(burn, from, to, dueDaysFor(settings, "burn", to).length, cfg) : null), [burn, from, to, settings, valid, cfg]);
   const rows = agg?.rows ?? [];

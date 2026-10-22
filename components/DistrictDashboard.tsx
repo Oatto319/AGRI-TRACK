@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { AREA_FIELDS, DEFAULT_SETTINGS, areaTotalsFor, cfgOf, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings, type Topic } from "@/lib/data";
+import { AREA_FIELDS, DEFAULT_SETTINGS, areaTotalsFor, cfgOfMonth, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings, type Topic } from "@/lib/data";
 import { aggregate, aggregateArea, fmt, sumValues } from "@/lib/summary";
 import { COLORS, Donut, Kpi, RankRows, Trend } from "@/components/Charts";
 import { useDistrict } from "@/components/District";
@@ -20,7 +20,7 @@ export default function DistrictDashboard() {
   const [burn, setBurn] = useState<BurnReport[]>([]);
   const [cr, setCr] = useState(1); // รอบที่ใช้ตรวจรายการที่ต้องกรอก
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const cfg = useMemo(() => cfgOf(settings), [settings]), K = cfg.area, FIELDS = cfg.fertFields, BURN_FIELDS = cfg.burnFields, AREA_TARGET_PCT = K.targetPct;
+  const cfg = useMemo(() => cfgOfMonth(settings, to), [settings, to]), K = cfg.area, FIELDS = cfg.fertFields, BURN_FIELDS = cfg.burnFields, AREA_TARGET_PCT = K.targetPct;
   const [loadError, setLoadError] = useState("");
   useEffect(() => {
     const get = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดรายงานไม่สำเร็จ"); return (await r.json()) as T; };

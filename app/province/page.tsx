@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useMemo } from "react";
-import { areaTotalsFor, cfgOf, fiscalYearOf, thaiMonth } from "@/lib/data";
+import { areaTotalsFor, cfgOfMonth, fiscalYearOf, thaiMonth } from "@/lib/data";
 import { aggregateArea, fmt } from "@/lib/summary";
 import { AreaCombo, AreaHBars, BarChart, Icons, PV_COLORS, RankBoard, Ring, Sparkline, StatusBar, TypeDonut, cumulate } from "@/components/ProvinceCharts";
 import { FilterBar, useProvince } from "@/components/Province";
@@ -16,7 +16,7 @@ const monthLabel = (ym: string, multiYear: boolean) => {
 
 export default function ProvinceDashboard() {
   const { reports, area, error, from, to, valid, agg, settings } = useProvince();
-  const cfg = useMemo(() => cfgOf(settings), [settings]), FIELDS = cfg.fertFields, AREA_TARGET_PCT = cfg.area.targetPct;
+  const cfg = useMemo(() => cfgOfMonth(settings, to), [settings, to]), FIELDS = cfg.fertFields, AREA_TARGET_PCT = cfg.area.targetPct;
 
   const rows = agg?.rows ?? [];
   const sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);

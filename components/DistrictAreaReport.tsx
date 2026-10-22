@@ -1,8 +1,8 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, MAX_ROUNDS, cfgOf, lbx, baleValue, strawBales, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type Reporter, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, MAX_ROUNDS, cfgOfMonth, lbx, baleValue, strawBales, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, fiscalRange, fiscalYearOf, fiscalYearOptions, cfgOf, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
-import MonthPicker from "@/components/MonthPicker";
+import { monthsBetween } from "@/lib/summary";
 import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
 
 const toStr = (v: AreaReport["values"]) => Object.fromEntries(Object.entries(v).map(([k, n]) => [k, String(n)]));
@@ -15,7 +15,7 @@ export default function DistrictAreaReport() {
   const [today, setToday] = useState(""); // อ่านวันที่หลัง mount เท่านั้น
   const [round, setRound] = useState(1);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const cfg = cfgOf(settings), K = cfg.area; // ตัวคูณที่จังหวัดตั้งไว้
+  const cfg = cfgOfMonth(settings, month), K = cfg.area; // ตัวคูณที่จังหวัดตั้งไว้
   const [all, setAll] = useState<AreaReport[]>([]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
@@ -30,6 +30,21 @@ export default function DistrictAreaReport() {
   const num = (k: string) => (vals[k] === undefined || vals[k] === "" ? 0 : Number(vals[k]) || 0);
   const inSeason = !month || isAreaMonth(month);
   const season = month ? areaSeasonOf(month) : null;
+  // ปีงบประมาณที่เลือก + เดือนที่ต้องส่งทั้งหมดของปีนั้น (ตามช่วงเดือนที่จังหวัดตั้งไว้)
+  const fy = month ? fiscalYearOf(month) : 0, fr = fy ? fiscalRange(fy) : null;
+  const curFy = today ? fiscalYearOf(today.slice(0, 7)) : 0;
+  const fyOptions = fiscalYearOptions(cfgOf(settings), [...(curFy ? [curFy - 1, curFy, curFy + 1] : []), ...(fy ? [fy] : []), ...all.map(x => fiscalYearOf(x.month))]);
+  const fyMonths = fr ? monthsBetween(fr.from, fr.to) : [];
+  const pickFy = (y: number) => { const r = fiscalRange(y), cm = today ? today.slice(0, 7) : currentMonth(); setMonth(cm >= r.from && cm <= r.to ? cm : r.from); setRound(1); };
+  const monthInfo = (m: string) => {
+    const dd = dueDaysFor(settings, "area", m), n = dd.length, rs = all.filter(x => x.month === m);
+    const sentRounds = Array.from({ length: n }, (_, i) => i + 1).filter(r => rs.some(x => x.round === r && x.status === "submitted"));
+    const firstUnsent = Array.from({ length: n }, (_, i) => i + 1).find(r => !sentRounds.includes(r));
+    const late = !!today && firstUnsent !== undefined && today > dueDateOf(m, dd[firstUnsent - 1] ?? 31);
+    const draft = rs.some(x => x.status === "draft");
+    const sent = sentRounds.length;
+    return sent === n ? { cls: "ok", text: "ส่งครบแล้ว" } : late ? { cls: "bad", text: `เลยกำหนด${n > 1 ? ` (${sent}/${n})` : ""}` } : sent > 0 ? { cls: "warn", text: `ส่งแล้ว ${sent}/${n} รอบ` } : draft ? { cls: "warn", text: "มีร่างที่ยังไม่ส่ง" } : { cls: "", text: "ยังไม่ส่ง" };
+  };
   const thisArea = num("area");
   // พื้นที่ปลูกทั้งหมดจังหวัดเป็นผู้กำหนด · สะสม = รายงานที่ส่งแล้วในฤดูกาล (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
   const others = season ? all.filter(x => x.status === "submitted" && x.month >= season.start && x.month <= season.end && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values.area ?? 0), 0) : 0;
@@ -89,13 +104,25 @@ export default function DistrictAreaReport() {
 
   return (<>
     <PageHead title="กรอกพื้นที่ไถกลบฟางข้าว" sub={`อำเภอ${district} · กรอกเฉพาะจำนวนไร่ที่ไถกลบในเดือนนั้น ส่วนฟางข้าว มูลค่า และยอดสะสมระบบคำนวณให้เอง`}
-      chips={[{ label: "รายงานเฉพาะเดือน", value: "พ.ย. – มิ.ย." }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
+      chips={[{ label: "รายงานเฉพาะเดือน", value: fr ? `${thaiMonthShort(fr.from)} – ${thaiMonthShort(fr.to)}` : "—" }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
     <div className="ux-split">
       <div className="ux-stack">
-        <Step n={1} title="เลือกเดือนที่รายงาน" hint="เลือกได้เฉพาะเดือนพฤศจิกายนถึงมิถุนายน" done={!!month && inSeason}>
-          <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
-          <MonthPicker id="m" value={month} onChange={setMonth} />
-          {!inSeason && <div className="ux-banner bad" role="alert">{I.alert}<div>เดือน{thaiMonth(month)}อยู่นอกช่วงรายงานพื้นที่ กรุณาเลือกเดือนระหว่างพฤศจิกายน–มิถุนายน</div></div>}
+        <Step n={1} title="เลือกปีงบประมาณและเดือนที่รายงาน" hint={fr ? `เลือกปีงบประมาณก่อน ระบบจะแสดงเดือนที่ต้องส่ง (${thaiMonth(fr.from)} – ${thaiMonth(fr.to)})` : "เลือกปีงบประมาณก่อน ระบบจะแสดงเดือนที่ต้องส่ง"} done={!!month && inSeason}>
+          <label className="ux-lbl" htmlFor="fy">ปีงบประมาณ</label>
+          <select id="fy" className="ux-select" value={fy || ""} onChange={e => pickFy(Number(e.target.value))}>
+            {fyOptions.map(y => { const r = fiscalRange(y); return <option key={y} value={y}>ปีงบประมาณ {y} ({thaiMonth(r.from)} – {thaiMonth(r.to)})</option>; })}
+          </select>
+          {fr && <>
+            <p className="ux-lbl" style={{ marginTop: "1rem" }}>เดือนที่ต้องส่ง ({fyMonths.length} เดือน) · กดเลือกเดือนที่จะรายงาน</p>
+            <div className="fm-grid" role="group" aria-label="เดือนที่ต้องส่งในปีงบประมาณ">
+              {fyMonths.map(m => { const info = monthInfo(m), sel = m === month, now = !!today && today.slice(0, 7) === m;
+                return (
+                  <button key={m} type="button" aria-pressed={sel} className={`fm-m ${info.cls}${sel ? " sel" : ""}${now ? " now" : ""}`} onClick={() => { setMonth(m); setRound(1); }}>
+                    <b>{thaiMonth(m)}</b><small>{info.text}</small>{now && <em>เดือนนี้</em>}
+                  </button>); })}
+            </div>
+          </>}
+          {!inSeason && <div className="ux-banner bad" role="alert">{I.alert}<div>เดือน{thaiMonth(month)}อยู่นอกช่วงรายงานพื้นที่ กรุณาเลือกเดือนระหว่าง{fr ? `${thaiMonth(fr.from)} – ${thaiMonth(fr.to)}` : "ที่กำหนด"}</div></div>}
           <RoundTabs dueDays={dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
           {inSeason && <DueBanner rec={rec} due={due} overdue={overdue} noun="ข้อมูล" />}
         </Step>

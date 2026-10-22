@@ -106,9 +106,29 @@ export const currentMonth = () => { const d = new Date(); return `${d.getFullYea
 // ---------- ปีงบประมาณ (ช่วงรายงาน พ.ย. – มิ.ย.) ----------
 // ปีงบประมาณ พ.ศ. 2570 = พ.ย. 2569 – มิ.ย. 2570 (8 เดือน) · ค่าที่ใช้ทั้งหมดเป็น "YYYY-MM" (ค.ศ.) เหมือนส่วนอื่นของระบบ
 // เดือน ก.ค. – ต.ค. (นอกช่วงรายงาน) นับเป็นของปีงบประมาณถัดไป เพื่อให้ตั้งค่ากำหนดส่ง/พื้นที่ปลูกของปีหน้าล่วงหน้าได้
-export const FY_START_MONTH = 11, FY_END_MONTH = 6;
-export const fiscalYearOf = (ym: string) => { const [y, m] = ym.split("-").map(Number); return y + 543 + (m > FY_END_MONTH ? 1 : 0); }; // คืนค่าเป็น พ.ศ.
-export const fiscalRange = (fyBE: number) => ({ from: `${fyBE - 544}-${String(FY_START_MONTH).padStart(2, "0")}`, to: `${fyBE - 543}-${String(FY_END_MONTH).padStart(2, "0")}` });
+export const FY_START_MONTH = 11, FY_END_MONTH = 6; // ช่วงเริ่มต้นของปีงบประมาณที่จังหวัดไม่ได้กำหนดเอง
+// ช่วงเดือนของแต่ละปีงบประมาณที่จังหวัดกำหนดเอง (เดือนเริ่ม/เดือนสิ้นสุด) · อัปเดตอัตโนมัติทุกครั้งที่อ่านการตั้งค่า (cfgOf / readSettings)
+let PERIODS: Record<number, { s: number; e: number }> = {};
+export const applyFiscalPeriods = (list: { fy: number; startMonth: number; endMonth: number }[] | undefined) => {
+  PERIODS = Object.fromEntries((list ?? []).map(d => [d.fy, { s: d.startMonth, e: d.endMonth }]));
+};
+const pad2 = (n: number) => String(n).padStart(2, "0");
+// เดือนเริ่ม > เดือนสิ้นสุด = ข้ามปี (เช่น พ.ย. – มิ.ย.: เริ่มในปี ค.ศ. ก่อนหน้า) · เดือนเริ่ม <= เดือนสิ้นสุด = อยู่ในปีเดียว
+export const fiscalRangeFor = (fyBE: number, sm: number, em: number) => {
+  const endY = fyBE - 543, startY = sm > em ? endY - 1 : endY;
+  return { from: `${startY}-${pad2(sm)}`, to: `${endY}-${pad2(em)}` };
+};
+export const fiscalRange = (fyBE: number) => { const { s: sm, e: em } = PERIODS[fyBE] ?? { s: FY_START_MONTH, e: FY_END_MONTH }; return fiscalRangeFor(fyBE, sm, em); };
+export const fiscalYearOf = (ym: string) => {
+  for (const k of Object.keys(PERIODS)) { const r = fiscalRange(Number(k)); if (ym >= r.from && ym <= r.to) return Number(k); }
+  const [y, m] = ym.split("-").map(Number);
+  return y + 543 + (m > FY_END_MONTH ? 1 : 0); // เดือนนอกช่วง: นับเป็นของปีงบประมาณถัดไป
+};
+export const periodMonths = (startMonth: number, endMonth: number) => ((endMonth - startMonth + 12) % 12) + 1;
+export interface FiscalYearDef { fy: number; startMonth: number; endMonth: number }
+/** แปลงข้อมูลเก่า (เลขปีล้วน) เป็นรูปแบบใหม่ที่มีเดือนเริ่ม-สิ้นสุด */
+export const normalizeFiscalYears = (raw: unknown): FiscalYearDef[] =>
+  (Array.isArray(raw) ? raw : []).map(x => typeof x === "number" ? { fy: x, startMonth: FY_START_MONTH, endMonth: FY_END_MONTH } : x as FiscalYearDef);
 export const isFiscalRange = (from: string, to: string) => !!from && !!to && fiscalRange(fiscalYearOf(to)).from === from && fiscalRange(fiscalYearOf(to)).to === to;
 
 // วันกำหนดส่งของหัวข้อ ณ เดือนนั้น: ใช้รายการของปีงบประมาณที่เดือนนั้นอยู่ ถ้าไม่มีใช้ค่าเริ่มต้น settings.dueDays
@@ -166,11 +186,12 @@ export const strawTons = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => (ra
 export const strawValue = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => rai * k.strawValuePerRai; // ไร่ × 725 บาท
 export const strawBales = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => rai * k.balesPerRai; // ฟางก้อน (ก้อน) = ไร่ × 25
 export const baleValue = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => strawBales(rai, k) * k.balePrice; // ราคาฟางก้อน (บาท) = จำนวนก้อน × 35
-export const isAreaMonth = (ym: string) => { const m = Number(ym.slice(5, 7)); return m >= 11 || m <= 6; };
-// ฤดูกาลของเดือนนั้น: พ.ย. ปีหนึ่ง – มิ.ย. ปีถัดไป (เดือน ก.ค.–ต.ค. ให้ถือเป็นฤดูกาลที่เพิ่งจบ)
+// ฤดูกาลไถกลบ = ช่วงเดือนของปีงบประมาณที่จังหวัดตั้งไว้ (ค่าเริ่มต้น พ.ย. – มิ.ย.) · เดือนที่อยู่นอกช่วงก่อนเริ่มปี (เช่น ก.ค.–ต.ค.) ให้ถือเป็นฤดูกาลที่เพิ่งจบ
+export const isAreaMonth = (ym: string) => { const r = fiscalRange(fiscalYearOf(ym)); return ym >= r.from && ym <= r.to; };
 export const areaSeasonOf = (ym: string) => {
-  const y = Number(ym.slice(0, 4)), m = Number(ym.slice(5, 7)), s = m >= 11 ? y : y - 1;
-  return { start: `${s}-11`, end: `${s + 1}-06` };
+  const fy = fiscalYearOf(ym), r = fiscalRange(fy);
+  const x = ym < r.from ? fiscalRange(fy - 1) : r;
+  return { start: x.from, end: x.to };
 };
 export const nearestAreaMonth = (ym: string) => (isAreaMonth(ym) ? ym : areaSeasonOf(ym).end);
 
@@ -194,14 +215,18 @@ export interface BurnReport {
 // ---------- ค่าที่จังหวัดแก้ไขเองได้ในหน้า "ตั้งค่าหัวข้อและรายการ" (ไม่ต้องแก้โค้ด) ----------
 // เก็บใน Settings.config (MongoDB) · ถ้ายังไม่เคยตั้งค่า ใช้ค่าเริ่มต้นด้านล่างซึ่งตรงกับค่าเดิมของระบบทุกประการ
 // หมายเหตุ: ลบช่องออกจากรายการ = ซ่อนจากแบบฟอร์ม/ตาราง/Excel ข้อมูลที่อำเภอเคยกรอกยังอยู่ในฐานข้อมูล
-export interface AppConfig {
-  fiscalYears: number[];              // ปีงบประมาณ (พ.ศ.) ที่จังหวัดเพิ่มเอง — แสดงในตัวเลือกปีงบประมาณทุกหน้า
+// ค่าตั้งต้นของแต่ละปีงบประมาณ — จังหวัดตั้งแยกรายปีได้ (ปีที่ไม่ได้ตั้งเอง ใช้ "ค่าตั้งต้น" ระดับบนสุด)
+export interface YearConfig {
   targetPerTambon: number;            // เป้าหมายปุ๋ย (ตัน) ต่อเกษตรตำบล 1 ราย
   fertFields: FieldDef[];             // ช่องปุ๋ยอินทรีย์ / ปุ๋ยพืชสด / วัสดุอินทรีย์ (เพิ่ม ลบ เปลี่ยนชื่อ จัดกลุ่ม)
   burnFields: BurnFieldDef[];         // ช่องรายงานการหยุดเผา
   area: AreaConst;                    // ตัวคูณไถกลบฟางข้าว / ฟางก้อน
   topics: Partial<Record<Topic, string>>; // ชื่อหัวข้อที่ต้องรายงาน (แทนชื่อเริ่มต้นใน TOPICS)
   labels: Record<string, string>;     // หัวข้อตาราง/ข้อความที่แก้ไขได้ (คีย์ตาม LABEL_DEFS)
+}
+export interface AppConfig extends YearConfig {
+  fiscalYears: FiscalYearDef[];       // ปีงบประมาณ (พ.ศ.) ที่จังหวัดเพิ่มเอง พร้อมเดือนเริ่ม–สิ้นสุดของแต่ละปี
+  byYear?: Record<string, YearConfig>; // ค่าที่ตั้งแยกรายปีงบประมาณ (คีย์ = ปี พ.ศ. เช่น "2570")
 }
 
 // หัวข้อตารางและข้อความที่แก้ไขได้ — {pct} จะถูกแทนด้วยร้อยละเป้าหมาย, {m} ด้วยชื่อเดือน
@@ -248,8 +273,16 @@ export const DEFAULT_CONFIG: AppConfig = {
 };
 export const DEFAULT_SETTINGS: Settings = { dueDays: [31], areaTotals: {}, schedules: [], areaSets: [], config: DEFAULT_CONFIG };
 
-/** ค่าตั้งค่าที่ใช้งานจริง: ส่วนที่จังหวัดไม่เคยตั้ง ใช้ค่าเริ่มต้น (รองรับข้อมูลเก่าที่ยังไม่มี config) */
-export const cfgOf = (s: Settings | undefined | null): AppConfig => ({ ...DEFAULT_CONFIG, ...(s?.config ?? {}) });
+/** ค่าตั้งค่าที่ใช้งานจริงของปีงบประมาณ fy (พ.ศ.): ถ้าปีนั้นจังหวัดตั้งแยกไว้ ใช้ของปีนั้น ไม่เช่นนั้นใช้ค่าตั้งต้น · ไม่ระบุ fy = ค่าตั้งต้น */
+export const cfgOf = (s: Settings | undefined | null, fy?: number): AppConfig => {
+  const base: AppConfig = { ...DEFAULT_CONFIG, ...(s?.config ?? {}) };
+  base.fiscalYears = normalizeFiscalYears(base.fiscalYears);
+  applyFiscalPeriods(base.fiscalYears);
+  const y = fy ? base.byYear?.[String(fy)] : undefined;
+  return y ? { ...base, ...y } : base;
+};
+/** ค่าตั้งค่าที่ใช้กับเดือน "YYYY-MM" (ตามปีงบประมาณของเดือนนั้น) */
+export const cfgOfMonth = (s: Settings | undefined | null, ym: string) => { cfgOf(s); return cfgOf(s, ym ? fiscalYearOf(ym) : undefined); }; // เรียก cfgOf ก่อน เพื่อให้ช่วงเดือนล่าสุดถูกใช้หาปีงบประมาณ
 /** ข้อความหัวข้อที่แก้ไขได้ · vars แทนค่า {pct} {m} */
 export const lb = (cfg: AppConfig, key: string, vars?: Record<string, string | number>) => {
   let t = cfg.labels[key]?.trim() || DEFAULT_LABELS[key] || key;
@@ -258,17 +291,14 @@ export const lb = (cfg: AppConfig, key: string, vars?: Record<string, string | n
 };
 export const topicLabelOf = (cfg: AppConfig, t: Topic) => cfg.topics[t]?.trim() || TOPICS.find(x => x.key === t)?.label || t;
 /** ปีงบประมาณที่แสดงให้เลือก: ปีที่จังหวัดเพิ่ม + ปีที่มีข้อมูล/ปีปัจจุบัน (extra) — ล่าสุดอยู่บนสุด ไม่มีช่องว่างตกหล่น */
-export const fiscalYearOptions = (cfg: AppConfig, extra: number[]) => Array.from(new Set([...cfg.fiscalYears, ...extra.filter(Boolean)])).sort((a, b) => b - a);
+export const fiscalYearOptions = (cfg: AppConfig, extra: number[]) => Array.from(new Set([...cfg.fiscalYears.map(d => d.fy), ...extra.filter(Boolean)])).sort((a, b) => b - a);
 
 const KEY_RE = /^[a-zA-Z][a-zA-Z0-9_]{0,39}$/;
 const isRec = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
 const okText = (x: unknown, max: number): x is string => typeof x === "string" && x.trim().length > 0 && x.length <= max;
 const okNum = (x: unknown, min: number, max: number): x is number => typeof x === "number" && Number.isFinite(x) && x >= min && x <= max;
 
-export function validateConfig(c: unknown): string | null {
-  if (!isRec(c)) return "ข้อมูลการตั้งค่าไม่ถูกต้อง";
-  if (!Array.isArray(c.fiscalYears) || c.fiscalYears.length > 30 || !c.fiscalYears.every(y => Number.isInteger(y) && y >= 2500 && y <= 2700)) return "ปีงบประมาณต้องเป็นปี พ.ศ. 2500–2700";
-  if (new Set(c.fiscalYears).size !== c.fiscalYears.length) return "มีปีงบประมาณซ้ำกัน";
+function validateYearCfg(c: Record<string, unknown>): string | null {
   if (!okNum(c.targetPerTambon, 0, 1e6)) return "เป้าหมายต่อเกษตรตำบลต้องเป็นตัวเลขที่ไม่ติดลบ";
   if (!Array.isArray(c.fertFields) || c.fertFields.length < 1 || c.fertFields.length > 30) return "ต้องมีช่องปุ๋ยอย่างน้อย 1 ช่อง (ไม่เกิน 30 ช่อง)";
   const fk = new Set<string>();
@@ -296,6 +326,31 @@ export function validateConfig(c: unknown): string | null {
   for (const [k, v] of Object.entries(c.topics)) if (!TOPICS.some(t => t.key === k) || !okText(v, 100)) return "ชื่อหัวข้อที่ต้องรายงานไม่ถูกต้อง (ไม่เกิน 100 ตัวอักษร)";
   if (!isRec(c.labels)) return "ข้อมูลหัวข้อตารางไม่ถูกต้อง";
   for (const [k, v] of Object.entries(c.labels)) if (!(k in DEFAULT_LABELS) || typeof v !== "string" || v.length > 150) return "หัวข้อตารางไม่ถูกต้อง (ไม่เกิน 150 ตัวอักษร)";
+  return null;
+}
+
+export function validateConfig(c: unknown): string | null {
+  if (!isRec(c)) return "ข้อมูลการตั้งค่าไม่ถูกต้อง";
+  if (!Array.isArray(c.fiscalYears) || c.fiscalYears.length > 30) return "รายการปีงบประมาณไม่ถูกต้อง";
+  const fys = new Set<number>();
+  for (const d of c.fiscalYears) {
+    if (!isRec(d) || !Number.isInteger(d.fy) || (d.fy as number) < 2500 || (d.fy as number) > 2700) return "ปีงบประมาณต้องเป็นปี พ.ศ. 2500–2700";
+    if (!Number.isInteger(d.startMonth) || (d.startMonth as number) < 1 || (d.startMonth as number) > 12 || !Number.isInteger(d.endMonth) || (d.endMonth as number) < 1 || (d.endMonth as number) > 12) return `ปีงบประมาณ ${String(d.fy)}: เดือนเริ่ม/เดือนสิ้นสุดต้องเป็นเดือน 1–12`;
+    if (fys.has(d.fy as number)) return "มีปีงบประมาณซ้ำกัน";
+    fys.add(d.fy as number);
+  }
+  const err = validateYearCfg(c);
+  if (err) return err;
+  if (c.byYear !== undefined) {
+    if (!isRec(c.byYear) || Object.keys(c.byYear).length > 30) return "ข้อมูลการตั้งค่ารายปีไม่ถูกต้อง";
+    for (const [k, v] of Object.entries(c.byYear)) {
+      const y = Number(k);
+      if (!/^\d{4}$/.test(k) || y < 2500 || y > 2700) return "ปีงบประมาณในการตั้งค่ารายปีไม่ถูกต้อง";
+      if (!isRec(v)) return `การตั้งค่าปีงบประมาณ ${k} ไม่ถูกต้อง`;
+      const e = validateYearCfg(v);
+      if (e) return `ปีงบประมาณ ${k}: ${e}`;
+    }
+  }
   return null;
 }
 /** เหมือน lb แต่ถ้าจังหวัดยังไม่ได้แก้ข้อความนี้ ให้ใช้ข้อความ fallback (ใช้กับ Excel เพื่อคงหัวคอลัมน์เดิม) */

@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, DISTRICTS, MAX_ROUNDS, bkkDate, cfgOf, currentMonth, dueDateOf, dueDaysFor, thaiDate, thaiDateTime, thaiMonth, type Report, type Reporter, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, DISTRICTS, MAX_ROUNDS, bkkDate, cfgOfMonth, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, thaiDate, thaiDateTime, thaiMonth, type Report, type Reporter, type Settings } from "@/lib/data";
 import { fmt, sumValues } from "@/lib/summary";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
@@ -16,7 +16,8 @@ export default function DistrictReport() {
   const [today, setToday] = useState(""); // วันที่ปัจจุบัน (เวลาไทย) อ่านหลัง mount เท่านั้น
   const [round, setRound] = useState(1);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const cfg = cfgOf(settings), FIELDS = cfg.fertFields; // ช่องที่จังหวัดตั้งไว้ (เพิ่ม/ลบ/เปลี่ยนชื่อได้)
+  const cfg = cfgOfMonth(settings, month), FIELDS = cfg.fertFields;
+  const fyr = month ? fiscalRange(fiscalYearOf(month)) : null, outsideWarn = !!fyr && (month < fyr.from || month > fyr.to); // เดือนนอกช่วงปีงบประมาณ: เตือนว่าไม่นับในสรุป // ช่องที่จังหวัดตั้งไว้ (เพิ่ม/ลบ/เปลี่ยนชื่อได้)
   const [all, setAll] = useState<Report[]>([]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
@@ -103,6 +104,7 @@ export default function DistrictReport() {
         <Step n={1} title="เลือกเดือนที่รายงาน" hint="ระบบเลือกเดือนปัจจุบันให้แล้ว เปลี่ยนได้ถ้าต้องการกรอกย้อนหลัง" done={!!month}>
           <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
           <MonthPicker id="m" value={month} onChange={setMonth} />
+          {outsideWarn && <div className="ux-banner warn" role="status"><span>{I.info}</span><div>เดือนนี้อยู่นอกช่วงดำเนินการของปีงบประมาณ {fiscalYearOf(month)} ({thaiMonth(fyr!.from)} – {thaiMonth(fyr!.to)}) · ยังบันทึกและส่งได้ แต่ข้อมูลจะ<b>ไม่ถูกนับรวม</b>ในตารางและสรุปรายปีงบประมาณ</div></div>}
           <RoundTabs dueDays={dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
           <DueBanner rec={rec} due={due} overdue={overdue} noun="รายงาน" />
         </Step>

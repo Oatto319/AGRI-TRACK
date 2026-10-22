@@ -2,7 +2,7 @@
 import { createContext, startTransition, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import Shell from "./Shell";
 import PdfButton from "./PdfButton";
-import { DEFAULT_SETTINGS, cfgOf, currentMonth, fiscalYearOptions, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, cfgOf, cfgOfMonth, currentMonth, fiscalYearOptions, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings } from "@/lib/data";
 import { aggregate } from "@/lib/summary";
 
 interface Ctx { settings: Settings; setSettings: (s: Settings) => void; reports: Report[] | null; area: AreaReport[] | null; burn: BurnReport[] | null; error: string | null; from: string; to: string; setFrom: (v: string) => void; setTo: (v: string) => void; valid: boolean; agg: ReturnType<typeof aggregate> | null }
@@ -29,7 +29,7 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
     }).catch(() => setError("ไม่สามารถโหลดรายงานได้ กรุณาลองใหม่อีกครั้ง"));
   }, []);
   const valid = !!from && !!to && from <= to;
-  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length, cfgOf(settings)) : null), [reports, from, to, valid, settings]);
+  const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length, cfgOfMonth(settings, to)) : null), [reports, from, to, valid, settings]);
   return (
     <C.Provider value={{ settings, setSettings, reports, area, burn, error, from, to, setFrom, setTo, valid, agg }}>
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[

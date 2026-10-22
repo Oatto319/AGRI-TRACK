@@ -21,9 +21,10 @@ export async function PUT(req: NextRequest) {
   if (!isRecord(body)) return bad("ข้อมูลไม่ถูกต้อง");
   if (typeof body.district !== "string" || !DISTRICTS.some(x => x.name === body.district)) return bad("ไม่พบอำเภอ");
   if (typeof body.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.month)) return bad("เดือนไม่ถูกต้อง");
+  const settings = await readSettings(); // อ่านก่อนตรวจเดือน เพื่อใช้ช่วงเดือนของปีงบประมาณที่จังหวัดตั้งไว้
   if (!isAreaMonth(body.month)) return bad("รายงานพื้นที่ทำได้เฉพาะเดือนพฤศจิกายนถึงมิถุนายน");
   if (body.status !== "draft" && body.status !== "submitted") return bad("สถานะไม่ถูกต้อง");
-  const settings = await readSettings(), round = body.round === undefined ? 1 : body.round;
+  const round = body.round === undefined ? 1 : body.round;
   if (typeof round !== "number" || !Number.isInteger(round) || round < 1 || round > dueDaysFor(settings, "area", body.month).length) return bad(`รอบต้องอยู่ระหว่าง 1–${dueDaysFor(settings, "area", body.month).length}`);
 
   const inputValues = body.values === undefined ? {} : isRecord(body.values) ? body.values : null;

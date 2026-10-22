@@ -1,6 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, MAX_ROUNDS, bkkDate, cfgOf, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, thaiDate, thaiDateTime, thaiMonth, type BurnReport, type Reporter, type Settings } from "@/lib/data";
+import { DEFAULT_SETTINGS, MAX_ROUNDS, bkkDate, cfgOfMonth, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, thaiDate, thaiDateTime, thaiMonth, type BurnKey, type BurnReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import MonthPicker from "@/components/MonthPicker";
 import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
@@ -15,7 +15,7 @@ export default function DistrictBurnReport() {
   const [today, setToday] = useState(""); // อ่านวันที่หลัง mount เท่านั้น
   const [round, setRound] = useState(1);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const BURN_FIELDS = cfgOf(settings).burnFields, first = BURN_FIELDS[0]; // ช่องที่จังหวัดตั้งไว้ · ช่องแรกใช้เป็นตัวเลขสรุปด้านข้าง
+  const BURN_FIELDS = cfgOfMonth(settings, month).burnFields, first = BURN_FIELDS[0]; // ช่องที่จังหวัดตั้งไว้ · ช่องแรกใช้เป็นตัวเลขสรุปด้านข้าง
   const [all, setAll] = useState<BurnReport[]>([]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
@@ -31,6 +31,7 @@ export default function DistrictBurnReport() {
 
   // สะสมตั้งแต่ต้นปีงบประมาณ (ต.ค.) ถึงเดือนที่เลือก = รายงานที่ส่งแล้ว (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
   const fy = month ? fiscalYearOf(month) : 0, fr = fy ? fiscalRange(fy) : null;
+  const outsideWarn = !!fr && (month < fr.from || month > fr.to); // เดือนนอกช่วงปีงบประมาณ: เตือนว่าไม่นับในสรุป
   const accum = (k: BurnKey) => (fr ? all.filter(x => x.status === "submitted" && x.month >= fr.from && x.month <= month && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values[k] ?? 0), 0) : 0) + num(k);
 
   useEffect(() => {
@@ -91,6 +92,7 @@ export default function DistrictBurnReport() {
         <Step n={1} title="เลือกเดือนที่รายงาน" hint="เลือกเดือนและรอบที่ต้องการรายงาน" done={!!month}>
           <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
           <MonthPicker id="m" value={month} onChange={setMonth} />
+          {outsideWarn && <div className="ux-banner warn" role="status"><span>{I.info}</span><div>เดือนนี้อยู่นอกช่วงดำเนินการของปีงบประมาณ {fiscalYearOf(month)} ({thaiMonth(fr!.from)} – {thaiMonth(fr!.to)}) · ยังบันทึกและส่งได้ แต่ข้อมูลจะ<b>ไม่ถูกนับรวม</b>ในตารางและสรุปรายปีงบประมาณ</div></div>}
           <RoundTabs dueDays={dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
           <DueBanner rec={rec} due={due} overdue={overdue} noun="ข้อมูล" />
         </Step>
