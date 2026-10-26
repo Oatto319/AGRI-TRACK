@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, DEFAULT_AREA_CONST, DISTRICTS, areaPct, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, type AppConfig, type AreaConst, type FieldDef, type AreaReport, type BurnKey, type BurnReport, type FieldKey, type Report } from "./data";
+import { DEFAULT_CONFIG, DEFAULT_AREA_CONST, DISTRICTS, areaPct, dueDateOf, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, type AppConfig, type AreaConst, type FieldDef, type AreaReport, type BurnKey, type BurnReport, type FieldKey, type Report } from "./data";
 
 export const fmt = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 // รวมเฉพาะช่องที่ยังอยู่ในการตั้งค่า (ช่องที่จังหวัดลบออกแล้วไม่นับ)
@@ -67,4 +67,34 @@ export function aggregateBurn(reports: BurnReport[], from: string, to: string, r
   });
   const sums = Object.fromEntries(BURN_FIELDS.map(f => [f.key, rows.reduce((a, r) => a + r.sums[f.key], 0)])) as Record<BurnKey, number>;
   return { months, rows, sums, rounds, late: rows.reduce((a, r) => a + r.late, 0) };
+}
+
+// ---------- ประวัติการส่งรายงานของ "เดือนเดียว" รายอำเภอ (ใช้ได้กับทั้งรายงานปุ๋ย ไถกลบฟางข้าว และหยุดเผา) ----------
+// สถานะของแต่ละรอบ: ontime = ส่งแล้วตรงเวลา · late = ส่งแล้วแต่ช้า · missing = เลยกำหนดแล้วแต่ยังไม่ส่ง · waiting = ยังไม่ถึงกำหนดส่ง
+// วันกำหนดส่งนับรวมวันนั้นด้วย (ส่งภายในวันกำหนด = ตรงเวลา) เหมือนที่เซิร์ฟเวอร์ตัดสิน late ตอนส่ง
+export type SubState = "ontime" | "late" | "missing" | "waiting";
+export interface RoundCell { round: number; state: SubState; due: string; submittedAt?: string; draft: boolean }
+type SubRow = { district: string; month: string; round: number; status: "draft" | "submitted"; submittedAt?: string; dueDate?: string; late?: boolean };
+
+export function submissionByMonth(reports: SubRow[], month: string, dueDays: number[], today: string) {
+  // index รายงานของเดือนนี้ครั้งเดียว (district|round → รายงาน) แทนการ filter ทั้งชุดซ้ำทุกอำเภอทุกรอบ
+  const sent = new Map<string, SubRow>(), drafts = new Set<string>();
+  for (const r of reports) {
+    if (r.month !== month) continue;
+    const k = `${r.district}|${r.round}`;
+    if (r.status === "submitted") sent.set(k, r); else drafts.add(k);
+  }
+  const rows = DISTRICTS.map(d => {
+    const cells: RoundCell[] = dueDays.map((day, i) => {
+      const k = `${d.name}|${i + 1}`, sub = sent.get(k);
+      const due = sub?.dueDate ?? dueDateOf(month, day);
+      const state: SubState = sub ? (sub.late ? "late" : "ontime") : today > due ? "missing" : "waiting";
+      return { round: i + 1, state, due, submittedAt: sub?.submittedAt, draft: !sub && drafts.has(k) };
+    });
+    // สถานะรวมของอำเภอ: ขาดส่งสำคัญที่สุด → รอถึงกำหนด → ส่งช้า → ตรงเวลาครบทุกรอบ
+    const state: SubState = cells.some(c => c.state === "missing") ? "missing" : cells.some(c => c.state === "waiting") ? "waiting" : cells.some(c => c.state === "late") ? "late" : "ontime";
+    return { name: d.name, cells, state };
+  });
+  const count = (st: SubState) => rows.filter(r => r.state === st).length;
+  return { rows, rounds: dueDays.length, counts: { ontime: count("ontime"), late: count("late"), missing: count("missing"), waiting: count("waiting") } };
 }

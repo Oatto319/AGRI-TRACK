@@ -6,12 +6,14 @@ import { I, PageHead, f2 } from "@/components/Entry";
 import { AreaTable, BurnTable, FertTable, KpiRow, SubmitLog } from "@/components/ProvinceTables";
 import { FiscalSelect, useProvince } from "@/components/Province";
 import PdfButton from "@/components/PdfButton";
+import SubmissionHistory from "@/components/SubmissionHistory";
 
 type Tab = "fert" | "area" | "burn" | "log";
 
 export default function ProvinceTable() {
   const { reports, area, burn, error, from, to, valid, agg, settings } = useProvince();
   const [tab, setTab] = useState<Tab>("fert");
+  const [hist, setHist] = useState(false);
   const cfg = useMemo(() => cfgOfMonth(settings, to), [settings, to]), K = cfg.area;
   const a = useMemo(() => (area && valid ? aggregateArea(area, to, areaTotalsFor(settings, to), cfg.area) : null), [area, to, settings, valid, cfg]);
   const b = useMemo(() => (burn && valid ? aggregateBurn(burn, from, to, dueDaysFor(settings, "burn", to).length, cfg) : null), [burn, from, to, settings, valid, cfg]);
@@ -24,10 +26,12 @@ export default function ProvinceTable() {
       <PageHead title="ตารางข้อมูลรายอำเภอ" sub="เลือกปีงบประมาณ แล้วเลือกแท็บที่ต้องการดู · ดาวน์โหลดเป็น Excel หรือ PDF สรุป 3 ปีได้จากปุ่มด้านขวา">
         <div className="ux-mfilter">
           <FiscalSelect />
+          {valid && <button type="button" className="ux-btn line" disabled={!reports || !area || !burn} onClick={() => setHist(true)}>📅 ประวัติการส่งรายเดือน</button>}
           {valid && <a className="ux-btn gold" href={`/api/export?from=${from}&to=${to}`} download>ดาวน์โหลด Excel</a>}
           {valid && <PdfButton fy={fiscalYearOf(to)} className="ux-btn" />}
         </div>
       </PageHead>
+      {hist && reports && area && burn && <SubmissionHistory reports={reports} area={area} burn={burn} settings={settings} from={from} to={to} initialTopic={tab === "area" || tab === "burn" ? tab : "fert"} onClose={() => setHist(false)} />}
       {error && <p className="ux-toast bad" role="alert">{error}</p>}
       {!reports && !error && <p className="ux-empty">กำลังโหลด…</p>}
       {reports && !valid && <p className="ux-toast bad">เลือกช่วงเดือนให้ถูกต้อง (เดือนเริ่มต้องไม่เกินเดือนสิ้นสุด)</p>}

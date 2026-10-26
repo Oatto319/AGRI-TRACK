@@ -35,8 +35,7 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
         { href: "/province", label: "1. ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ", icon: "home" },
         { href: "/province/table", label: "2. ตารางข้อมูลรายอำเภอ", hint: "ดูรายละเอียด + ดาวน์โหลด Excel", icon: "table" },
-        { href: "/province/settings", label: "3. ตั้งค่าการรายงาน", hint: "รอบ วันกำหนดส่ง พื้นที่ปลูก", icon: "gear" },
-        { href: "/province/config", label: "4. ตั้งค่าหัวข้อและรายการ", hint: "ปีงบประมาณ ช่องปุ๋ย ชื่อหัวข้อตาราง", icon: "edit" }]}>
+        { href: "/province/settings", label: "3. ตั้งค่า", hint: "รอบ กำหนดส่ง พื้นที่ปลูก ปีงบประมาณ ช่องข้อมูล หัวตาราง", icon: "gear" }]}>
         {children}
       </Shell>
     </C.Provider>
@@ -58,7 +57,7 @@ export function FiscalSelect() {
     if (!all.length) return [];
     const lo = Math.min(...all), hi = Math.max(...all);
     const span = Array.from({ length: hi - lo + 1 }, (_, i) => hi - i);
-    return fiscalYearOptions(cfgOf(settings), span); // รวมปีงบประมาณที่จังหวัดเพิ่มเองในหน้า "ตั้งค่าหัวข้อและรายการ" · ปีล่าสุดอยู่บนสุด
+    return fiscalYearOptions(cfgOf(settings), span); // รวมปีงบประมาณที่จังหวัดเพิ่มเองในหน้า "ตั้งค่า" · ปีล่าสุดอยู่บนสุด
   }, [reports, area, curFy, fy, settings]);
   const choose = (v: number) => { const r = fiscalRange(v); setFrom(r.from); setTo(r.to); };
   return (

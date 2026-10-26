@@ -240,3 +240,36 @@ body{background:var(--bg)}
 .fm-m.bad{background:var(--bad-l);border-color:#f6b3bf}.fm-m.bad small{color:#9f1239;font-weight:600}
 .fm-m.sel{border-color:var(--brand);box-shadow:0 0 0 3px rgba(38,106,64,.25)}
 .fm-m.now em{position:absolute;top:.4rem;right:.5rem;font-style:normal;font-size:.7rem;background:var(--gold);color:#fff;border-radius:99px;padding:0 .45rem}
+
+/* ---------- หน้าต่างประวัติการส่งรายงานรายเดือน (sh-*) · ใช้สีธีมเดียวกับระบบ ---------- */
+/* ไม่ใช้ backdrop-filter / transition: all เพราะทำให้หน้าต่างเต็มจอกระตุกบนเครื่องช้า */
+.sh-back{position:fixed;inset:0;z-index:60;background:rgba(27,36,24,.55);display:grid;place-items:center;padding:1rem}
+.sh-dlg{background:#fff;border-radius:18px;width:min(1040px,100%);max-height:calc(100dvh - 2rem);display:flex;flex-direction:column;box-shadow:0 12px 36px rgba(0,0,0,.28);contain:content}
+.sh-head{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;padding:1.1rem 1.3rem;border-bottom:1px solid #e8ede5}
+.sh-head h2{font-size:1.2rem;font-weight:700;color:var(--ink);margin:0}
+.sh-head p{margin:.15rem 0 0;color:var(--muted);font-size:.88rem}
+.sh-body{padding:1rem 1.3rem 1.3rem;overflow:auto;min-height:0;overscroll-behavior:contain}
+.sh-lbl{display:block;font-size:.8rem;font-weight:600;color:var(--muted);margin:0 0 .4rem}
+.sh-months{display:flex;gap:.45rem;overflow-x:auto;padding-bottom:.4rem;margin-bottom:.8rem}
+.sh-m{flex:none;min-width:88px;border:1px solid #e1e7dc;background:#fff;border-radius:12px;padding:.45rem .6rem;cursor:pointer;text-align:center}
+.sh-m:hover{background:var(--brand-l)}
+.sh-m b{display:block;font-size:.88rem;color:var(--ink)}
+.sh-m .ux-pill{margin-top:.25rem;font-size:.7rem;padding:.05rem .55rem}
+.sh-m[aria-pressed=true]{background:var(--brand-l);border-color:var(--brand);box-shadow:0 0 0 2px rgba(38,106,64,.18)}
+.sh-nav{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;background:var(--brand-l);border:1px solid #e1e7dc;border-radius:12px;padding:.5rem .8rem;margin-bottom:.8rem}
+.sh-nav b{font-size:1.02rem;color:var(--brand-d)}
+.sh-sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.55rem;margin-bottom:.8rem}
+.sh-sum button{border:1px solid #e1e7dc;background:#fff;border-radius:12px;padding:.55rem .9rem;cursor:pointer;text-align:left;color:var(--ink)}
+.sh-sum button:hover{background:var(--brand-l)}
+.sh-sum button b{display:block;font-size:1.5rem;line-height:1.2;font-family:var(--head);font-variant-numeric:tabular-nums}
+.sh-sum button span{font-size:.82rem;color:var(--muted)}
+.sh-sum button.ok b{color:var(--ok)}.sh-sum button.warn b{color:var(--warn)}.sh-sum button.bad b{color:var(--bad)}
+.sh-sum button[aria-pressed=true]{background:var(--brand-l);border-color:var(--brand);box-shadow:0 0 0 2px rgba(38,106,64,.18)}
+.sh-warn{display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;background:var(--bad-l);color:#9f1239;border:1px solid #fecdd3;border-radius:12px;padding:.6rem .9rem;margin-bottom:.8rem;font-size:.9rem}
+.sh-tool{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.6rem}
+.sh-tw{overflow:auto;max-height:46vh;border-radius:14px;border:1px solid #f1f3ef;overscroll-behavior:contain}
+.sh-tw .ux-table td,.sh-tw .ux-table th{text-align:center}
+.sh-tw .ux-table td.sticky,.sh-tw .ux-table th.sticky{text-align:left}
+.sh-d{display:block;color:var(--muted);font-size:.75rem;margin-top:.15rem;white-space:nowrap}
+.sh-empty{text-align:center;color:#a4b09c;padding:2rem 0;border:1px dashed #d5dcd0;border-radius:12px}
+@media(max-width:640px){.sh-back{padding:0;place-items:stretch}.sh-dlg{border-radius:0;max-height:100dvh;height:100dvh}.sh-tw{max-height:none}}
