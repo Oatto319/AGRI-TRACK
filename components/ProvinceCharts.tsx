@@ -64,6 +64,51 @@ export function BarChart({ data, unit }: { data: { label: string; value: number 
     </svg>);
 }
 
+/** กราฟแท่งเปรียบเทียบรายเดือน 2 ช่วง (ช่วงก่อน = น้ำเงินเข้ม, ช่วงนี้ = ฟ้า) ซ้อนบนแถบส้มไล่สีที่สูงเท่าค่าสูงสุดของเดือนนั้น */
+export function FertCompareBars({ data, prevLabel, curLabel, unit }: { data: { label: string; prev: number; cur: number }[]; prevLabel: string; curLabel: string; unit: string }) {
+  const W = 600, H = 270, L = 46, R = 10, T = 18, B = 30;
+  const maxV = Math.max(0, ...data.map(d => Math.max(d.prev, d.cur)));
+  if (maxV <= 0) return <p className="pv-empty">ยังไม่มีข้อมูลในช่วงนี้</p>;
+  const step = niceStep(maxV), top = step * 5;
+  const iw = W - L - R, ih = H - T - B, band = iw / Math.max(1, data.length), ew = Math.min(64, band * 0.82), bw = ew * 0.3, gap = ew * 0.06;
+  const every = data.length > 18 ? 2 : 1, base = T + ih, yOf = (v: number) => base - (v / top) * ih;
+  const bar = (x: number, v: number, fill: string, name: string, lb: string) => v > 0 ? (
+    <rect x={x} y={yOf(v)} width={bw} height={base - yOf(v)} rx="1.5" fill={fill}><title>{`${lb} ${name}: ${fmt(v)} ${unit}`}</title></rect>) : null;
+  return (
+    <>
+      <svg className="pv-bars" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`เปรียบเทียบรายเดือน ${prevLabel} กับ ${curLabel}`}>
+        <defs>
+          <linearGradient id="fcEnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f7941d" /><stop offset=".55" stopColor="#fdd9a8" /><stop offset="1" stopColor="#fff" stopOpacity=".15" /></linearGradient>
+          <linearGradient id="fcPrev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5f7494" /><stop offset=".45" stopColor="#35557f" /><stop offset="1" stopColor="#2e4a73" /></linearGradient>
+          <linearGradient id="fcCur" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7cd0f0" /><stop offset="1" stopColor="#3db8ec" /></linearGradient>
+        </defs>
+        {Array.from({ length: 6 }, (_, i) => {
+          const y = T + ih - (i / 5) * ih;
+          return (
+            <g key={i}>
+              <line x1={L} x2={W - R} y1={y} y2={y} stroke="#f2f4f0" strokeWidth="1" />
+              <text x={L - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#a4b09c">{(i * step).toLocaleString("th-TH")}</text>
+            </g>);
+        })}
+        {data.map((d, i) => {
+          const cx = L + band * i + band / 2, ex = cx - ew / 2, hi = Math.max(d.prev, d.cur), ey = yOf(hi);
+          return (
+            <g key={d.label + i}>
+              {hi > 0 && <path d={`M${ex} ${base}V${ey + 5}Q${ex} ${ey} ${ex + 5} ${ey}H${ex + ew - 5}Q${ex + ew} ${ey} ${ex + ew} ${ey + 5}V${base}Z`} fill="url(#fcEnv)" stroke="#dbe4ee" strokeWidth=".8" />}
+              {bar(cx - gap / 2 - bw, d.prev, "url(#fcPrev)", d.label, prevLabel)}
+              {bar(cx + gap / 2, d.cur, "url(#fcCur)", d.label, curLabel)}
+              {i % every === 0 && <text x={cx} y={H - 9} textAnchor="middle" fontSize="11" fill="#76826d">{d.label}</text>}
+            </g>);
+        })}
+      </svg>
+      <p className="pv-lg">
+        <span><i style={{ background: "#35557f" }} />{prevLabel}</span>
+        <span><i style={{ background: "#3db8ec" }} />{curLabel}</span>
+        <span><i style={{ background: "linear-gradient(#f7941d,#fdd9a8)" }} />ค่าสูงสุดของเดือน ({unit})</span>
+      </p>
+    </>);
+}
+
 /** โดนัทสัดส่วนตามชนิด: ตัวเลขรวมกลางวง + คำอธิบายสีพร้อมปริมาณและร้อยละ */
 export function TypeDonut({ parts, unit }: { parts: { label: string; value: number; color: string }[]; unit: string }) {
   const total = parts.reduce((a, p) => a + p.value, 0), R = 54, L = 2 * Math.PI * R, gap = total > 0 && parts.filter(p => p.value > 0).length > 1 ? 2 : 0;
@@ -159,7 +204,7 @@ export function AreaCombo({ data, target }: { data: { label: string; month: numb
 }
 
 /** แท่งแนวนอนเทียบอำเภอ: ความยาว = พื้นที่สะสม · เส้นขีด = เป้าหมายของอำเภอ · เขียวน้ำเงิน = ถึงเป้าแล้ว · ทอง = ยังไม่ถึง */
-export function AreaHBars({ rows, highlight }: { rows: { name: string; accum: number; target: number }[]; highlight?: string }) {
+export function AreaHBars({ rows, highlight, unit = "ไร่" }: { rows: { name: string; accum: number; target: number }[]; highlight?: string; unit?: string }) {
   const max = Math.max(1, ...rows.map(r => Math.max(r.accum, r.target)));
   return (
     <ul className="pv-hb">{rows.map(r => {
@@ -167,7 +212,7 @@ export function AreaHBars({ rows, highlight }: { rows: { name: string; accum: nu
       return (
         <li key={r.name} className={r.name === highlight ? "me" : ""}>
           <span className="nm">{r.name}</span>
-          <div className="tk" title={`${r.name}: สะสม ${nf(r.accum)} ไร่ · เป้าหมาย ${nf(r.target)} ไร่`}>
+          <div className="tk" title={`${r.name}: สะสม ${nf(r.accum)} ${unit} · เป้าหมาย ${nf(r.target)} ${unit}`}>
             <i style={{ width: `${(r.accum / max) * 100}%`, background: ok ? "#297b48" : "#c09a3a" }} />
             {r.target > 0 && <u style={{ left: `${(r.target / max) * 100}%` }} />}
           </div>

@@ -58,7 +58,7 @@ export default function DistrictReport() {
       const response = await fetch("/api/reports", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ district, month, round: rd, values: vals, reporter: rep, status: s }),
+        body: JSON.stringify({ district, month, round: rd, values: vals, reporter: { name: rep.name }, status: s }),
       });
       const data: unknown = await response.json();
       if (!response.ok) {
@@ -87,12 +87,9 @@ export default function DistrictReport() {
   const EXTRA_GROUPS = [{ icon: I.box, c: "#7a5ea8", l: "#f3eefb" }, { icon: I.leaf, c: "#c2410c", l: "#fdf0e8" }, { icon: I.sprout, c: "#266a40", l: "#eef2eb" }]; // กลุ่มใหม่ที่จังหวัดเพิ่ม
   const groups = Array.from(new Set(FIELDS.map(f => f.group)));
   const filled = FIELDS.filter(f => vals[f.key] !== undefined && vals[f.key] !== "").length;
-  const phoneOk = /^[0-9\- ]{9,12}$/.test(rep.phone);
   const checks = [
     { ok: filled === FIELDS.length, t: filled === FIELDS.length ? "กรอกปริมาณครบทุกช่อง" : `ปริมาณ: เหลืออีก ${FIELDS.length - filled} ช่อง (ไม่มีให้ใส่ 0)` },
     { ok: !!rep.name.trim(), t: "ชื่อ-สกุลผู้รายงาน" },
-    { ok: !!rep.position.trim(), t: "ตำแหน่ง" },
-    { ok: phoneOk, t: "เบอร์โทร (ตัวเลข 9–12 หลัก)" },
   ];
   const ready = checks.every(c => c.ok);
 
@@ -118,11 +115,9 @@ export default function DistrictReport() {
               </div>); })}
         </Step>
 
-        <Step n={3} title="ผู้รายงาน" hint="ระบบจำข้อมูลจากครั้งก่อนให้อัตโนมัติ" done={!!rep.name.trim() && !!rep.position.trim() && phoneOk}>
+        <Step n={3} title="ผู้รายงาน" hint="ระบบจำชื่อจากครั้งก่อนให้อัตโนมัติ" done={!!rep.name.trim()}>
           <div className="ux-two">
             <TextField id="rname" label="ชื่อ-สกุล" value={rep.name} onChange={v => setRep({ ...rep, name: v })} />
-            <TextField id="rposition" label="ตำแหน่ง" value={rep.position} onChange={v => setRep({ ...rep, position: v })} />
-            <TextField id="rphone" label="โทรศัพท์" value={rep.phone} onChange={v => setRep({ ...rep, phone: v })} placeholder="เช่น 045-123456" />
           </div>
         </Step>
       </div>

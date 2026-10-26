@@ -21,7 +21,7 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
   useEffect(() => {
     Promise.all([load<Report[]>("/api/reports"), load<Settings>("/api/settings"), load<AreaReport[]>("/api/area"), load<BurnReport[]>("/api/burn")]).then(([all, st, ar, bn]) => {
       setSettings(st); setArea(ar); setBurn(bn);
-      setReports(all);
+      setReports(all);  
       const ms = all.filter(r => r.status === "submitted").map(r => r.month).sort(), cur = currentMonth();
       // ค่าเริ่มต้น = ปีงบประมาณของเดือนล่าสุดที่มีรายงานส่งแล้ว (ถ้ายังไม่มีข้อมูล ใช้ปีงบประมาณปัจจุบัน)
       const fr = fiscalRange(fiscalYearOf(ms[ms.length - 1] ?? cur));

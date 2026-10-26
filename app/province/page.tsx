@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
 import { useMemo } from "react";
-import { areaTotalsFor, cfgOfMonth, fiscalYearOf, thaiMonth } from "@/lib/data";
-import { aggregateArea, fmt } from "@/lib/summary";
-import { AreaCombo, AreaHBars, BarChart, Icons, PV_COLORS, RankBoard, Ring, Sparkline, StatusBar, TypeDonut, cumulate } from "@/components/ProvinceCharts";
+import { areaTotalsFor, cfgOfMonth, dueDaysFor, fiscalYearOf, thaiMonth } from "@/lib/data";
+import { aggregate, aggregateArea, fmt } from "@/lib/summary";
+import { AreaCombo, AreaHBars, FertCompareBars, Icons, PV_COLORS, RankBoard, Ring, Sparkline, StatusBar, TypeDonut, cumulate } from "@/components/ProvinceCharts";
 import { FilterBar, useProvince } from "@/components/Province";
 
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
@@ -16,6 +16,7 @@ const monthLabel = (ym: string, multiYear: boolean) => {
 
 export default function ProvinceDashboard() {
   const { reports, area, error, from, to, valid, agg, settings } = useProvince();
+  const shiftYear = (ym: string, n: number) => `${Number(ym.slice(0, 4)) + n}${ym.slice(4)}`;
   const cfg = useMemo(() => cfgOfMonth(settings, to), [settings, to]), FIELDS = cfg.fertFields, AREA_TARGET_PCT = cfg.area.targetPct;
 
   const rows = agg?.rows ?? [];
@@ -39,6 +40,11 @@ export default function ProvinceDashboard() {
 
   const multiYear = valid && from.slice(0, 4) !== to.slice(0, 4);
   const monthly = (agg?.months ?? []).map(m => ({ label: monthLabel(m, multiYear), value: sum(r => r.byMonth[m] ?? 0) }));
+  const cmpLabel = (back: number) => !valid ? (back ? "ปีก่อน" : "ปีนี้") : fiscalYearOf(from) === fiscalYearOf(to) ? `ปีงบฯ ${fiscalYearOf(to) + back}` : `${Number(from.slice(0, 4)) + 543 + back}–${Number(to.slice(0, 4)) + 543 + back}`;
+  // เทียบกับช่วงเดียวกันของปีก่อนหน้า (เลื่อนย้อนหลัง 1 ปี)
+  const prevAgg = useMemo(() => (reports && valid ? aggregate(reports, shiftYear(from, -1), shiftYear(to, -1), dueDaysFor(settings, "fert", shiftYear(to, -1)).length, cfgOfMonth(settings, shiftYear(to, -1))) : null), [reports, from, to, valid, settings]);
+  const compare = (agg?.months ?? []).map((m, i) => ({ label: monthLabel(m, multiYear), cur: sum(r => r.byMonth[m] ?? 0),
+    prev: (prevAgg?.rows ?? []).reduce((a, r) => a + (prevAgg ? r.byMonth[prevAgg.months[i]] ?? 0 : 0), 0) }));
   const top10 = [...rows].filter(r => r.total > 0).sort((a, b) => b.total - a.total).slice(0, 10);
   const yearTxt = valid ? (fiscalYearOf(from) === fiscalYearOf(to) ? `ปีงบประมาณ ${fiscalYearOf(to)}` : multiYear ? `${Number(from.slice(0, 4)) + 543}–${Number(to.slice(0, 4)) + 543}` : `${Number(to.slice(0, 4)) + 543}`) : "";
   const rounds = agg?.rounds ?? 1;
@@ -105,7 +111,7 @@ export default function ProvinceDashboard() {
               </section>
               <section className="pv-card">
                 <h2>ผลผลิตรายเดือน</h2>
-                <BarChart data={monthly} unit="ตัน" />
+                <FertCompareBars data={compare} prevLabel={cmpLabel(-1)} curLabel={cmpLabel(0)} unit="ตัน" />
               </section>
             </div>
           </div>
