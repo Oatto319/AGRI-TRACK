@@ -30,7 +30,7 @@ export default function DistrictBurnReport() {
   const num = (k: string) => (vals[k] === undefined || vals[k] === "" ? 0 : Number(vals[k]) || 0);
 
   // สะสมตั้งแต่ต้นปีงบประมาณ (ต.ค.) ถึงเดือนที่เลือก = รายงานที่ส่งแล้ว (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
-  const fy = month ? fiscalYearOf(month) : 0, fr = fy ? fiscalRange(fy) : null;
+  const fy = month ? fiscalYearOf(month) : 0, fr = fy ? fiscalRange(fy, "burn") : null;
   const outsideWarn = !!fr && (month < fr.from || month > fr.to); // เดือนนอกช่วงปีงบประมาณ: เตือนว่าไม่นับในสรุป
   const accum = (k: BurnKey) => (fr ? all.filter(x => x.status === "submitted" && x.month >= fr.from && x.month <= month && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values[k] ?? 0), 0) : 0) + num(k);
 

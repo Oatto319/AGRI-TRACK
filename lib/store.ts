@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, applyFiscalPeriods, normalizeFiscalYears, DEFAULT_SETTINGS, DISTRICTS, validateAreaTotals, validateConfig, validateDueDays, validateSchedules, validateAreaSets, type AppConfig, type AreaReport, type BurnReport, type Report, type Settings } from "./data";
+import { DEFAULT_CONFIG, applyFiscalPeriods, normalizeFiscalYears, DEFAULT_SETTINGS, DISTRICTS, validateAreaTotals, validateConfig, validateDueDays, validateSchedules, validateAreaSets, validateTambonSets, type AppConfig, type AreaReport, type BurnReport, type Report, type Settings } from "./data";
 import { db } from "./mongo";
 
 // เก็บข้อมูลใน MongoDB — คอลเลกชัน reports, area_reports, settings (ดู lib/mongo.ts)
@@ -89,12 +89,14 @@ function parseSettings(s: unknown): Settings {
   if (validateSchedules(schedules)) throw new Error("Invalid schedules in table settings");
   const areaSets = s.areaSets === undefined ? [] : s.areaSets; // ข้อมูลเก่าไม่มี areaSets
   if (validateAreaSets(areaSets)) throw new Error("Invalid areaSets in table settings");
+  const tambonSets = s.tambonSets === undefined ? [] : s.tambonSets; // ข้อมูลเก่าไม่มี tambonSets
+  if (validateTambonSets(tambonSets)) throw new Error("Invalid tambonSets in table settings");
   // ข้อมูลเก่าไม่มี config -> ใช้ค่าเริ่มต้น · ถ้ามีเพียงบางส่วนให้เติมส่วนที่ขาดด้วยค่าเริ่มต้น
   const config: AppConfig = { ...DEFAULT_CONFIG, ...(isRecord(s.config) ? (s.config as Partial<AppConfig>) : {}) };
   config.fiscalYears = normalizeFiscalYears(config.fiscalYears);
   if (validateConfig(config)) throw new Error("Invalid config in table settings");
   applyFiscalPeriods(config.fiscalYears); // ใช้ช่วงเดือนของแต่ละปีงบประมาณที่จังหวัดตั้งไว้ในทุกการคำนวณฝั่งเซิร์ฟเวอร์
-  return { dueDays: s.dueDays as number[], areaTotals: areaTotals as Record<string, number>, schedules: schedules as Settings["schedules"], areaSets: areaSets as Settings["areaSets"], config };
+  return { dueDays: s.dueDays as number[], areaTotals: areaTotals as Record<string, number>, schedules: schedules as Settings["schedules"], areaSets: areaSets as Settings["areaSets"], tambonSets: tambonSets as Settings["tambonSets"], config };
 }
 // การตั้งค่าเก็บเป็นเอกสารเดียว (_id = "main") ในคอลเลกชัน settings
 export async function readSettings(): Promise<Settings> {

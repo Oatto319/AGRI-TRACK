@@ -1,9 +1,8 @@
 "use client";
-import { startTransition, useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, DISTRICTS, MAX_ROUNDS, bkkDate, cfgOfMonth, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, thaiDate, thaiDateTime, thaiMonth, type Report, type Reporter, type Settings } from "@/lib/data";
-import { fmt, sumValues } from "@/lib/summary";
+import { startTransition, useEffect, useRef, useState } from "react";
+import { DEFAULT_SETTINGS, DISTRICTS, MAX_ROUNDS, bkkDate, cfgOf, cfgOfMonth, currentMonth, fiscalYearOptions, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, thaiDate, thaiDateTime, thaiMonth, tambonOf, type Report, type Reporter, type Settings } from "@/lib/data";
+import { fmt, monthsBetween, sumValues } from "@/lib/summary";
 import { useDistrict } from "@/components/District";
-import MonthPicker from "@/components/MonthPicker";
 import { DueBanner, I, NumField, PageHead, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
 
 const toStr = (v: Report["values"]) => Object.fromEntries(Object.entries(v).map(([k, n]) => [k, String(n)]));
@@ -15,10 +14,23 @@ export default function DistrictReport() {
   const [month, setMonth] = useState("");
   const [today, setToday] = useState(""); // วันที่ปัจจุบัน (เวลาไทย) อ่านหลัง mount เท่านั้น
   const [round, setRound] = useState(1);
+  const urlMonth = useRef(false); // เปิดจากลิงก์ที่ระบุเดือน (?month=) ไม่ต้องย้ายเดือนให้อัตโนมัติ
+  const [fyIn, setFyIn] = useState<number | null>(null); // ปีงบประมาณที่เลือก (null = ปีงบประมาณของเดือนที่เลือกอยู่)
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const cfg = cfgOfMonth(settings, month), FIELDS = cfg.fertFields;
-  const fyr = month ? fiscalRange(fiscalYearOf(month)) : null, outsideWarn = !!fyr && (month < fyr.from || month > fyr.to); // เดือนนอกช่วงปีงบประมาณ: เตือนว่าไม่นับในสรุป // ช่องที่จังหวัดตั้งไว้ (เพิ่ม/ลบ/เปลี่ยนชื่อได้)
+  const fyr = month ? fiscalRange(fiscalYearOf(month), "fert") : null, outsideWarn = !!fyr && (month < fyr.from || month > fyr.to); // เดือนนอกช่วงปีงบประมาณ: เตือนว่าไม่นับในสรุป // ช่องที่จังหวัดตั้งไว้ (เพิ่ม/ลบ/เปลี่ยนชื่อได้)
   const [all, setAll] = useState<Report[]>([]);
+  const fy = fyIn ?? (month ? fiscalYearOf(month) : 0);
+  const fyRange = fy ? fiscalRange(fy, "fert") : null;
+  const monthOptions = fyRange ? Array.from(new Set([...monthsBetween(fyRange.from, fyRange.to), ...(month && fiscalYearOf(month) === fy ? [month] : [])])).sort() : [];
+  const curFy = fiscalYearOf(currentMonth());
+  const fyOptions = fiscalYearOptions(cfgOf(settings), [curFy, fy, ...all.map(x => fiscalYearOf(x.month))].filter(Boolean));
+  const pickFy = (y: number) => {
+    setFyIn(y);
+    const r = fiscalRange(y, "fert"), ms = monthsBetween(r.from, r.to), now = currentMonth();
+    setMonth(ms.includes(now) ? now : now > r.to ? (ms[ms.length - 1] ?? now) : (ms[0] ?? now)); // เดือนปัจจุบันถ้าอยู่ในปีนั้น ไม่เช่นนั้นเดือนใกล้ที่สุด
+    setRound(1);
+  };
   const [vals, setVals] = useState<Record<string, string>>({});
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
   const [msg, setMsg] = useState<{ t: string; bad?: boolean } | null>(null);
@@ -34,7 +46,8 @@ export default function DistrictReport() {
     const sp = new URLSearchParams(window.location.search), q = sp.get("month"), r = Number(sp.get("round") ?? 1);
     startTransition(() => {
       setToday(bkkDate());
-      setMonth(q && /^\d{4}-(0[1-9]|1[0-2])$/.test(q) ? q : currentMonth());
+      urlMonth.current = !!q && /^\d{4}-(0[1-9]|1[0-2])$/.test(q);
+      setMonth(urlMonth.current ? q! : currentMonth());
       setRound(Number.isInteger(r) && r >= 1 && r <= MAX_ROUNDS ? r : 1);
     });
   }, []);
@@ -43,6 +56,15 @@ export default function DistrictReport() {
       .then(([reports, st]) => { setAll(reports); setSettings(st); })
       .catch(() => setMsg({ t: "ไม่สามารถโหลดรายงานได้ กรุณาลองใหม่อีกครั้ง", bad: true }));
   }, [district]);
+  // เดือนปัจจุบันอยู่นอกช่วงรายงานของปีงบประมาณ (เช่น ต.ค. ก่อนเริ่ม พ.ย.) → ย้ายไปเดือนที่รายงานได้ใกล้ที่สุดให้ก่อน (ทำครั้งเดียวหลังโหลดการตั้งค่า)
+  const snapped = useRef(false);
+  useEffect(() => {
+    if (snapped.current || !month || settings === DEFAULT_SETTINGS) return;
+    snapped.current = true;
+    cfgOf(settings);
+    const r = fiscalRange(fiscalYearOf(month), "fert");
+    if (!urlMonth.current && (month < r.from || month > r.to)) startTransition(() => setMonth(month < r.from ? r.from : r.to));
+  }, [month, settings]);
   useEffect(() => {
     const last = [...all].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     startTransition(() => {
@@ -95,12 +117,25 @@ export default function DistrictReport() {
 
   return (<>
     <PageHead title="กรอกรายงานปุ๋ยอินทรีย์รายเดือน" sub={`อำเภอ${district} · กรอกปริมาณที่ผลิตหรือส่งเสริมในเดือนที่เลือก ทำตามขั้นตอน 1 → 3 แล้วกด “ส่งรายงาน”`}
-      chips={[{ label: "เกษตรตำบล", value: `${info.tambon} ราย` }, { label: "เป้าหมาย", value: `${fmt(info.tambon * cfg.targetPerTambon)} ตัน` }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
+      chips={[{ label: "เกษตรตำบล", value: `${tambonOf(cfg, info)} ราย` }, { label: "เป้าหมาย", value: `${fmt(tambonOf(cfg, info) * cfg.targetPerTambon)} ตัน` }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
     <div className="ux-split">
       <div className="ux-stack">
-        <Step n={1} title="เลือกเดือนที่รายงาน" hint="ระบบเลือกเดือนปัจจุบันให้แล้ว เปลี่ยนได้ถ้าต้องการกรอกย้อนหลัง" done={!!month}>
-          <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
-          <MonthPicker id="m" value={month} onChange={setMonth} />
+        <Step n={1} title="เลือกเดือนที่รายงาน" hint="เลือกปีงบประมาณก่อน แล้วเลือกเดือนที่จังหวัดกำหนดให้รายงาน · ระบบเลือกเดือนปัจจุบันให้แล้ว เปลี่ยนได้ถ้าต้องการกรอกย้อนหลัง" done={!!month}>
+          <div className="ux-formgrid">
+            <div>
+              <label className="ux-lbl" htmlFor="fy">ปีงบประมาณ</label>
+              <select id="fy" className="ux-select" value={fy || ""} disabled={!fy} onChange={e => pickFy(Number(e.target.value))}>
+                {fyOptions.map(y => <option key={y} value={y}>ปีงบประมาณ {y}{y === curFy ? " (ปัจจุบัน)" : ""}</option>)}
+              </select>
+              {fyRange && <small className="ux-hint">ช่วงที่รายงาน {thaiMonth(fyRange.from)} – {thaiMonth(fyRange.to)}</small>}
+            </div>
+            <div>
+              <label className="ux-lbl" htmlFor="m">เดือนที่รายงาน</label>
+              <select id="m" className="ux-select" value={month} disabled={!month} onChange={e => { setMonth(e.target.value); setRound(1); }}>
+                {monthOptions.map(m => <option key={m} value={m}>{thaiMonth(m)}{m === currentMonth() ? " (เดือนนี้)" : ""}</option>)}
+              </select>
+            </div>
+          </div>
           {outsideWarn && <div className="ux-banner warn" role="status"><span>{I.info}</span><div>เดือนนี้อยู่นอกช่วงดำเนินการของปีงบประมาณ {fiscalYearOf(month)} ({thaiMonth(fyr!.from)} – {thaiMonth(fyr!.to)}) · ยังบันทึกและส่งได้ แต่ข้อมูลจะ<b>ไม่ถูกนับรวม</b>ในตารางและสรุปรายปีงบประมาณ</div></div>}
           <RoundTabs dueDays={dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
           <DueBanner rec={rec} due={due} overdue={overdue} noun="รายงาน" />

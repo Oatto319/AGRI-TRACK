@@ -31,11 +31,11 @@ export default function DistrictAreaReport() {
   const inSeason = !month || isAreaMonth(month);
   const season = month ? areaSeasonOf(month) : null;
   // ปีงบประมาณที่เลือก + เดือนที่ต้องส่งทั้งหมดของปีนั้น (ตามช่วงเดือนที่จังหวัดตั้งไว้)
-  const fy = month ? fiscalYearOf(month) : 0, fr = fy ? fiscalRange(fy) : null;
+  const fy = month ? fiscalYearOf(month) : 0, fr = fy ? fiscalRange(fy, "area") : null;
   const curFy = today ? fiscalYearOf(today.slice(0, 7)) : 0;
   const fyOptions = fiscalYearOptions(cfgOf(settings), [...(curFy ? [curFy - 1, curFy, curFy + 1] : []), ...(fy ? [fy] : []), ...all.map(x => fiscalYearOf(x.month))]);
   const fyMonths = fr ? monthsBetween(fr.from, fr.to) : [];
-  const pickFy = (y: number) => { const r = fiscalRange(y), cm = today ? today.slice(0, 7) : currentMonth(); setMonth(cm >= r.from && cm <= r.to ? cm : r.from); setRound(1); };
+  const pickFy = (y: number) => { const r = fiscalRange(y, "area"), cm = today ? today.slice(0, 7) : currentMonth(); setMonth(cm >= r.from && cm <= r.to ? cm : r.from); setRound(1); };
   const monthInfo = (m: string) => {
     const dd = dueDaysFor(settings, "area", m), n = dd.length, rs = all.filter(x => x.month === m);
     const sentRounds = Array.from({ length: n }, (_, i) => i + 1).filter(r => rs.some(x => x.round === r && x.status === "submitted"));
@@ -110,7 +110,7 @@ export default function DistrictAreaReport() {
         <Step n={1} title="เลือกปีงบประมาณและเดือนที่รายงาน" hint={fr ? `เลือกปีงบประมาณก่อน ระบบจะแสดงเดือนที่ต้องส่ง (${thaiMonth(fr.from)} – ${thaiMonth(fr.to)})` : "เลือกปีงบประมาณก่อน ระบบจะแสดงเดือนที่ต้องส่ง"} done={!!month && inSeason}>
           <label className="ux-lbl" htmlFor="fy">ปีงบประมาณ</label>
           <select id="fy" className="ux-select" value={fy || ""} onChange={e => pickFy(Number(e.target.value))}>
-            {fyOptions.map(y => { const r = fiscalRange(y); return <option key={y} value={y}>ปีงบประมาณ {y} ({thaiMonth(r.from)} – {thaiMonth(r.to)})</option>; })}
+            {fyOptions.map(y => { const r = fiscalRange(y, "area"); return <option key={y} value={y}>ปีงบประมาณ {y} ({thaiMonth(r.from)} – {thaiMonth(r.to)})</option>; })}
           </select>
           {fr && <>
             <p className="ux-lbl" style={{ marginTop: "1rem" }}>เดือนที่ต้องส่ง ({fyMonths.length} เดือน) · กดเลือกเดือนที่จะรายงาน</p>

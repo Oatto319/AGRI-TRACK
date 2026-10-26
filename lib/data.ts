@@ -47,7 +47,12 @@ export type Topic = (typeof TOPICS)[number]["key"];
 export interface Schedule { id: string; topic: Topic; fy: number; dueDays: number[] } // fy = ปีงบประมาณ พ.ศ.
 // พื้นที่ปลูกพืชทั้งหมดรายอำเภอ แยกตามปีงบประมาณ (areaTotals เดิมใช้เป็นค่าสำรองสำหรับปีที่ยังไม่มีรายการ)
 export interface AreaSet { id: string; fy: number; totals: Record<string, number> }
-export interface Settings { dueDays: number[]; areaTotals: Record<string, number>; schedules: Schedule[]; areaSets: AreaSet[]; config: AppConfig }
+// จำนวนเกษตรตำบลรายอำเภอ แยกตามปีงบประมาณ + ตัวคูณเป้าหมายการผลิตต่อเกษตรตำบล 1 ราย (ตัน)
+// เป้าหมายการผลิตปุ๋ยอินทรีย์/วัสดุอินทรีย์ของอำเภอ = จำนวนเกษตรตำบล × perTambon (เช่น กันทรลักษ์ 12 ราย × 130 = 1,560 ตัน)
+// ปีงบประมาณที่ยังไม่มีรายการ ใช้จำนวนเกษตรตำบลเริ่มต้นใน DISTRICTS และตัวคูณจากการตั้งค่า (config.targetPerTambon)
+export const DEFAULT_PER_TAMBON = 130;
+export interface TambonSet { id: string; fy: number; perTambon: number; tambon: Record<string, number> }
+export interface Settings { dueDays: number[]; areaTotals: Record<string, number>; schedules: Schedule[]; areaSets: AreaSet[]; tambonSets: TambonSet[]; config: AppConfig }
 export const MAX_ROUNDS = 4;
 export function validateDueDays(d: unknown): string | null {
   if (!Array.isArray(d) || d.length < 1 || d.length > MAX_ROUNDS) return `จำนวนครั้งต่อเดือนต้องอยู่ระหว่าง 1–${MAX_ROUNDS}`;
@@ -90,6 +95,27 @@ export function validateAreaSets(x: unknown): string | null {
   return null;
 }
 
+export function validateTambonSets(x: unknown): string | null {
+  const bad = "ข้อมูลเกษตรตำบลไม่ถูกต้อง";
+  if (!Array.isArray(x) || x.length > 50) return bad;
+  const seen = new Set<number>();
+  for (const it of x) {
+    if (typeof it !== "object" || it === null || Array.isArray(it)) return bad;
+    const { id, fy, perTambon, tambon } = it as Record<string, unknown>;
+    if (typeof id !== "string" || !id) return bad;
+    if (typeof fy !== "number" || !Number.isInteger(fy) || fy < 2500 || fy > 2700) return "ปีงบประมาณไม่ถูกต้อง";
+    if (typeof perTambon !== "number" || !Number.isFinite(perTambon) || perTambon < 0 || perTambon > 1e6) return "ตัวคูณเป้าหมายต่อเกษตรตำบลต้องเป็นตัวเลขที่ไม่ติดลบ";
+    if (typeof tambon !== "object" || tambon === null || Array.isArray(tambon)) return bad;
+    for (const [k, v] of Object.entries(tambon)) {
+      if (!DISTRICTS.some(d => d.name === k)) return `ไม่พบอำเภอ ${k}`;
+      if (typeof v !== "number" || !Number.isInteger(v) || v < 0 || v > 1000) return `จำนวนเกษตรตำบลของอำเภอ${k}ต้องเป็นจำนวนเต็มที่ไม่ติดลบ`;
+    }
+    if (seen.has(fy)) return "มีปีงบประมาณซ้ำกันในรายการเกษตรตำบล";
+    seen.add(fy);
+  }
+  return null;
+}
+
 export function validateAreaTotals(t: unknown): string | null {
   if (typeof t !== "object" || t === null || Array.isArray(t)) return "ข้อมูลพื้นที่ไม่ถูกต้อง";
   for (const [k, v] of Object.entries(t)) {
@@ -108,9 +134,11 @@ export const currentMonth = () => { const d = new Date(); return `${d.getFullYea
 // เดือน ก.ค. – ต.ค. (นอกช่วงรายงาน) นับเป็นของปีงบประมาณถัดไป เพื่อให้ตั้งค่ากำหนดส่ง/พื้นที่ปลูกของปีหน้าล่วงหน้าได้
 export const FY_START_MONTH = 11, FY_END_MONTH = 6; // ช่วงเริ่มต้นของปีงบประมาณที่จังหวัดไม่ได้กำหนดเอง
 // ช่วงเดือนของแต่ละปีงบประมาณที่จังหวัดกำหนดเอง (เดือนเริ่ม/เดือนสิ้นสุด) · อัปเดตอัตโนมัติทุกครั้งที่อ่านการตั้งค่า (cfgOf / readSettings)
-let PERIODS: Record<number, { s: number; e: number }> = {};
-export const applyFiscalPeriods = (list: { fy: number; startMonth: number; endMonth: number }[] | undefined) => {
-  PERIODS = Object.fromEntries((list ?? []).map(d => [d.fy, { s: d.startMonth, e: d.endMonth }]));
+// ช่วงเดือนแยกตามหัวข้อ (ไม่บังคับ): ถ้าหัวข้อใดไม่ได้กำหนด ใช้ช่วงรวมของปี (startMonth–endMonth) เช่น ไถกลบ พ.ย.–มิ.ย. แต่ปุ๋ยรายงานถึง พ.ค.
+export type TopicPeriods = Partial<Record<Topic, { startMonth: number; endMonth: number }>>;
+let PERIODS: Record<number, { s: number; e: number; t: TopicPeriods }> = {};
+export const applyFiscalPeriods = (list: { fy: number; startMonth: number; endMonth: number; topics?: TopicPeriods }[] | undefined) => {
+  PERIODS = Object.fromEntries((list ?? []).map(d => [d.fy, { s: d.startMonth, e: d.endMonth, t: d.topics ?? {} }]));
 };
 const pad2 = (n: number) => String(n).padStart(2, "0");
 // เดือนเริ่ม > เดือนสิ้นสุด = ข้ามปี (เช่น พ.ย. – มิ.ย.: เริ่มในปี ค.ศ. ก่อนหน้า) · เดือนเริ่ม <= เดือนสิ้นสุด = อยู่ในปีเดียว
@@ -118,14 +146,24 @@ export const fiscalRangeFor = (fyBE: number, sm: number, em: number) => {
   const endY = fyBE - 543, startY = sm > em ? endY - 1 : endY;
   return { from: `${startY}-${pad2(sm)}`, to: `${endY}-${pad2(em)}` };
 };
-export const fiscalRange = (fyBE: number) => { const { s: sm, e: em } = PERIODS[fyBE] ?? { s: FY_START_MONTH, e: FY_END_MONTH }; return fiscalRangeFor(fyBE, sm, em); };
+// topic = ช่วงเดือนของหัวข้อนั้น (ถ้าจังหวัดกำหนดแยกไว้) · ไม่ระบุ = ช่วงรวมของปี
+export const fiscalRange = (fyBE: number, topic?: Topic) => {
+  const p = PERIODS[fyBE], o = topic ? p?.t[topic] : undefined;
+  const sm = o?.startMonth ?? p?.s ?? FY_START_MONTH, em = o?.endMonth ?? p?.e ?? FY_END_MONTH;
+  return fiscalRangeFor(fyBE, sm, em);
+};
+/** เดือน ym อยู่ในช่วงรายงานของหัวข้อ topic หรือไม่ */
+export const isTopicMonth = (topic: Topic, ym: string) => { const r = fiscalRange(fiscalYearOf(ym), topic); return ym >= r.from && ym <= r.to; };
 export const fiscalYearOf = (ym: string) => {
-  for (const k of Object.keys(PERIODS)) { const r = fiscalRange(Number(k)); if (ym >= r.from && ym <= r.to) return Number(k); }
+  for (const k of Object.keys(PERIODS)) {
+    const fy = Number(k), tops = Object.keys(PERIODS[fy].t) as Topic[]; // เดือนที่อยู่ในช่วงรวมหรือช่วงของหัวข้อใดหัวข้อหนึ่ง ถือเป็นของปีงบประมาณนั้น
+    for (const r of [fiscalRange(fy), ...tops.map(t => fiscalRange(fy, t))]) if (ym >= r.from && ym <= r.to) return fy;
+  }
   const [y, m] = ym.split("-").map(Number);
   return y + 543 + (m > FY_END_MONTH ? 1 : 0); // เดือนนอกช่วง: นับเป็นของปีงบประมาณถัดไป
 };
 export const periodMonths = (startMonth: number, endMonth: number) => ((endMonth - startMonth + 12) % 12) + 1;
-export interface FiscalYearDef { fy: number; startMonth: number; endMonth: number }
+export interface FiscalYearDef { fy: number; startMonth: number; endMonth: number; topics?: TopicPeriods }
 /** แปลงข้อมูลเก่า (เลขปีล้วน) เป็นรูปแบบใหม่ที่มีเดือนเริ่ม-สิ้นสุด */
 export const normalizeFiscalYears = (raw: unknown): FiscalYearDef[] =>
   (Array.isArray(raw) ? raw : []).map(x => typeof x === "number" ? { fy: x, startMonth: FY_START_MONTH, endMonth: FY_END_MONTH } : x as FiscalYearDef);
@@ -187,10 +225,10 @@ export const strawValue = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => ra
 export const strawBales = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => rai * k.balesPerRai; // ฟางก้อน (ก้อน) = ไร่ × 25
 export const baleValue = (rai: number, k: AreaConst = DEFAULT_AREA_CONST) => strawBales(rai, k) * k.balePrice; // ราคาฟางก้อน (บาท) = จำนวนก้อน × 35
 // ฤดูกาลไถกลบ = ช่วงเดือนของปีงบประมาณที่จังหวัดตั้งไว้ (ค่าเริ่มต้น พ.ย. – มิ.ย.) · เดือนที่อยู่นอกช่วงก่อนเริ่มปี (เช่น ก.ค.–ต.ค.) ให้ถือเป็นฤดูกาลที่เพิ่งจบ
-export const isAreaMonth = (ym: string) => { const r = fiscalRange(fiscalYearOf(ym)); return ym >= r.from && ym <= r.to; };
+export const isAreaMonth = (ym: string) => isTopicMonth("area", ym);
 export const areaSeasonOf = (ym: string) => {
-  const fy = fiscalYearOf(ym), r = fiscalRange(fy);
-  const x = ym < r.from ? fiscalRange(fy - 1) : r;
+  const fy = fiscalYearOf(ym), r = fiscalRange(fy, "area");
+  const x = ym < r.from ? fiscalRange(fy - 1, "area") : r;
   return { start: x.from, end: x.to };
 };
 export const nearestAreaMonth = (ym: string) => (isAreaMonth(ym) ? ym : areaSeasonOf(ym).end);
@@ -227,6 +265,7 @@ export interface YearConfig {
 export interface AppConfig extends YearConfig {
   fiscalYears: FiscalYearDef[];       // ปีงบประมาณ (พ.ศ.) ที่จังหวัดเพิ่มเอง พร้อมเดือนเริ่ม–สิ้นสุดของแต่ละปี
   byYear?: Record<string, YearConfig>; // ค่าที่ตั้งแยกรายปีงบประมาณ (คีย์ = ปี พ.ศ. เช่น "2570")
+  tambonByDistrict?: Record<string, number>; // (คำนวณตอนอ่าน ไม่ได้เก็บในฐานข้อมูล) จำนวนเกษตรตำบลรายอำเภอของปีงบประมาณที่ระบุ จาก Settings.tambonSets
 }
 
 // หัวข้อตารางและข้อความที่แก้ไขได้ — {pct} จะถูกแทนด้วยร้อยละเป้าหมาย, {m} ด้วยชื่อเดือน
@@ -271,7 +310,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   fiscalYears: [], targetPerTambon: TARGET_PER_TAMBON, fertFields: FIELDS, burnFields: BURN_FIELDS,
   area: DEFAULT_AREA_CONST, topics: {}, labels: {},
 };
-export const DEFAULT_SETTINGS: Settings = { dueDays: [31], areaTotals: {}, schedules: [], areaSets: [], config: DEFAULT_CONFIG };
+export const DEFAULT_SETTINGS: Settings = { dueDays: [31], areaTotals: {}, schedules: [], areaSets: [], tambonSets: [], config: DEFAULT_CONFIG };
 
 /** ค่าตั้งค่าที่ใช้งานจริงของปีงบประมาณ fy (พ.ศ.): ถ้าปีนั้นจังหวัดตั้งแยกไว้ ใช้ของปีนั้น ไม่เช่นนั้นใช้ค่าตั้งต้น · ไม่ระบุ fy = ค่าตั้งต้น */
 export const cfgOf = (s: Settings | undefined | null, fy?: number): AppConfig => {
@@ -279,8 +318,13 @@ export const cfgOf = (s: Settings | undefined | null, fy?: number): AppConfig =>
   base.fiscalYears = normalizeFiscalYears(base.fiscalYears);
   applyFiscalPeriods(base.fiscalYears);
   const y = fy ? base.byYear?.[String(fy)] : undefined;
-  return y ? { ...base, ...y } : base;
+  const eff: AppConfig = y ? { ...base, ...y } : base;
+  // รายการเกษตรตำบลของปีงบประมาณนั้น (ตั้งในหน้า "ตั้งค่า > การรายงาน") ใช้แทนจำนวนเริ่มต้นและตัวคูณเป้าหมายของปีนั้น
+  const t = fy ? s?.tambonSets?.find(x => x.fy === fy) : undefined;
+  return t ? { ...eff, targetPerTambon: t.perTambon, tambonByDistrict: t.tambon } : eff;
 };
+/** จำนวนเกษตรตำบลของอำเภอตามการตั้งค่าของปีงบประมาณ (ไม่ได้กำหนด = ใช้ค่าเริ่มต้นของอำเภอ) */
+export const tambonOf = (cfg: AppConfig, d: { name: string; tambon: number }) => cfg.tambonByDistrict?.[d.name] ?? d.tambon;
 /** ค่าตั้งค่าที่ใช้กับเดือน "YYYY-MM" (ตามปีงบประมาณของเดือนนั้น) */
 export const cfgOfMonth = (s: Settings | undefined | null, ym: string) => { cfgOf(s); return cfgOf(s, ym ? fiscalYearOf(ym) : undefined); }; // เรียก cfgOf ก่อน เพื่อให้ช่วงเดือนล่าสุดถูกใช้หาปีงบประมาณ
 /** ข้อความหัวข้อที่แก้ไขได้ · vars แทนค่า {pct} {m} */
@@ -336,6 +380,13 @@ export function validateConfig(c: unknown): string | null {
   for (const d of c.fiscalYears) {
     if (!isRec(d) || !Number.isInteger(d.fy) || (d.fy as number) < 2500 || (d.fy as number) > 2700) return "ปีงบประมาณต้องเป็นปี พ.ศ. 2500–2700";
     if (!Number.isInteger(d.startMonth) || (d.startMonth as number) < 1 || (d.startMonth as number) > 12 || !Number.isInteger(d.endMonth) || (d.endMonth as number) < 1 || (d.endMonth as number) > 12) return `ปีงบประมาณ ${String(d.fy)}: เดือนเริ่ม/เดือนสิ้นสุดต้องเป็นเดือน 1–12`;
+    if (d.topics !== undefined) {
+      if (!isRec(d.topics)) return `ปีงบประมาณ ${String(d.fy)}: ช่วงเดือนแยกตามหัวข้อไม่ถูกต้อง`;
+      for (const [k, v] of Object.entries(d.topics)) {
+        if (!TOPICS.some(t => t.key === k)) return `ปีงบประมาณ ${String(d.fy)}: ไม่พบหัวข้อ ${k}`;
+        if (!isRec(v) || !Number.isInteger(v.startMonth) || (v.startMonth as number) < 1 || (v.startMonth as number) > 12 || !Number.isInteger(v.endMonth) || (v.endMonth as number) < 1 || (v.endMonth as number) > 12) return `ปีงบประมาณ ${String(d.fy)}: เดือนเริ่ม/สิ้นสุดของหัวข้อต้องเป็นเดือน 1–12`;
+      }
+    }
     if (fys.has(d.fy as number)) return "มีปีงบประมาณซ้ำกัน";
     fys.add(d.fy as number);
   }

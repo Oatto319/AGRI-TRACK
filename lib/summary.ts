@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, DEFAULT_AREA_CONST, DISTRICTS, areaPct, dueDateOf, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, type AppConfig, type AreaConst, type FieldDef, type AreaReport, type BurnKey, type BurnReport, type FieldKey, type Report } from "./data";
+import { DEFAULT_CONFIG, DEFAULT_AREA_CONST, DISTRICTS, areaPct, dueDateOf, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, tambonOf, type AppConfig, type AreaConst, type FieldDef, type AreaReport, type BurnKey, type BurnReport, type FieldKey, type Report } from "./data";
 
 export const fmt = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 // รวมเฉพาะช่องที่ยังอยู่ในการตั้งค่า (ช่องที่จังหวัดลบออกแล้วไม่นับ)
@@ -25,7 +25,8 @@ export function aggregate(reports: Report[], from: string, to: string, rounds = 
       byMonth[m] = rs.length ? rs.reduce((a, r) => a + sumValues(r.values, FIELDS), 0) : null;
       got[m] = new Set(rs.filter(r => r.round <= rounds).map(r => r.round)).size;
     });
-    return { name: d.name, tambon: d.tambon, target: d.tambon * cfg.targetPerTambon, sums, total: Object.values(sums).reduce((a, b) => a + b, 0),
+    const tb = tambonOf(cfg, d);
+    return { name: d.name, tambon: tb, target: tb * cfg.targetPerTambon, sums, total: Object.values(sums).reduce((a, b) => a + b, 0),
       byMonth, got, sent: months.filter(m => got[m] >= rounds).length, any: mine.length, late: mine.filter(r => r.late).length };
   });
   return { months, rows, rounds };
