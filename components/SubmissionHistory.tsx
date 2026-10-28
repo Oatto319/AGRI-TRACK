@@ -2,10 +2,13 @@
 
 import { memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
-  bkkDate, cfgOfMonth, dueDaysFor, isAreaMonth, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, topicLabelOf,
+  bkkDate, cfgOfMonth, dueDaysFor, isAreaMonth, topicOff, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, topicLabelOf,
   type AreaReport, type BurnReport, type Report, type Settings, type Topic,
 } from "@/lib/data";
 import { monthsBetween, submissionByMonth, type RoundCell, type SubState } from "@/lib/summary";
+
+// เดือนที่หัวข้อนี้ไม่ต้องรายงาน (ไถกลบ = นอกฤดูกาล · หัวข้ออื่น = นอกช่วงที่จังหวัดกำหนดแยกไว้)
+const notDue = (t: Topic, m: string) => (t === "area" ? !isAreaMonth(m) : topicOff(t, m));
 
 // หน้าต่างประวัติการส่งรายงานรายเดือน · ใช้คลาสและสีธีมเดียวกับทั้งระบบ (ux-pill / ux-seg / ux-btn / ตัวแปร --brand --ok --warn --bad)
 const STATE: Record<SubState, { label: string; pill: string }> = {
@@ -70,9 +73,9 @@ export default function SubmissionHistory({ reports, area, burn, settings, from,
   }, [topic, reports, area, burn]);
 
   const cfg = useMemo(() => cfgOfMonth(settings, month), [settings, month]);
-  const applicable = topic !== "area" || isAreaMonth(month);
+  const applicable = !notDue(topic, month);
   const sum = useMemo(() => submissionByMonth(byMonth.get(month) ?? [], month, dueDaysFor(settings, topic, month), today), [byMonth, month, topic, settings, today]);
-  const chips = useMemo(() => months.map(m => (topic === "area" && !isAreaMonth(m) ? { m, c: null } : { m, c: submissionByMonth(byMonth.get(m) ?? [], m, dueDaysFor(settings, topic, m), today).counts })), [months, topic, byMonth, settings, today]);
+  const chips = useMemo(() => months.map(m => (notDue(topic, m) ? { m, c: null } : { m, c: submissionByMonth(byMonth.get(m) ?? [], m, dueDaysFor(settings, topic, m), today).counts })), [months, topic, byMonth, settings, today]);
 
   const rows = useMemo(() => {
     const q = deferredSearch.trim().toLowerCase();

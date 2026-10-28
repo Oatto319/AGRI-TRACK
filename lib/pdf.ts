@@ -5,9 +5,9 @@ import { DISTRICTS, areaTotalsFor, cfgOf, bkkDate, dueDaysFor, fiscalRange, thai
 import { aggregate, aggregateArea, monthsBetween, sumValues } from "./summary";
 
 /**
- * สร้างรายงาน PDF "สรุปผลและเปรียบเทียบย้อนหลัง 3 ปีงบประมาณ" (2 หน้า A4)
- * โครงสร้างตามไฟล์ต้นแบบ AGRI-TRACK Dashboard: หัวรายงาน → การ์ด KPI → กราฟเส้นเปรียบเทียบ 3 ปี → ตารางตัวชี้วัด+YoY
- * → ดัชนีผลผลิตรายไตรมาส → การ์ดความคืบหน้า/การส่งรายงาน → ข้อเสนอแนะ (สร้างอัตโนมัติจากข้อมูลจริง)
+ * สร้างรายงาน PDF "สรุปผลและเปรียบเทียบย้อนหลัง 3 ปีงบประมาณ" (สรุปในหน้า A4 หน้าเดียว)
+ * หัวรายงาน → การ์ด KPI → กราฟปุ๋ยอินทรีย์ 3 ปี + กราฟพื้นที่ไถกลบรายเดือน 3 ปี (เคียงข้างกัน) → ตารางสรุปเปรียบเทียบ 3 ปี + YoY
+ * → ข้อเสนอแนะ (ข้อ 1 = ประชาสัมพันธ์เรื่องการหยุดเผา ตามด้วยข้อเสนอแนะที่สร้างจากข้อมูลจริง)
  * ใช้เฉพาะรายงานที่ "ส่งแล้ว" เหมือนหน้า Dashboard และไฟล์ Excel
  */
 
@@ -144,54 +144,51 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   const footer = (n: number) => {
     doc.save().moveTo(M, H - 40).lineTo(W - M, H - 40).lineWidth(0.5).strokeColor(C.line).stroke().restore();
     text("AGRI-TRACK Intelligence Hub • ระบบรายงานปุ๋ยอินทรีย์และวัสดุอินทรีย์ • สำนักงานเกษตรจังหวัดศรีสะเกษ", M, H - 32, { size: 7.5, color: C.mute });
-    text(`หน้า ${n} จาก 2`, M, H - 32, { size: 7.5, color: C.mute, w: CW, align: "right" });
+    text(`หน้า ${n} จาก 1`, M, H - 32, { size: 7.5, color: C.mute, w: CW, align: "right" });
   };
 
-  // กราฟเส้นเปรียบเทียบ 3 ปี (ใช้ทั้งกราฟชนิดปุ๋ยและกราฟไถกลบรายเดือน)
-  const multiLine = (cy: number, ch: number, title: string, unit: string, cats: string[], vals: number[][], fmtv: (v: number) => string) => {
-    card(M, cy, CW, ch);
-    sectionTitle(title, M + 14, cy + 12, `หน่วย: ${unit}`, CW - 28);
-    const px = M + 52, py = cy + 52, pw2 = CW - 52 - 30, ph = ch - 52 - 34;
+
+  // กราฟเส้นเปรียบเทียบ 3 ปี วางที่ตำแหน่ง/ขนาดที่กำหนด (ใช้ทั้งกราฟชนิดปุ๋ยและกราฟไถกลบรายเดือน)
+  const multiLine = (cx: number, cw: number, cy: number, ch: number, title: string, unit: string, cats: string[], vals: number[][], fmtv: (v: number) => string, tags: boolean) => {
+    card(cx, cy, cw, ch);
+    sectionTitle(title, cx + 12, cy + 11, `หน่วย: ${unit}`, cw - 24);
+    const px = cx + 44, py = cy + 50, pw2 = cw - 44 - 16, ph = ch - 50 - 28;
     const { max, step } = niceMax(Math.max(...vals.flat(), 0));
-    let lx = W - M - 14;
-    [...years].reverse().forEach((y, i) => { const t = `ปี ${y.fy}`, tw = width(t, 8); lx -= tw; text(t, lx, cy + 31, { size: 8, color: C.mute }); lx -= 20;
-      doc.save().moveTo(lx, cy + 36).lineTo(lx + 16, cy + 36).lineWidth(i === 0 ? 2 : 1.6).strokeColor(yearColor[2 - i]); if (i === 2) doc.dash(3, { space: 2 }); doc.stroke().restore(); lx -= 10; });
+    let lx = cx + cw - 12;
+    [...years].reverse().forEach((y, i) => { const t = `ปี ${y.fy}`, tw = width(t, 7.5); lx -= tw; text(t, lx, cy + 29, { size: 7.5, color: C.mute }); lx -= 18;
+      doc.save().moveTo(lx, cy + 34).lineTo(lx + 14, cy + 34).lineWidth(i === 0 ? 2 : 1.6).strokeColor(yearColor[2 - i]); if (i === 2) doc.dash(3, { space: 2 }); doc.stroke().restore(); lx -= 8; });
     for (let v = 0; v <= max + 1e-9; v += step) {
       const y2 = py + ph - (v / max) * ph;
       doc.save().moveTo(px, y2).lineTo(px + pw2, y2).lineWidth(0.5).strokeColor(C.line).stroke().restore();
-      text(n1(v), M + 14, y2 - 4, { size: 7.5, color: C.gray, w: 32, align: "right" });
+      text(n0(v), cx + 8, y2 - 4, { size: 7, color: C.gray, w: 30, align: "right" });
     }
-    const xs = cats.map((_, i) => px + (pw2 / cats.length) * (i + 0.5));
-    cats.forEach((cat, i) => text(cat, xs[i] - 50, py + ph + 10, { size: 8.5, bold: true, w: 100, align: "center" }));
+    const xs = cats.map((_, i) => px + (pw2 / cats.length) * (i + 0.5)), cs = cats.length > 5 ? 7 : 8, cwid = pw2 / cats.length;
+    cats.forEach((cat, i) => text(cat, xs[i] - cwid / 2, py + ph + 8, { size: cs, bold: true, w: cwid, align: "center" }));
     vals.forEach((vs, si) => {
       const pts = vs.map((v, i) => [xs[i], py + ph - (max > 0 ? (v / max) * ph : 0)] as const);
       doc.save().lineWidth(si === 2 ? 2 : 1.6).strokeColor(yearColor[si]); if (si === 0) doc.dash(3, { space: 2 });
       pts.forEach(([x, y2], i) => (i ? doc.lineTo(x, y2) : doc.moveTo(x, y2))); doc.stroke().restore();
-      pts.forEach(([x, y2]) => doc.save().circle(x, y2, 2.6).fill(yearColor[si]).restore());
-      if (si === 2) pts.forEach(([x, y2], i) => tag(fmtv(vs[i]), x, y2 - 15, cats.length > 5 ? 7 : 8));
+      pts.forEach(([x, y2]) => doc.save().circle(x, y2, 2.4).fill(yearColor[si]).restore());
+      if (tags && si === 2) pts.forEach(([x, y2], i) => tag(fmtv(vs[i]), x, y2 - 14, 7));
     });
   };
   const groupBar = (label: string, color: string, x: number, y: number, w: number) => {
-    doc.save().rect(x, y, w, 16).fillOpacity(0.12).fill(color).restore();
-    doc.save().rect(x, y, 3, 16).fill(color).restore();
-    text(label, x + 9, y + 2.5, { size: 8.5, bold: true, color });
+    doc.save().rect(x, y, w, 15).fillOpacity(0.12).fill(color).restore();
+    doc.save().rect(x, y, 3, 15).fill(color).restore();
+    text(label, x + 9, y + 2, { size: 8.3, bold: true, color });
   };
 
-  // ================= หน้า 1 =================
+  // ================= หน้าเดียว =================
   pageBg();
-  doc.save().roundedRect(M, M, CW, 56, 10).fill(C.dark).restore();
-  doc.save().roundedRect(M + 12, M + 12, 32, 32, 7).fill(C.mint).restore();
-  text("AG", M + 12, M + 20, { size: 14, bold: true, color: "#fff", w: 32, align: "center" });
-  text("AGRI-TRACK ANALYTICS DASHBOARD", M + 54, M + 10, { size: 14, bold: true, color: "#fff" });
-  text(`ปุ๋ย · ไถกลบ · ฟางก้อน ย้อนหลัง 3 ปีงบประมาณ (${a.fy} - ${c.fy})`, M + 54, M + 30, { size: 9, color: "#a7f3d0" });
-  const pill = "LIVE DATA CONNECTED", pw = width(pill, 7.5, true) + 22;
-  doc.save().roundedRect(W - M - 12 - pw, M + 10, pw, 15, 7.5).fill(C.mint).restore();
-  doc.save().circle(W - M - 12 - pw + 8, M + 17.5, 2.2).fill("#fff").restore();
-  text(pill, W - M - 12 - pw + 14, M + 12.5, { size: 7.5, bold: true, color: "#fff" });
-  text(`อัปเดตล่าสุด: ${thaiDate(bkkDate())} | ${c.districts} อำเภอ`, M, M + 33, { size: 8.5, color: "#a7f3d0", w: CW - 12, align: "right" });
+  doc.save().roundedRect(M, M, CW, 48, 10).fill(C.dark).restore();
+  doc.save().roundedRect(M + 12, M + 9, 30, 30, 7).fill(C.mint).restore();
+  text("AG", M + 12, M + 16, { size: 13, bold: true, color: "#fff", w: 30, align: "center" });
+  text("AGRI-TRACK · รายงานสรุปเปรียบเทียบ 3 ปีงบประมาณ", M + 52, M + 8, { size: 13.5, bold: true, color: "#fff" });
+  text(`ปุ๋ยอินทรีย์ · ไถกลบฟางข้าว · ฟางก้อน (ปีงบประมาณ ${a.fy} - ${c.fy})`, M + 52, M + 27, { size: 8.5, color: "#a7f3d0" });
+  text(`ออกรายงาน ${thaiDate(bkkDate())} | ${c.districts} อำเภอ`, M, M + 20, { size: 8.5, color: "#a7f3d0", w: CW - 12, align: "right" });
 
   // การ์ด KPI: ปุ๋ย · ไถกลบ · ฟางก้อน
-  const kw = (CW - 30) / 4, ky = 102;
+  const kw = (CW - 30) / 4, ky = M + 56, kh = 52;
   const kpis = [
     { top: C.green, label: `ปุ๋ยอินทรีย์รวม ปี ${c.fy}`, value: n1(c.total), unit: "ตัน", v: yoy(c.total, b.total) },
     { top: C.blue, label: `พื้นที่ไถกลบสะสม ปี ${c.fy}`, value: n1(c.area.accum), unit: "ไร่", v: yoy(c.area.accum, b.area.accum) },
@@ -200,15 +197,18 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   ];
   kpis.forEach((k, i) => {
     const x = M + i * (kw + 10);
-    card(x, ky, kw, 66, { top: k.top });
-    text(k.label, x + 10, ky + 11, { size: 7.5, color: C.mute, w: kw - 16 });
-    text(k.value, x + 10, ky + 24, { size: 17, bold: true });
-    text(k.unit, x + 14 + width(k.value, 17, true), ky + 31, { size: 8.5, color: C.mute });
-    badge(`${sgn(k.v)} YoY`, x + 10, ky + 47, k.v);
+    card(x, ky, kw, kh, { top: k.top });
+    text(k.label, x + 10, ky + 8, { size: 7.3, color: C.mute, w: kw - 16 });
+    text(k.value, x + 10, ky + 19, { size: 14, bold: true });
+    text(k.unit, x + 14 + width(k.value, 14, true), ky + 24, { size: 8, color: C.mute });
+    badge(`${sgn(k.v)} YoY`, x + 10, ky + 36, k.v);
   });
 
-  // กราฟที่ 1: ปุ๋ยแยกชนิด
-  multiLine(180, 214, `ปุ๋ยอินทรีย์แยกตามชนิด เปรียบเทียบ 3 ปี (${a.fy} vs ${b.fy} vs ${c.fy})`, "ตัน", CATS.map(x => x.label), years.map(y => y.cats), n1);
+  // กราฟเคียงข้างกัน: ปุ๋ยอินทรีย์แยกชนิด 3 ปี | พื้นที่ไถกลบรายเดือน 3 ปี
+  const gy = ky + kh + 8, gh = 196, gw = (CW - 10) / 2;
+  multiLine(M, gw, gy, gh, "ปุ๋ยอินทรีย์แยกตามชนิด เทียบ 3 ปี", "ตัน", CATS.map(x => x.label), years.map(y => y.cats), n0, true);
+  const sm = ["พ.ย.", "ธ.ค.", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย."];
+  multiLine(M + gw + 10, gw, gy, gh, "พื้นที่ไถกลบรายเดือน เทียบ 3 ปี", "ไร่", sm, years.map(y => sm.map((_, i) => y.areaMonthly[i] ?? 0)), n0, false);
 
   // ตารางสรุป แยก 3 กลุ่ม
   type Row = { g?: string; color?: string; l?: string; v?: (y: YearStat) => number; f?: (v: number) => string };
@@ -224,143 +224,58 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     { l: "ฟางก้อน (ก้อน)", v: y => y.area.bales, f: n0 },
     { l: "ราคาฟางก้อน (บาท)", v: y => y.area.baleValue, f: n0 },
   ];
-  const rowH = 21, gH = 22, ty = 404, nRows = rowsDef.filter(r => r.l).length, nG = rowsDef.length - nRows;
-  const th = 62 + nRows * rowH + nG * gH + 6;
+  const rowH = 16, gH = 17, ty = gy + gh + 8, nRows = rowsDef.filter(r => r.l).length, nG = rowsDef.length - nRows;
+  const th = 56 + nRows * rowH + nG * gH;
   card(M, ty, CW, th);
-  sectionTitle("ตารางสรุปเปรียบเทียบย้อนหลัง 3 ปีงบประมาณ (Data Grid)", M + 14, ty + 12, "เปรียบเทียบเชิงลึก", CW - 28);
-  const colX = [M + 14, M + 238, M + 308, M + 378], colW = 62, hy = ty + 34;
-  doc.save().roundedRect(M + 10, hy, CW - 20, 20, 5).fill("#f1f5f9").restore();
-  text("ตัวชี้วัดสำคัญ (Key Metrics)", colX[0], hy + 4, { size: 8, bold: true, color: C.mute });
-  years.forEach((y, i) => text(`ปี ${y.fy}`, colX[i + 1], hy + 4, { size: 8, bold: true, color: C.mute, w: colW, align: "right" }));
-  text("% YoY", M + 440, hy + 4, { size: 8, bold: true, color: C.mute, w: CW - 440 - 14, align: "right" });
-  let ry0 = hy + 26;
+  sectionTitle("ตารางสรุปเปรียบเทียบย้อนหลัง 3 ปีงบประมาณ", M + 12, ty + 10, "เปรียบเทียบเชิงลึก", CW - 24);
+  const colX = [M + 14, M + 238, M + 308, M + 378], colW = 62, hy = ty + 30;
+  doc.save().roundedRect(M + 10, hy, CW - 20, 17, 5).fill("#f1f5f9").restore();
+  text("ตัวชี้วัดสำคัญ (Key Metrics)", colX[0], hy + 3, { size: 7.8, bold: true, color: C.mute });
+  years.forEach((y, i) => text(`ปี ${y.fy}`, colX[i + 1], hy + 3, { size: 7.8, bold: true, color: C.mute, w: colW, align: "right" }));
+  text("% YoY", M + 440, hy + 3, { size: 7.8, bold: true, color: C.mute, w: CW - 440 - 14, align: "right" });
+  let ry0 = hy + 22;
   rowsDef.forEach(r => {
     if (r.g) { groupBar(r.g, r.color!, M + 10, ry0, CW - 20); ry0 += gH; return; }
-    text(r.l!, colX[0] + 4, ry0 + 2, { size: 8.5 });
-    years.forEach((y, j) => text(r.f!(r.v!(y)), colX[j + 1], ry0 + 2, { size: 8.5, w: colW, align: "right", color: j === 2 ? C.ink : "#334155", bold: j === 2 }));
+    text(r.l!, colX[0] + 4, ry0 + 1.5, { size: 8.2 });
+    years.forEach((y, j) => text(r.f!(r.v!(y)), colX[j + 1], ry0 + 1.5, { size: 8.2, w: colW, align: "right", color: j === 2 ? C.ink : "#334155", bold: j === 2 }));
     const ch2 = yoy(r.v!(c), r.v!(b)), lbl = ch2 === null ? "–" : `${sgn(ch2, 2)}${ch2 < 0 ? " (ลดลง)" : ""}`;
     const bw = width(lbl, 7.5, true) + (ch2 === null ? 12 : 22);
-    badge(lbl, W - M - 14 - bw, ry0 - 0.5, ch2);
+    badge(lbl, W - M - 14 - bw, ry0 - 1, ch2);
     ry0 += rowH;
   });
+  const noteY = ty + th + 4;
+  wrap(`หมายเหตุ: ใช้เฉพาะรายงานที่ส่งแล้ว · ปีงบประมาณ ${c.fy} = ${thaiMonth(c.from)} ถึง ${thaiMonth(c.to)} · % YoY เทียบปี ${c.fy} กับปี ${b.fy} · เป้าหมายปุ๋ย = เกษตรตำบล × ${cfg.targetPerTambon} ตัน · ฟางข้าว = ไร่ × ${K.strawKgPerRai} กก. ÷ 1,000 · ฟางก้อน = ไร่ × ${K.balesPerRai} ก้อน × ${K.balePrice} บาท`, CW, 7).forEach((ln, i) => text(ln, M, noteY + i * 9, { size: 7, color: C.mute }));
 
-  const ny = ty + th + 8, nh = 62;
-  card(M, ny, CW, nh, { fill: "#f0fdf4", stroke: "#bbf7d0" });
-  text("หมายเหตุการคำนวณ", M + 14, ny + 8, { size: 9, bold: true, color: C.dark });
-  const notes = [
-    `ใช้เฉพาะรายงานที่ส่งแล้ว · ปีงบประมาณ ${c.fy} = ${thaiMonth(c.from)} ถึง ${thaiMonth(c.to)} · % YoY เทียบปี ${c.fy} กับปี ${b.fy} (แสดง "–" เมื่อปีก่อนหน้าไม่มีข้อมูล)`,
-    `ร้อยละบรรลุเป้าหมายปุ๋ย = ปุ๋ยรวม ÷ (เกษตรตำบล × ${cfg.targetPerTambon} ตัน) · ไถกลบนับช่วง พ.ย. – มิ.ย. · ฟางข้าว = ไร่ × ${K.strawKgPerRai} กก. ÷ 1,000`,
-    `ฟางก้อน = ไร่สะสม × ${K.balesPerRai} ก้อน · ราคาฟางก้อน = จำนวนก้อน × ${K.balePrice} บาท`,
-  ];
-  let nyy = ny + 22;
-  notes.forEach(n => wrap(n, CW - 40, 7.5).forEach((ln, i) => { if (i === 0) doc.save().circle(M + 18, nyy + 4.5, 1.2).fill(C.green).restore(); text(ln, M + 26, nyy, { size: 7.5, color: "#334155" }); nyy += 10.5; }));
-  footer(1);
-
-  // ================= หน้า 2 =================
-  doc.addPage(); pageBg();
-  // ดัชนีผลผลิตปุ๋ยรายไตรมาส
-  const qy = M, qh = 196;
-  card(M, qy, CW, qh);
-  const qs = years.flatMap(y => y.quarters.map((v, i) => ({ v, label: `Q${i + 1}/${yy(y.fy)}` })));
-  const bi = qs.findIndex(q => q.v > 0), base = bi >= 0 ? qs[bi].v : 0;
-  sectionTitle(`ดัชนีผลผลิตปุ๋ยอินทรีย์รายไตรมาส (Quarterly Production Index ${a.fy} - ${c.fy})`, M + 14, qy + 12, base ? `Base ${qs[bi].label} = 100` : "ยังไม่มีข้อมูล", CW - 28);
-  text("ช่วงตามปีงบประมาณ (2 เดือน): Q1 = พ.ย.–ธ.ค. · Q2 = ม.ค.–ก.พ. · Q3 = มี.ค.–เม.ย. · Q4 = พ.ค.–มิ.ย.", M + 23, qy + 29, { size: 7.5, color: C.mute });
-  {
-    const px = M + 50, py = qy + 50, pw3 = CW - 50 - 34, ph = qh - 50 - 32;
-    const idx = qs.map(q => (base ? (q.v / base) * 100 : 0));
-    const hi0 = Math.max(100, ...idx), lo0 = Math.min(100, ...idx), step = hi0 - lo0 > 120 ? 50 : hi0 - lo0 > 60 ? 20 : 10;
-    const lo = Math.max(0, Math.floor((lo0 - 5) / step) * step), hi = Math.ceil((hi0 + 5) / step) * step;
-    const X = (i: number) => px + (pw3 / (qs.length - 1)) * i, Y = (v: number) => py + ph - ((v - lo) / (hi - lo)) * ph;
-    for (let v = lo; v <= hi; v += step) {
-      doc.save().moveTo(px, Y(v)).lineTo(px + pw3, Y(v)).lineWidth(v === 100 ? 0.8 : 0.5).strokeColor(v === 100 ? C.gray : C.line); if (v === 100) doc.dash(3, { space: 2 }); doc.stroke().restore();
-      text(String(v), M + 14, Y(v) - 4, { size: 7.5, color: C.gray, w: 30, align: "right" });
-    }
-    if (base) {
-      doc.save().fillOpacity(0.16).fillColor(C.mint); idx.forEach((v, i) => (i ? doc.lineTo(X(i), Y(v)) : doc.moveTo(X(i), Y(v)))); doc.lineTo(X(idx.length - 1), py + ph).lineTo(X(0), py + ph).closePath().fill().restore();
-      doc.save().lineWidth(2).strokeColor(C.green).lineJoin("round"); idx.forEach((v, i) => (i ? doc.lineTo(X(i), Y(v)) : doc.moveTo(X(i), Y(v)))); doc.stroke().restore();
-      idx.forEach((v, i) => { const last = i === idx.length - 1; doc.save().circle(X(i), Y(v), last ? 3.4 : 2.4).fill(last ? C.mint : C.dark).restore(); });
-      idx.forEach((v, i) => { if (i % 2 === 1 || i === idx.length - 1) tag(v.toFixed(1), X(i), Y(v) - 15, 7.5); });
-    } else text("ยังไม่มีรายงานปุ๋ยที่ส่งแล้วในช่วง 3 ปีงบประมาณนี้", px, py + ph / 2 - 6, { size: 9, color: C.mute, w: pw3, align: "center" });
-    doc.save().moveTo(px, py + ph).lineTo(px + pw3, py + ph).lineWidth(0.8).strokeColor(C.gray).stroke().restore();
-    qs.forEach((q, i) => text(q.label, X(i) - 20, py + ph + 8, { size: 7.5, color: i === qs.length - 1 ? C.dark : C.gray, bold: i === qs.length - 1, w: 40, align: "center" }));
-  }
-
-  // กราฟไถกลบรายเดือน เปรียบเทียบ 3 ปี (ฤดูกาล พ.ย. – มิ.ย.)
-  const sm = ["พ.ย.", "ธ.ค.", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย."];
-  const ay = qy + qh + 10, ah = 196;
-  multiLine(ay, ah, `พื้นที่ไถกลบฟางข้าวรายเดือน เปรียบเทียบ 3 ปี (ฤดูกาล พ.ย. – มิ.ย.)`, "ไร่", sm, years.map(y => sm.map((_, i) => y.areaMonthly[i] ?? 0)), n0);
-
-  // การ์ดคู่: ความคืบหน้าเทียบเป้าหมาย + ฟางก้อนและมูลค่า
-  const my = ay + ah + 10, mh = 150, mw = (CW - 10) / 2;
-  card(M, my, mw, mh);
-  text(`ความคืบหน้าเทียบเป้าหมาย ปี ${c.fy}`, M + 14, my + 12, { size: 10, bold: true });
-  doc.save().moveTo(M + 14, my + 30).lineTo(M + mw - 14, my + 30).lineWidth(0.5).strokeColor(C.line).stroke().restore();
-  const bars = [
-    { l: `ปุ๋ยอินทรีย์รวม (${n1(c.total)} จาก ${n1(c.target)} ตัน)`, p: c.pct, t: "ของเป้า" },
-    { l: `อำเภอที่ถึงเป้าปุ๋ย (${c.reached} จาก ${c.districts} อำเภอ)`, p: c.districts ? (c.reached / c.districts) * 100 : 0, t: "ของอำเภอ" },
-    { l: `ไถกลบ (${n1(c.area.accum)} จาก ${n1(c.area.target)} ไร่)`, p: c.area.ofTarget, t: "ของเป้า" },
-    { l: `ไถกลบเทียบพื้นที่ปลูกทั้งหมด (${n1(c.area.total)} ไร่)`, p: c.area.pct, t: "ของพื้นที่" },
-  ];
-  bars.forEach((r, i) => {
-    const y0 = my + 37 + i * 27, bw2 = mw - 28, col = r.p >= 100 ? C.green : r.p >= 50 ? C.mint : C.orange;
-    text(r.l, M + 14, y0, { size: 8.3 });
-    text(`${r.p.toFixed(0)}% ${r.t}`, M + 14, y0, { size: 8.3, bold: true, color: col, w: bw2, align: "right" });
-    doc.save().roundedRect(M + 14, y0 + 13, bw2, 6, 3).fill("#e2e8f0").restore();
-    if (r.p > 0) doc.save().roundedRect(M + 14, y0 + 13, Math.max(6, bw2 * Math.min(1, r.p / 100)), 6, 3).fill(col).restore();
-  });
-
-  const rx = M + mw + 10;
-  card(rx, my, mw, mh);
-  text(`ไถกลบ ฟางข้าว และฟางก้อน ปี ${c.fy}`, rx + 14, my + 12, { size: 10, bold: true });
-  doc.save().moveTo(rx + 14, my + 30).lineTo(rx + mw - 14, my + 30).lineWidth(0.5).strokeColor(C.line).stroke().restore();
-  const topCat = c.total > 0 ? c.cats.map((v, i) => ({ v, l: CATS[i].label })).sort((x, y) => y.v - x.v)[0] : null;
-  const bullets: [string, string][] = [
-    ["พื้นที่ไถกลบสะสม:", `${n1(c.area.accum)} ไร่ (${c.area.sentD}/${c.districts} อำเภอรายงาน)`],
-    ["ฟางข้าว:", `${n1(c.area.straw)} ตัน · มูลค่าธาตุอาหาร ${n0(c.area.value)} บาท`],
-    ["ฟางก้อน:", `${n0(c.area.bales)} ก้อน · ราคา ${n0(c.area.baleValue)} บาท`],
-    ["ไถกลบสูงสุด:", c.topArea ? `${c.topArea.name} (${n1(c.topArea.accum)} ไร่)` : "ยังไม่มีข้อมูล"],
-    ["ปุ๋ยที่ผลิตมากที่สุด:", topCat ? `${topCat.l} (${((topCat.v / c.total) * 100).toFixed(1)}% ของทั้งหมด)` : "ยังไม่มีข้อมูล"],
-  ];
-  let by = my + 38;
-  bullets.forEach(([k, v]) => {
-    doc.save().circle(rx + 18, by + 5.5, 1.5).fill(C.green).restore();
-    const kwid = width(k, 8.5, true);
-    text(k, rx + 26, by, { size: 8.5, bold: true });
-    const lines = wrap(v, mw - 26 - 14 - kwid - 4, 8.5);
-    lines.forEach((ln, i) => text(ln, rx + 26 + kwid + 4, by + i * 11, { size: 8.5, color: "#334155" }));
-    by += Math.max(1, lines.length) * 11 + 6;
-  });
-
-  // ข้อเสนอแนะ (สร้างจากข้อมูลจริงของปีล่าสุด เฉพาะปุ๋ย · ไถกลบ · ฟางก้อน)
+  // ข้อเสนอแนะ: ข้อ 1 = ประชาสัมพันธ์เรื่องการหยุดเผา (คงที่) · ข้ออื่นสร้างจากข้อมูลจริงของปีล่าสุด
   const recs: [string, string][] = [];
+  recs.push(["ประชาสัมพันธ์เรื่องการหยุดเผา:", `รณรงค์ให้เกษตรกรหยุดเผาฟางและเศษพืช หันมาไถกลบตอซังหรืออัดฟางก้อนแทน ผ่านเกษตรตำบล เวทีเกษตรกร และสื่อประชาสัมพันธ์ในพื้นที่${c.area.accum > 0 ? ` (ปีนี้ไถกลบแล้ว ${n1(c.area.accum)} ไร่)` : ""}`]);
   if (c.lagging.length) recs.push(["เร่งรัดการผลิตปุ๋ยอินทรีย์:", `อำเภอที่ต่ำกว่าเป้าหมาย ได้แก่ ${c.lagging.map(l => `${l.name} (${l.pct.toFixed(0)}%)`).join(" · ")} ควรติดตามและสนับสนุนก่อน`]);
   else if (c.total > 0) recs.push(["รักษาระดับผลผลิตปุ๋ย:", "ทุกอำเภอที่มีเป้าหมายถึงเป้าแล้ว ควรถอดบทเรียนและขยายผลสู่ปุ๋ยพืชสดและวัตถุดิบน้ำหมักชีวภาพเพิ่มเติม"]);
   else recs.push(["เริ่มเก็บข้อมูลปุ๋ยอินทรีย์:", "ยังไม่มีรายงานที่ส่งแล้วในปีงบประมาณนี้ ควรกำชับให้อำเภอส่งรายงานตามรอบ"]);
   if (!c.area.assigned) recs.push(["ไถกลบฟางข้าว:", "ยังไม่ได้กำหนดพื้นที่ปลูกพืชทั้งหมดครบทุกอำเภอ ระบบจึงใช้พื้นที่สะสมแทน ทำให้เป้าหมายและร้อยละคลาดเคลื่อน (ตั้งค่าที่หน้า 3 ตั้งค่า ส่วนการรายงาน)"]);
-  else if (c.areaLow.length) recs.push(["เร่งการไถกลบฟางข้าว:", `อำเภอที่ยังต่ำกว่าเป้าร้อยละ 35 ของพื้นที่ปลูก: ${c.areaLow.map(l => `${l.name} (${l.pct.toFixed(0)}% ของเป้า)`).join(" · ")} — สนับสนุนการไถกลบช่วง พ.ย. – มิ.ย.`]);
+  else if (c.areaLow.length) recs.push(["เร่งการไถกลบฟางข้าว:", `อำเภอที่ยังต่ำกว่าเป้าร้อยละ ${K.targetPct} ของพื้นที่ปลูก: ${c.areaLow.map(l => `${l.name} (${l.pct.toFixed(0)}% ของเป้า)`).join(" · ")}`]);
   else recs.push(["ไถกลบฟางข้าว:", "ทุกอำเภอถึงเป้าแล้ว ควรรักษาระดับและส่งเสริมให้ครอบคลุมพื้นที่ปลูกทั้งหมด"]);
-  recs.push(["ส่งเสริมฟางก้อน:", c.area.bales > 0 ? `ฟางก้อนรวม ${n0(c.area.bales)} ก้อน คิดเป็นราคา ${n0(c.area.baleValue)} บาท${c.topArea ? ` (ไร่ไถกลบสูงสุดที่ ${c.topArea.name})` : ""} — ส่งเสริมการอัดฟางก้อนเพิ่มรายได้ในพื้นที่ที่มีฟางมาก` : "ยังไม่มีข้อมูลฟางก้อน เนื่องจากยังไม่มีรายงานไถกลบที่ส่งแล้ว"]);
+  recs.push(["ส่งเสริมฟางก้อน:", c.area.bales > 0 ? `ฟางก้อนรวม ${n0(c.area.bales)} ก้อน คิดเป็น ${n0(c.area.baleValue)} บาท — ส่งเสริมการอัดฟางก้อนเพิ่มรายได้ในพื้นที่ที่มีฟางมาก` : "ยังไม่มีข้อมูลฟางก้อน เนื่องจากยังไม่มีรายงานไถกลบที่ส่งแล้ว"]);
 
-  const ry = my + mh + 10;
-  let rh = 36; const recLines = recs.map(([k, v]) => { const kw2 = width(k, 8.5, true), ls = wrap(v, CW - 56 - kw2 - 4, 8.5); rh += Math.max(1, ls.length) * 11 + 5; return { k, kw2, ls }; });
+  const ry = noteY + 22;
+  let rh = 34; const recLines = recs.map(([k, v]) => { const kw2 = width(k, 8.3, true), ls = wrap(v, CW - 56 - kw2 - 4, 8.3); rh += Math.max(1, ls.length) * 10.5 + 4; return { k, kw2, ls }; });
   card(M, ry, CW, rh, { fill: "#f0fdf4", stroke: "#bbf7d0" });
-  text("ข้อเสนอแนะเชิงยุทธศาสตร์ (Strategic Recommendations)", M + 14, ry + 10, { size: 10.5, bold: true, color: C.dark });
-  doc.save().moveTo(M + 14, ry + 28).lineTo(W - M - 14, ry + 28).lineWidth(0.5).strokeColor("#bbf7d0").stroke().restore();
-  let yy3 = ry + 35;
+  text("ข้อเสนอแนะ (Recommendations)", M + 14, ry + 9, { size: 10, bold: true, color: C.dark });
+  doc.save().moveTo(M + 14, ry + 26).lineTo(W - M - 14, ry + 26).lineWidth(0.5).strokeColor("#bbf7d0").stroke().restore();
+  let yy3 = ry + 32;
   recLines.forEach((r, i) => {
-    text(`${i + 1}.`, M + 14, yy3, { size: 8.5 });
-    text(r.k, M + 28, yy3, { size: 8.5, bold: true, color: C.dark });
-    r.ls.forEach((ln, j) => text(ln, M + 28 + r.kw2 + 4, yy3 + j * 11, { size: 8.5, color: "#334155" }));
-    yy3 += Math.max(1, r.ls.length) * 11 + 5;
+    text(`${i + 1}.`, M + 14, yy3, { size: 8.3 });
+    text(r.k, M + 28, yy3, { size: 8.3, bold: true, color: C.dark });
+    r.ls.forEach((ln, j) => text(ln, M + 28 + r.kw2 + 4, yy3 + j * 10.5, { size: 8.3, color: "#334155" }));
+    yy3 += Math.max(1, r.ls.length) * 10.5 + 4;
   });
 
-  const fy2 = ry + rh + 12;
-  text("AGRI-TRACK Automation System", M, fy2, { size: 8, bold: true, color: C.mute });
-  text(` | Report ID: AG-${c.fy}-${bkkDate().replace(/-/g, "")}`, M + width("AGRI-TRACK Automation System", 8, true), fy2, { size: 8, color: C.mute });
-  text("สรุปจากข้อมูลในระบบ ณ วันที่ออกรายงาน เฉพาะรายงานที่อำเภอส่งแล้ว", M, fy2 + 11, { size: 8, color: C.mute });
+  const fy2 = Math.min(ry + rh + 10, H - 70);
+  text(`AGRI-TRACK Automation System | Report ID: AG-${c.fy}-${bkkDate().replace(/-/g, "")}`, M, fy2, { size: 7.5, color: C.mute });
+  text("สรุปจากข้อมูลในระบบ ณ วันที่ออกรายงาน เฉพาะรายงานที่อำเภอส่งแล้ว", M, fy2 + 10, { size: 7.5, color: C.mute });
   doc.save().moveTo(W - M - 170, fy2 + 4).lineTo(W - M, fy2 + 4).lineWidth(0.6).strokeColor(C.mute).stroke().restore();
-  text("เจ้าหน้าที่ผู้รับผิดชอบ / ผู้อำนวยการ", W - M - 170, fy2 + 9, { size: 8, bold: true, color: C.mute, w: 170, align: "right" });
-  footer(2);
+  text("เจ้าหน้าที่ผู้รับผิดชอบ / ผู้อำนวยการ", W - M - 170, fy2 + 9, { size: 7.5, bold: true, color: C.mute, w: 170, align: "right" });
+  footer(1);
 
   doc.end();
   return done;

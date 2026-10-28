@@ -1,4 +1,4 @@
-import { DEFAULT_CONFIG, DEFAULT_AREA_CONST, DISTRICTS, areaPct, dueDateOf, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, tambonOf, type AppConfig, type AreaConst, type FieldDef, type AreaReport, type BurnKey, type BurnReport, type FieldKey, type Report } from "./data";
+import { DEFAULT_CONFIG, DEFAULT_AREA_CONST, DISTRICTS, areaPct, dueDateOf, areaSeasonOf, areaTarget, baleValue, effectiveTotal, strawBales, strawTons, strawValue, tambonOf, topicOff, type AppConfig, type AreaConst, type FieldDef, type AreaReport, type BurnKey, type BurnReport, type FieldKey, type Report } from "./data";
 
 export const fmt = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 1 });
 // รวมเฉพาะช่องที่ยังอยู่ในการตั้งค่า (ช่องที่จังหวัดลบออกแล้วไม่นับ)
@@ -14,7 +14,7 @@ export function monthsBetween(from: string, to: string) {
 // rounds = จำนวนครั้งต่อเดือนที่จังหวัดกำหนด: got[m] = จำนวนรอบที่ส่งแล้ว, sent = จำนวนเดือนที่ส่งครบทุกรอบ
 export function aggregate(reports: Report[], from: string, to: string, rounds = 1, cfg: AppConfig = DEFAULT_CONFIG) {
   const FIELDS = cfg.fertFields;
-  const months = monthsBetween(from, to);
+  const months = monthsBetween(from, to).filter(m => !topicOff("fert", m)); // ตัดเดือนที่หัวข้อปุ๋ยไม่ต้องรายงานตามช่วงเดือนที่จังหวัดกำหนด
   const sub = reports.filter(r => r.status === "submitted" && r.month >= from && r.month <= to);
   const rows = DISTRICTS.map(d => {
     const mine = sub.filter(r => r.district === d.name);
@@ -57,7 +57,7 @@ export function aggregateArea(reports: AreaReport[], to: string, totals: Record<
 // got[m] = จำนวนรอบที่ส่งแล้วของเดือน · sent = จำนวนเดือนที่ส่งครบทุกรอบ
 export function aggregateBurn(reports: BurnReport[], from: string, to: string, rounds = 1, cfg: AppConfig = DEFAULT_CONFIG) {
   const BURN_FIELDS = cfg.burnFields;
-  const months = monthsBetween(from, to);
+  const months = monthsBetween(from, to).filter(m => !topicOff("burn", m)); // ตัดเดือนนอกช่วงที่จังหวัดกำหนดให้หัวข้อหยุดเผา
   const sub = reports.filter(r => r.status === "submitted" && r.month >= from && r.month <= to);
   const rows = DISTRICTS.map(d => {
     const mine = sub.filter(r => r.district === d.name);

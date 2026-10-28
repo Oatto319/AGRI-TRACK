@@ -154,6 +154,11 @@ export const fiscalRange = (fyBE: number, topic?: Topic) => {
 };
 /** เดือน ym อยู่ในช่วงรายงานของหัวข้อ topic หรือไม่ */
 export const isTopicMonth = (topic: Topic, ym: string) => { const r = fiscalRange(fiscalYearOf(ym), topic); return ym >= r.from && ym <= r.to; };
+/** เดือนที่อยู่ในช่วงรวมของปีงบประมาณ แต่หัวข้อนี้ไม่ต้องรายงาน (เช่น ปุ๋ยรายงานถึง พ.ค. แต่ช่วงรวมถึง มิ.ย.) */
+export const topicOff = (topic: Topic, ym: string) => {
+  const fy = fiscalYearOf(ym), o = fiscalRange(fy), t = fiscalRange(fy, topic);
+  return ym >= o.from && ym <= o.to && (ym < t.from || ym > t.to);
+};
 export const fiscalYearOf = (ym: string) => {
   for (const k of Object.keys(PERIODS)) {
     const fy = Number(k), tops = Object.keys(PERIODS[fy].t) as Topic[]; // เดือนที่อยู่ในช่วงรวมหรือช่วงของหัวข้อใดหัวข้อหนึ่ง ถือเป็นของปีงบประมาณนั้น

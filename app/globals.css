@@ -434,3 +434,26 @@ body{background:radial-gradient(1200px 500px at 85% -10%,rgba(193,154,54,.10),tr
 .pv-kpi.gold{background:linear-gradient(135deg,#8a6718 0%,#c8a13e 100%)}
 .pv-head{background:linear-gradient(120deg,#ffffff 0%,#f3f7ec 100%);border-color:#e1e8d3}
 .pv-head h1{background:linear-gradient(90deg,#173f26,#2f7d4f);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* การ์ดความคืบหน้าเทียบเป้ารายอำเภอ (compact) */
+.pg{margin-bottom:1.1rem}
+.pg-top{display:flex;flex-wrap:wrap;gap:.6rem;justify-content:space-between;align-items:center}.pg-top h2{margin:0}
+.pg-tabs{display:inline-flex;background:#f2f4f0;border-radius:999px;padding:3px}
+.pg-tabs button{border:0;background:transparent;font:inherit;font-size:.84rem;font-weight:600;color:#56614f;padding:.3rem .9rem;border-radius:999px;cursor:pointer}
+.pg-tabs button[aria-pressed="true"]{background:#fff;color:#1b2418;box-shadow:0 1px 3px rgba(15,23,42,.12)}
+.pg .pv-note{margin:.2rem 0 .8rem}
+.pg-bar{display:flex;height:10px;border-radius:99px;overflow:hidden;gap:2px;background:#f2f4f0}.pg-bar i{display:block;min-width:6px}
+.pg-legend{display:flex;flex-wrap:wrap;gap:.3rem .5rem;margin:.6rem 0 .9rem}
+.pg-legend button{border:1px solid transparent;background:transparent;font:inherit;font-size:.8rem;color:#56614f;display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .5rem;border-radius:99px;cursor:pointer}
+.pg-legend button:hover{background:#f4f7f2}.pg-legend button[aria-pressed="true"]{background:#eef2eb;border-color:#d5dcd0;color:#1b2418}
+.pg-legend i{width:9px;height:9px;border-radius:50%;flex:none}.pg-legend b{color:#1b2418;font-variant-numeric:tabular-nums}
+.pg-rows{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(22rem,1fr));gap:0 2rem}
+.pg-rows li{display:grid;grid-template-columns:7.5rem 1fr 2.6rem 4.6rem;align-items:center;gap:.6rem;padding:.42rem 0;border-bottom:1px solid #f2f4f0;font-size:.88rem}
+.pg-rows .nm{font-weight:600;color:#1b2418;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pg-rows .tk{height:6px;background:#f2f4f0;border-radius:99px;overflow:hidden}.pg-rows .tk i{display:block;height:100%;border-radius:99px}
+.pg-rows .pc{text-align:right;font-weight:700;color:#1b2418;font-variant-numeric:tabular-nums}
+.pg-rows small{text-align:right;color:#8a9482;font-size:.74rem;font-variant-numeric:tabular-nums;white-space:nowrap}
+.pg-foot{display:flex;flex-wrap:wrap;gap:.4rem 1rem;align-items:center;margin-top:.7rem;font-size:.82rem;color:#8a9482}
+.pg-foot button{border:0;background:none;font:inherit;font-weight:600;color:var(--brand);cursor:pointer;padding:0}.pg-foot button:hover{text-decoration:underline}
+.pg-foot span{margin-left:auto}
+@media(max-width:560px){.pg-rows{grid-template-columns:1fr}.pg-rows li{grid-template-columns:6.2rem 1fr 2.4rem 4rem}}

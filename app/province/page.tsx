@@ -5,6 +5,7 @@ import { areaTotalsFor, cfgOfMonth, dueDaysFor, fiscalYearOf, thaiMonth } from "
 import { aggregate, aggregateArea, fmt } from "@/lib/summary";
 import { AreaCombo, AreaHBars, FertCompareBars, Icons, PV_COLORS, RankBoard, Ring, Sparkline, StatusBar, TypeDonut, cumulate } from "@/components/ProvinceCharts";
 import { FilterBar, useProvince } from "@/components/Province";
+import ProgressCards from "@/components/ProgressCards";
 
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 const SHORT = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
@@ -43,8 +44,8 @@ export default function ProvinceDashboard() {
   const cmpLabel = (back: number) => !valid ? (back ? "ปีก่อน" : "ปีนี้") : fiscalYearOf(from) === fiscalYearOf(to) ? `ปีงบฯ ${fiscalYearOf(to) + back}` : `${Number(from.slice(0, 4)) + 543 + back}–${Number(to.slice(0, 4)) + 543 + back}`;
   // เทียบกับช่วงเดียวกันของปีก่อนหน้า (เลื่อนย้อนหลัง 1 ปี)
   const prevAgg = useMemo(() => (reports && valid ? aggregate(reports, shiftYear(from, -1), shiftYear(to, -1), dueDaysFor(settings, "fert", shiftYear(to, -1)).length, cfgOfMonth(settings, shiftYear(to, -1))) : null), [reports, from, to, valid, settings]);
-  const compare = (agg?.months ?? []).map((m, i) => ({ label: monthLabel(m, multiYear), cur: sum(r => r.byMonth[m] ?? 0),
-    prev: (prevAgg?.rows ?? []).reduce((a, r) => a + (prevAgg ? r.byMonth[prevAgg.months[i]] ?? 0 : 0), 0) }));
+  const compare = (agg?.months ?? []).map(m => ({ label: monthLabel(m, multiYear), cur: sum(r => r.byMonth[m] ?? 0),
+    prev: (prevAgg?.rows ?? []).reduce((a, r) => { const pm = prevAgg?.months.find(x => x.slice(5) === m.slice(5)); return a + (pm ? r.byMonth[pm] ?? 0 : 0); }, 0) })); // จับคู่เดือนเดียวกันของปีก่อน (จำนวนเดือนของแต่ละปีอาจไม่เท่ากัน)
   const top10 = [...rows].filter(r => r.total > 0).sort((a, b) => b.total - a.total).slice(0, 10);
   const yearTxt = valid ? (fiscalYearOf(from) === fiscalYearOf(to) ? `ปีงบประมาณ ${fiscalYearOf(to)}` : multiYear ? `${Number(from.slice(0, 4)) + 543}–${Number(to.slice(0, 4)) + 543}` : `${Number(to.slice(0, 4)) + 543}`) : "";
   const rounds = agg?.rounds ?? 1;
@@ -91,6 +92,12 @@ export default function ProvinceDashboard() {
               <Ring pct={reachedPct} label={`อำเภอที่ถึงเป้าปุ๋ย ${reachedPct} เปอร์เซ็นต์`} />
             </div>
           </section>
+
+          {/* ใกล้ถึงเป้า / ต่ำกว่าเป้า รายอำเภอ: การ์ดเดียว สลับหัวข้อได้ */}
+          <ProgressCards sets={[
+            { key: "fert", label: "ปุ๋ยอินทรีย์", unit: "ตัน", note: `ปริมาณสะสมเทียบเป้า (เกษตรตำบล × ${fmt(cfg.targetPerTambon)} ตัน)`, rows: rows.map(r => ({ name: r.name, value: r.total, target: r.target, hasTarget: r.target > 0 })) },
+            ...(ar ? [{ key: "area", label: "ไถกลบฟางข้าว", unit: "ไร่", note: `พื้นที่สะสมเทียบเป้าร้อยละ ${AREA_TARGET_PCT} ของพื้นที่ปลูกพืชทั้งหมด · อำเภอที่ยังไม่ตั้งพื้นที่ปลูกจะแสดงว่ายังไม่ตั้งเป้า`, rows: ar.rows.map(r => ({ name: r.name, value: r.accum, target: r.target, hasTarget: r.assigned })) }] : []),
+          ]} />
 
           {/* 10 อันดับ + โดนัท + กราฟแท่ง */}
           <div className="pv-main">

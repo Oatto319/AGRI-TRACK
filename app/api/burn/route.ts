@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DISTRICTS, bkkDate, cfgOfMonth, dueDateOf, dueDaysFor, type BurnReport } from "@/lib/data";
+import { requireSession } from "@/lib/auth";
 import { readBurnAll, readSettings, updateBurn } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
@@ -7,6 +8,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 export async function GET(req: NextRequest) {
+  const auth = requireSession(req);
+  if ("res" in auth) return auth.res;
   const q = req.nextUrl.searchParams, d = q.get("district"), m = q.get("month");
   let all = await readBurnAll();
   if (d) all = all.filter(r => r.district === d);
@@ -14,12 +17,15 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(all);
 }
 
-// หมายเหตุ: ยังไม่มีการตรวจสิทธิ์ผู้เรียก API (เหมือน /api/reports และ /api/area) — ควรเพิ่ม session ก่อนใช้งานจริง
 export async function PUT(req: NextRequest) {
+  const auth = requireSession(req);
+  if ("res" in auth) return auth.res;
+  if (auth.session.role !== "district") return NextResponse.json({ error: "เฉพาะเจ้าหน้าที่อำเภอเท่านั้นที่กรอกรายงานได้" }, { status: 403 });
   let body: unknown;
   try { body = await req.json(); } catch { return bad("ข้อมูลไม่ถูกต้อง"); }
   if (!isRecord(body)) return bad("ข้อมูลไม่ถูกต้อง");
   if (typeof body.district !== "string" || !DISTRICTS.some(x => x.name === body.district)) return bad("ไม่พบอำเภอ");
+  if (body.district !== auth.session.district) return NextResponse.json({ error: "กรอกรายงานได้เฉพาะอำเภอของบัญชีที่เข้าสู่ระบบ" }, { status: 403 });
   if (typeof body.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.month)) return bad("เดือนไม่ถูกต้อง");
   if (body.status !== "draft" && body.status !== "submitted") return bad("สถานะไม่ถูกต้อง");
   const settings = await readSettings(), round = body.round === undefined ? 1 : body.round;

@@ -1,5 +1,6 @@
 "use client";
 import { createContext, startTransition, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import Shell from "./Shell";
 import PdfButton from "./PdfButton";
 import { DEFAULT_SETTINGS, cfgOf, cfgOfMonth, currentMonth, fiscalYearOptions, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings } from "@/lib/data";
@@ -12,6 +13,15 @@ export const useProvince = () => { const v = useContext(C); if (!v) throw new Er
 
 // layout คงที่ระหว่างเปลี่ยนหน้า จึงใช้ช่วงเดือนที่เลือกร่วมกันทั้ง 2 หน้า
 export function ProvinceFrame({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const [authed, setAuthed] = useState(false);
+  // ต้องเป็นบัญชีจังหวัดตาม session ฝั่งเซิร์ฟเวอร์ ไม่เช่นนั้นกลับหน้าเข้าสู่ระบบ
+  useEffect(() => {
+    fetch("/api/me").then(r => (r.ok ? r.json() : null)).then((me: { role?: string } | null) => {
+      if (me?.role === "province") startTransition(() => setAuthed(true));
+      else router.replace(me?.role === "district" ? "/district" : "/");
+    }).catch(() => router.replace("/"));
+  }, [router]);
   const [reports, setReports] = useState<Report[] | null>(null);
   const [area, setArea] = useState<AreaReport[] | null>(null);
   const [burn, setBurn] = useState<BurnReport[] | null>(null);
@@ -31,6 +41,7 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
   const valid = !!from && !!to && from <= to;
   const agg = useMemo(() => (reports && valid ? aggregate(reports, from, to, dueDaysFor(settings, "fert", to).length, cfgOfMonth(settings, to)) : null), [reports, from, to, valid, settings]);
   return (
+    <div style={{ display: authed ? "contents" : "none" }}>{/* ยังไม่ยืนยันสิทธิ์ = ซ่อนไว้ (แต่ยังเรนเดอร์หน้าลูกตามปกติ เพื่อให้ Next.js ตรวจ instant navigation ได้) */}
     <C.Provider value={{ settings, setSettings, reports, area, burn, error, from, to, setFrom, setTo, valid, agg }}>
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
         { href: "/province", label: "1. ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ", icon: "home" },
@@ -39,6 +50,7 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
         {children}
       </Shell>
     </C.Provider>
+    </div>
   );
 }
 

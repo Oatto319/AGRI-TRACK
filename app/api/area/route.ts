@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { AREA_FIELDS, DISTRICTS, bkkDate, dueDateOf, dueDaysFor, isAreaMonth, type AreaReport } from "@/lib/data";
+import { AREA_FIELDS, DISTRICTS, bkkDate, cfgOf, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, isAreaMonth, thaiMonth, type AreaReport } from "@/lib/data";
+import { requireSession } from "@/lib/auth";
 import { readAreaAll, readSettings, updateArea } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
@@ -7,6 +8,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 export async function GET(req: NextRequest) {
+  const auth = requireSession(req);
+  if ("res" in auth) return auth.res;
   const q = req.nextUrl.searchParams, d = q.get("district"), m = q.get("month");
   let all = await readAreaAll();
   if (d) all = all.filter(r => r.district === d);
@@ -14,15 +17,18 @@ export async function GET(req: NextRequest) {
   return NextResponse.json(all);
 }
 
-// หมายเหตุ: ยังไม่มีการตรวจสิทธิ์ผู้เรียก API (เหมือน /api/reports) — ควรเพิ่ม session ก่อนใช้งานจริง
 export async function PUT(req: NextRequest) {
+  const auth = requireSession(req);
+  if ("res" in auth) return auth.res;
+  if (auth.session.role !== "district") return NextResponse.json({ error: "เฉพาะเจ้าหน้าที่อำเภอเท่านั้นที่กรอกรายงานได้" }, { status: 403 });
   let body: unknown;
   try { body = await req.json(); } catch { return bad("ข้อมูลไม่ถูกต้อง"); }
   if (!isRecord(body)) return bad("ข้อมูลไม่ถูกต้อง");
   if (typeof body.district !== "string" || !DISTRICTS.some(x => x.name === body.district)) return bad("ไม่พบอำเภอ");
+  if (body.district !== auth.session.district) return NextResponse.json({ error: "กรอกรายงานได้เฉพาะอำเภอของบัญชีที่เข้าสู่ระบบ" }, { status: 403 });
   if (typeof body.month !== "string" || !/^\d{4}-(0[1-9]|1[0-2])$/.test(body.month)) return bad("เดือนไม่ถูกต้อง");
   const settings = await readSettings(); // อ่านก่อนตรวจเดือน เพื่อใช้ช่วงเดือนของปีงบประมาณที่จังหวัดตั้งไว้
-  if (!isAreaMonth(body.month)) return bad("รายงานพื้นที่ทำได้เฉพาะเดือนพฤศจิกายนถึงมิถุนายน");
+  if (!isAreaMonth(body.month)) { cfgOf(settings); const r = fiscalRange(fiscalYearOf(body.month), "area"); return bad(`รายงานพื้นที่ทำได้เฉพาะเดือน ${thaiMonth(r.from)} ถึง ${thaiMonth(r.to)}`); }
   if (body.status !== "draft" && body.status !== "submitted") return bad("สถานะไม่ถูกต้อง");
   const round = body.round === undefined ? 1 : body.round;
   if (typeof round !== "number" || !Number.isInteger(round) || round < 1 || round > dueDaysFor(settings, "area", body.month).length) return bad(`รอบต้องอยู่ระหว่าง 1–${dueDaysFor(settings, "area", body.month).length}`);

@@ -100,7 +100,7 @@ export default function DistrictDashboard() {
       const aa = aggregateArea(area, rg.to, areaTotalsFor(settings, rg.to), c.area).rows.find(r => r.name === district)!;
       return { fy: y, fert: fa.total, fertTarget: fa.target, area: aa.accum, areaTarget: aa.target };
     });
-    return { agg, me, ar, mine, prev, hist, prevByMonth: pagg.months.map(m => pme.byMonth[m] ?? 0), arRows: arAll.rows, season: arAll.season, arMonths: arAll.months, ranked, rank: ranked.findIndex(r => r.name === district) + 1,
+    return { agg, me, ar, mine, prev, hist, prevByMonth: agg.months.map(m => { const pm = pagg.months.find(x => x.slice(5) === m.slice(5)); return pm ? pme.byMonth[pm] ?? 0 : 0; }), arRows: arAll.rows, season: arAll.season, arMonths: arAll.months, ranked, rank: ranked.findIndex(r => r.name === district) + 1,
       rec: (m: string, rd: number) => mine.find(r => r.month === m && r.round === rd),
       mstat: (m: string) => { const g = me.got[m] ?? 0; return g >= dueDaysFor(settings, "fert", m).length ? "ok" : g > 0 || mine.some(r => r.month === m) ? "warn" : "no"; },
       mlate: (m: string) => mine.some(r => r.month === m && r.late),

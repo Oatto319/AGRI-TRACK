@@ -6,13 +6,15 @@ import Shell from "./Shell";
 const C = createContext<{ district: string } | null>(null);
 export const useDistrict = () => { const v = useContext(C); if (!v) throw new Error("DistrictFrame missing"); return v; };
 
-// อำเภอที่เข้าสู่ระบบถูกเก็บไว้ใน localStorage (ตัวอย่าง — ควรเปลี่ยนเป็นระบบล็อกอินจริง)
+// อำเภอที่เข้าสู่ระบบอ่านจาก session ฝั่งเซิร์ฟเวอร์ (/api/me) — ไม่เชื่อค่าใน localStorage เพราะผู้ใช้แก้เองได้
 export function DistrictFrame({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [district, setDistrict] = useState("");
   useEffect(() => {
-    const d = localStorage.getItem("district");
-    if (d) startTransition(() => setDistrict(d)); else router.replace("/");
+    fetch("/api/me").then(r => (r.ok ? r.json() : null)).then((me: { role?: string; district?: string } | null) => {
+      if (me?.role === "district" && me.district) startTransition(() => setDistrict(me.district!));
+      else router.replace(me?.role === "province" ? "/province" : "/");
+    }).catch(() => router.replace("/"));
   }, [router]);
   if (!district) return null;
   return (
