@@ -1,0 +1,36 @@
+name: CI
+
+# ทุก push / pull request ต้องผ่าน lint + ตรวจชนิดข้อมูล + เทสต์ + build ก่อนจึงควร deploy
+# แนะนำให้ตั้ง branch protection ให้ job "verify" เป็น required check ของ branch หลัก
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type check
+        run: npm run typecheck
+      - name: Test (unit + API integration)
+        run: npm test
+      - name: Build
+        run: npm run build
+        env:
+          # ค่าหลอกสำหรับตอน build เท่านั้น (ไม่ได้เชื่อมต่อฐานข้อมูลจริง) · ค่าจริงตั้งที่ระบบ deploy
+          AUTH_SECRET: ci-build-secret-ci-build-secret-0000
+          MONGODB_URI: mongodb://localhost:27017

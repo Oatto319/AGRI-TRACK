@@ -1,24 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AREA_FIELDS, DISTRICTS, bkkDate, cfgOf, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, isAreaMonth, thaiMonth, type AreaReport } from "@/lib/data";
-import { requireSession } from "@/lib/auth";
-import { readAreaAll, readSettings, updateArea } from "@/lib/store";
+import { forbidden, requireSession } from "@/lib/auth";
+import { ConflictError, readAreaAll, readSettings, updateArea } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 
 export async function GET(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if ("res" in auth) return auth.res;
-  const q = req.nextUrl.searchParams, d = q.get("district"), m = q.get("month");
-  let all = await readAreaAll();
-  if (d) all = all.filter(r => r.district === d);
-  if (m) all = all.filter(r => r.month === m);
-  return NextResponse.json(all);
+  const q = req.nextUrl.searchParams, m = q.get("month");
+  let d = q.get("district");
+  // อำเภออ่านได้เฉพาะข้อมูลของอำเภอตัวเอง (จังหวัดอ่านได้ทุกอำเภอ)
+  if (auth.session.role === "district") {
+    if (d && d !== auth.session.district) return forbidden("ดูข้อมูลได้เฉพาะอำเภอของบัญชีที่เข้าสู่ระบบ");
+    d = auth.session.district ?? null;
+  }
+  return NextResponse.json(await readAreaAll({ ...(d ? { district: d } : {}), ...(m ? { month: m } : {}) }));
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if ("res" in auth) return auth.res;
   if (auth.session.role !== "district") return NextResponse.json({ error: "เฉพาะเจ้าหน้าที่อำเภอเท่านั้นที่กรอกรายงานได้" }, { status: 403 });
   let body: unknown;
@@ -68,5 +71,8 @@ export async function PUT(req: NextRequest) {
       return { district, month, round, values, reporter: rp, status, updatedAt: now.toISOString(), ...meta };
     });
     return NextResponse.json(saved);
-  } catch (e) { return bad(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ"); }
+  } catch (e) {
+    if (e instanceof ConflictError) return NextResponse.json({ error: e.message }, { status: 409 });
+    return bad(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
+  }
 }

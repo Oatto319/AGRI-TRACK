@@ -1,7 +1,7 @@
 import PDFDocument from "pdfkit";
 import fs from "node:fs";
 import path from "node:path";
-import { DISTRICTS, areaTotalsFor, cfgOf, bkkDate, dueDaysFor, fiscalRange, thaiDate, thaiMonth, type AreaReport, type Report, type Settings } from "./data";
+import { areaTotalsFor, cfgOf, bkkDate, dueDaysFor, fiscalRange, thaiDate, thaiMonth, type AreaReport, type Report, type Settings } from "./data";
 import { aggregate, aggregateArea, monthsBetween, sumValues } from "./summary";
 
 /**
@@ -65,11 +65,9 @@ export function yearStat(reports: Report[], area: AreaReport[], settings: Settin
 
 // ---------- ตัวช่วยจัดรูปแบบ ----------
 const n1 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 1 });
-const n2 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 2 });
 const n0 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 const yoy = (cur: number, prev: number): number | null => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
 const sgn = (v: number | null, d = 1) => (v === null ? "–" : `${v > 0 ? "+" : ""}${v.toFixed(d)}%`);
-const yy = (fy: number) => String(fy).slice(2);
 
 const C = { ink: "#0f172a", mute: "#64748b", line: "#e2e8f0", bg: "#f8fafc", dark: "#064e3b", green: "#059669", mint: "#10b981", blue: "#3b82f6", orange: "#f59e0b", purple: "#8b5cf6", red: "#e11d48", gray: "#94a3b8" };
 const W = 595.28, H = 841.89, M = 36, CW = W - 2 * M;

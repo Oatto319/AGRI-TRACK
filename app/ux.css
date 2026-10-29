@@ -345,3 +345,58 @@ body{background:var(--bg)}
 .ad-pager button.on{background:var(--brand);border-color:var(--brand);color:#fff}
 .ad .db-more{border-radius:18px;border-color:#e2e8f0}
 @media(max-width:560px){.ad-title h1{font-size:1.3rem}.ad-filters input{min-width:0;flex:1 1 100%}}
+
+/* ---------- กล่องยืนยัน (ConfirmDialog) ---------- */
+.cfm{border:0;padding:0;border-radius:18px;max-width:min(460px,calc(100vw - 2rem));width:100%;background:#fff;color:var(--ink);box-shadow:0 20px 60px rgba(20,40,26,.35)}
+.cfm::backdrop{background:rgba(20,40,26,.55)}
+.cfm-box{padding:1.4rem 1.4rem 1.2rem;display:grid;gap:.8rem}
+.cfm-box h2{font-size:1.15rem}
+.cfm-msg{white-space:pre-line;color:#3a4636;font-size:.98rem;line-height:1.6;max-height:50vh;overflow:auto}
+.cfm-act{display:flex;gap:.6rem;justify-content:flex-end;flex-wrap:wrap;margin-top:.3rem}
+.cfm-act .ux-btn{min-height:46px}
+.ux-btn.cfm-danger{background:linear-gradient(135deg,#d6304f,#a3153a)}
+@media (max-width:480px){.cfm-act{flex-direction:column-reverse}.cfm-act .ux-btn{width:100%}}
+
+/* ---------- หน้าจัดการผู้ใช้ ---------- */
+.us-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:.8rem;align-items:end;margin-top:.8rem}
+.us-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;margin-bottom:.6rem}
+.us-wrap{overflow-x:auto}.us-tb{width:100%;border-collapse:collapse;font-size:.95rem}
+.us-tb th{text-align:left;color:var(--muted);font-weight:600;font-size:.82rem;padding:.4rem .6rem;border-bottom:1px solid var(--line)}
+.us-tb td{padding:.55rem .6rem;border-bottom:1px solid #f1f3ef;vertical-align:middle}.us-tb tr.off td{opacity:.55}
+.us-ops{display:flex;gap:.4rem;flex-wrap:wrap;justify-content:flex-end}
+.us-pill{display:inline-block;padding:.1rem .6rem;border-radius:99px;font-size:.78rem;font-weight:600;margin-right:.3rem}
+.us-pill.ok{background:#e6f4ec;color:#1b6b3f}.us-pill.no{background:#fde8ec;color:#a3153a}.us-pill.wait{background:#fbf3dc;color:#8a6a12}
+.us-cred{border:2px solid var(--gold);background:#fffbef;margin-bottom:1rem}
+.us-code{display:flex;gap:1.5rem;flex-wrap:wrap;margin:.7rem 0;font-size:1.05rem}.us-code b{font-family:ui-monospace,Menlo,monospace;background:#fff;border:1px dashed #c9a640;border-radius:8px;padding:.15rem .6rem;user-select:all}
+.us-act{display:flex;gap:.5rem;flex-wrap:wrap}
+.sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+@media (max-width:640px){.us-tb thead{display:none}.us-tb tr{display:block;border-bottom:1px solid var(--line);padding:.5rem 0}.us-tb td{display:flex;justify-content:space-between;gap:.8rem;border:0;padding:.25rem .2rem}.us-tb td[data-l]::before{content:attr(data-l);color:var(--muted);font-size:.82rem}.us-ops{justify-content:flex-start!important}}
+
+/* ---------- แผนที่อำเภอ + กราฟแนวโน้ม ---------- */
+.dm{margin:0;display:grid;gap:.6rem}
+.dm-svg{width:100%;max-height:560px;height:auto;display:block}
+.dm-p{cursor:pointer;transition:filter .12s;outline:none}.dm-p:hover,.dm-p:focus{filter:brightness(.93)}.dm-p:focus-visible{stroke:#e3a72f;stroke-width:6}
+.dm-lb text{font-size:21px;font-weight:600;pointer-events:none;paint-order:stroke;stroke:rgba(255,255,255,.0)}
+.dm-info{min-height:2.6rem;padding:.55rem .8rem;border-radius:12px;background:#f3f7ef;color:#2b3425;font-size:.95rem}
+.dm-info span{color:var(--muted)}
+.dm-lg{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.82rem;color:var(--muted)}
+.dm-lg i{display:inline-block;width:14px;height:14px;border-radius:4px;margin-right:.35rem;vertical-align:-2px;border:1px solid rgba(0,0,0,.08)}
+@media (max-width:560px){.dm-lb text{font-size:26px}}
+.tc-svg{width:100%;height:auto;display:block}
+.tc-ax{font-size:12px;fill:#687360}.tc-tg{font-size:12px;fill:#b36a3c;font-weight:600}
+.tc-lg{margin:.2rem 0 .4rem}
+.tc-sum{margin:.3rem 0 0;padding:.6rem .8rem;border-radius:12px;background:#f3f7ef;font-size:.92rem;line-height:1.6}
+.tc-sum.ok{background:#e6f4ec}.tc-sum.bad{background:#fdf0e3}
+.pv-trend{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:1rem}
+.pv-maptog{display:flex;gap:.4rem;margin:.5rem 0 .8rem;flex-wrap:wrap}
+.pv-maptog button{border:1px solid #d5dcd0;background:#fff;border-radius:99px;padding:.3rem .9rem;cursor:pointer;font-size:.88rem}
+.pv-maptog button[aria-pressed=true]{background:#1f6b3f;color:#fff;border-color:#1f6b3f}
+.pv-warn li{padding:.45rem 0;border-bottom:1px solid #f1f3ef;font-size:.92rem}.pv-warn li.high b{color:#a3153a}
+
+/* ---------- หน้าสาธารณะ ---------- */
+.pub{min-height:100vh;background:var(--bg)}
+.pub-top{display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap;background:var(--indigo);color:#fff;padding:.7rem clamp(1rem,3vw,2rem)}
+.pub-top b{display:block;font-family:var(--head);font-size:1.05rem}.pub-top small{color:#cfe3cf}
+.pub-login{color:#fff;border:1.5px solid rgba(255,255,255,.45);border-radius:10px;padding:.45rem 1rem;text-decoration:none;font-size:.9rem}.pub-login:hover{background:var(--indigo2)}
+.pub-main{max-width:1180px;margin:0 auto;padding:1.5rem clamp(1rem,3vw,2rem) 3rem}
+.pub-foot{color:var(--muted);font-size:.85rem;text-align:center;margin-top:1.5rem}

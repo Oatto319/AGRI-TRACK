@@ -17,8 +17,9 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
   const [authed, setAuthed] = useState(false);
   // ต้องเป็นบัญชีจังหวัดตาม session ฝั่งเซิร์ฟเวอร์ ไม่เช่นนั้นกลับหน้าเข้าสู่ระบบ
   useEffect(() => {
-    fetch("/api/me").then(r => (r.ok ? r.json() : null)).then((me: { role?: string } | null) => {
-      if (me?.role === "province") startTransition(() => setAuthed(true));
+    fetch("/api/me").then(r => (r.ok ? r.json() : null)).then((me: { role?: string; mustChange?: boolean } | null) => {
+      if (me?.mustChange) router.replace("/change-password");
+      else if (me?.role === "province") startTransition(() => setAuthed(true));
       else router.replace(me?.role === "district" ? "/district" : "/");
     }).catch(() => router.replace("/"));
   }, [router]);
@@ -46,7 +47,8 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
         { href: "/province", label: "1. ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ", icon: "home" },
         { href: "/province/table", label: "2. ตารางข้อมูลรายอำเภอ", hint: "ดูรายละเอียด + ดาวน์โหลด Excel", icon: "table" },
-        { href: "/province/settings", label: "3. ตั้งค่า", hint: "รอบ กำหนดส่ง พื้นที่ปลูก ปีงบประมาณ ช่องข้อมูล หัวตาราง", icon: "gear" }]}>
+        { href: "/province/settings", label: "3. ตั้งค่า", hint: "รอบ กำหนดส่ง พื้นที่ปลูก ปีงบประมาณ ช่องข้อมูล หัวตาราง", icon: "gear" },
+        { href: "/province/users", label: "4. จัดการผู้ใช้", hint: "เพิ่มบัญชี รีเซ็ตรหัสผ่าน ปิด/เปิดการใช้งาน", icon: "user" }]}>
         {children}
       </Shell>
     </C.Provider>

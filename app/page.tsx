@@ -1,5 +1,6 @@
 "use client";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useState } from "react";
 
 const ic = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
@@ -20,9 +21,8 @@ export default function Login() {
       const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: user, password: pass }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return setError(data.error ?? `เข้าสู่ระบบไม่สำเร็จ (เซิร์ฟเวอร์ตอบ ${res.status} — ดู error ใน terminal)`);
-      if (data.role === "province") { localStorage.removeItem("district"); return router.push("/province"); }
-      localStorage.setItem("district", data.district); // อำเภอมาจากบัญชีผู้ใช้
-      router.push("/district");
+      if (data.mustChange) return router.push("/change-password"); // บัญชีใหม่/ถูกรีเซ็ตรหัส ต้องตั้งรหัสผ่านเองก่อน
+      router.push(data.role === "province" ? "/province" : "/district");
     } catch { setError("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ลองใหม่อีกครั้ง"); }
     finally { setBusy(false); }
   }
@@ -59,6 +59,7 @@ export default function Login() {
           {error && <p className="lgx-err" role="alert">{error}</p>}
           <button className="ux-btn block" disabled={busy}>{busy ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
           <p className="lgx-help">ลืมรหัสผ่าน หรือยังไม่มีบัญชี? ติดต่อสำนักงานเกษตรจังหวัดศรีสะเกษ</p>
+          <p className="lgx-help"><Link href="/public">ดูภาพรวมผลงานสำหรับประชาชน (ไม่ต้องเข้าสู่ระบบ)</Link></p>
         </form>
       </section>
     </div>

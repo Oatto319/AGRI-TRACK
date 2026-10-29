@@ -2,6 +2,8 @@
 import { startTransition, useEffect, useState } from "react";
 import { DEFAULT_SETTINGS, MAX_ROUNDS, cfgOfMonth, lbx, baleValue, strawBales, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, fiscalRange, fiscalYearOf, fiscalYearOptions, cfgOf, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { detectAnomalies } from "@/lib/anomaly";
 import { monthsBetween } from "@/lib/summary";
 import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
 
@@ -11,6 +13,7 @@ const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 }
 
 export default function DistrictAreaReport() {
   const { district } = useDistrict();
+  const confirm = useConfirm();
   const [month, setMonth] = useState("");
   const [today, setToday] = useState(""); // อ่านวันที่หลัง mount เท่านั้น
   const [round, setRound] = useState(1);
@@ -72,7 +75,12 @@ export default function DistrictAreaReport() {
     });
   }, [rec, all]);
 
+  const earlier = all.filter(x => x.status === "submitted" && (x.month < month || (x.month === month && x.round < rd))).sort((a, b) => a.month.localeCompare(b.month) || a.round - b.round);
+  const anomalies = detectAnomalies({
+    values: vals.area !== undefined && vals.area !== "" ? { area: Number(vals.area) } : {}, history: earlier.map(x => ({ area: x.values.area ?? 0 })), fields: [{ key: "area", label: "พื้นที่ไถกลบฟางข้าว" }], unit: "ไร่",
+  });
   async function save(s: "draft" | "submitted") {
+    if (s === "submitted" && anomalies.length && !(await confirm({ title: "มีค่าที่อาจผิดปกติ", message: `${anomalies.map(a => "• " + a.message).join("\n")}\n\nตรวจแล้วถูกต้องและต้องการส่งต่อใช่หรือไม่?`, confirmLabel: "ถูกต้อง ส่งรายงาน", cancelLabel: "กลับไปตรวจ" }))) return;
     setBusy(true); setMsg(null);
     try {
       const response = await fetch("/api/area", { method: "PUT", headers: { "Content-Type": "application/json" },

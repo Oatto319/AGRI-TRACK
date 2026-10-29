@@ -47,7 +47,7 @@ export default function DistrictDashboard() {
   const [loadError, setLoadError] = useState("");
   useEffect(() => {
     const get = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดรายงานไม่สำเร็จ"); return (await r.json()) as T; };
-    Promise.all([get<Report[]>("/api/reports"), get<Settings>("/api/settings"), get<AreaReport[]>(`/api/area?district=${encodeURIComponent(district)}`), get<BurnReport[]>(`/api/burn?district=${encodeURIComponent(district)}`)])
+    Promise.all([get<Report[]>(`/api/reports?district=${encodeURIComponent(district)}`), get<Settings>("/api/settings"), get<AreaReport[]>(`/api/area?district=${encodeURIComponent(district)}`), get<BurnReport[]>(`/api/burn?district=${encodeURIComponent(district)}`)])
       .then(([all, st, ar, bn]) => {
         setSettings(st); setArea(ar); setBurn(bn);
         cfgOf(st); // โหลดช่วงเดือนของปีงบประมาณที่จังหวัดตั้งไว้ ก่อนคำนวณปีงบประมาณ

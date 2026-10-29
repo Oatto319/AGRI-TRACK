@@ -5,7 +5,7 @@ import { buildWorkbook } from "@/lib/export";
 import { areaTotalsFor, cfgOfMonth, dueDaysFor } from "@/lib/data";
 
 export async function GET(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if ("res" in auth) return auth.res;
   const q = req.nextUrl.searchParams, from = q.get("from") ?? "", to = q.get("to") ?? "";
   const ok = /^\d{4}-(0[1-9]|1[0-2])$/;

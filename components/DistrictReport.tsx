@@ -3,6 +3,8 @@ import { startTransition, useEffect, useRef, useState } from "react";
 import { DEFAULT_SETTINGS, DISTRICTS, MAX_ROUNDS, bkkDate, cfgOf, cfgOfMonth, currentMonth, fiscalYearOptions, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, thaiDate, thaiDateTime, thaiMonth, tambonOf, type Report, type Reporter, type Settings } from "@/lib/data";
 import { fmt, monthsBetween, sumValues } from "@/lib/summary";
 import { useDistrict } from "@/components/District";
+import { useConfirm } from "@/components/ConfirmDialog";
+import { detectAnomalies } from "@/lib/anomaly";
 import { DueBanner, I, NumField, PageHead, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
 
 const toStr = (v: Report["values"]) => Object.fromEntries(Object.entries(v).map(([k, n]) => [k, String(n)]));
@@ -10,6 +12,7 @@ const load = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok)
 
 export default function DistrictReport() {
   const { district } = useDistrict();
+  const confirm = useConfirm();
   const info = DISTRICTS.find(d => d.name === district)!;
   const [month, setMonth] = useState("");
   const [today, setToday] = useState(""); // วันที่ปัจจุบัน (เวลาไทย) อ่านหลัง mount เท่านั้น
@@ -74,7 +77,14 @@ export default function DistrictReport() {
   }, [rec, all]);
 
   const live = Object.fromEntries(Object.entries(vals).filter(([, v]) => v !== "").map(([k, v]) => [k, Number(v)]));
+  // ตรวจค่าที่อาจผิดปกติ เทียบกับรายงานที่ส่งแล้วก่อนหน้าของอำเภอนี้ (เป็นการเตือน ไม่ได้ห้ามส่ง)
+  const earlier = all.filter(x => x.status === "submitted" && (x.month < month || (x.month === month && x.round < rd))).sort((a, b) => a.month.localeCompare(b.month) || a.round - b.round);
+  const anomalies = detectAnomalies({
+    values: live as Record<string, number>, history: earlier.map(x => x.values as Record<string, number>), fields: FIELDS, unit: "ตัน", target: tambonOf(cfg, info) * cfg.targetPerTambon,
+    cumulativeBefore: earlier.filter(x => !!fyRange && x.month >= fyRange.from && x.month <= fyRange.to).reduce((a, x) => a + sumValues(x.values, FIELDS), 0),
+  });
   async function save(s: "draft" | "submitted") {
+    if (s === "submitted" && anomalies.length && !(await confirm({ title: "มีค่าที่อาจผิดปกติ", message: `ระบบพบค่าที่ต่างจากปกติ ${anomalies.length} รายการ:\n\n${anomalies.map(a => "• " + a.message).join("\n")}\n\nตรวจแล้วถูกต้องและต้องการส่งต่อใช่หรือไม่?`, confirmLabel: "ถูกต้อง ส่งรายงาน", cancelLabel: "กลับไปตรวจ" }))) return;
     setBusy(true); setMsg(null);
     try {
       const response = await fetch("/api/reports", {
@@ -166,6 +176,8 @@ export default function DistrictReport() {
           <div className="row"><span>เดือน</span><b>{month ? thaiMonth(month) : "–"}{rounds > 1 ? ` · รอบ ${rd}` : ""}</b></div>
           <div className="row"><span>สถานะ</span><b>{status === "submitted" ? "ส่งแล้ว" : status === "draft" ? "ร่าง" : "ยังไม่ได้กรอก"}</b></div>
         </div>
+        {anomalies.length > 0 && (
+          <div className="ux-banner warn" role="status"><span>{I.info}</span><div><b>ตรวจสอบอีกครั้ง ({anomalies.length})</b>{anomalies.map(a => <p key={a.key} style={{ margin: ".3rem 0 0" }}>{a.message}</p>)}</div></div>)}
         <div className="ux-card">
           <h2>ก่อนส่งต้องมีครบ</h2>
           <ul className="ux-todo">{checks.map(c => <li key={c.t} className={c.ok ? "ok" : ""}><i>{c.ok ? "✓" : "!"}</i>{c.t}</li>)}</ul>

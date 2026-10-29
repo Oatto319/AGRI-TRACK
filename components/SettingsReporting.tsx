@@ -1,5 +1,6 @@
 "use client";
 import { startTransition, useEffect, useState } from "react";
+import { useConfirm } from "@/components/ConfirmDialog";
 import { DEFAULT_PER_TAMBON, DISTRICTS, MAX_ROUNDS, TOPICS, cfgOf, fiscalYearOptions, topicLabelOf, currentMonth, dueDateOf, fiscalRange, fiscalYearOf, thaiDate, thaiMonth, type AreaSet, type Schedule, type Settings, type TambonSet, type Topic } from "@/lib/data";
 import { useProvince } from "@/components/Province";
 import { I, Step } from "@/components/Entry";
@@ -8,6 +9,7 @@ const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 }
 const even = (k: number) => Array.from({ length: k }, (_, i) => String(Math.round((31 / k) * (i + 1))));
 
 export default function ReportingSettings() {
+  const confirm = useConfirm();
   const [q, setQ] = useState("");
   const { settings, setSettings } = useProvince();
   const cfg = cfgOf(settings), AREA_TARGET_PCT = cfg.area.targetPct;
@@ -78,7 +80,7 @@ export default function ReportingSettings() {
   }
   function cancelEdit() { setEditing(null); setDays(["31"]); setMsg(null); }
   async function remove(x: Schedule) {
-    if (!window.confirm(`ลบ “${topicLabel(x.topic)}” ปีงบประมาณ ${x.fy} ออกจากรายการ?\nปีงบประมาณนี้จะกลับไปใช้ค่าเริ่มต้น (${settings.dueDays.length} ครั้ง/เดือน) · รายงานที่ส่งแล้วไม่ถูกลบ`)) return;
+    if (!(await confirm({ title: "ลบรายการ", message: `ลบ “${topicLabel(x.topic)}” ปีงบประมาณ ${x.fy} ออกจากรายการ?\nปีงบประมาณนี้จะกลับไปใช้ค่าเริ่มต้น (${settings.dueDays.length} ครั้ง/เดือน) · รายงานที่ส่งแล้วไม่ถูกลบ`, danger: true, confirmLabel: "ลบ" }))) return;
     const ok = await putSchedules(list.filter(y => y.id !== x.id), "ลบรายการแล้ว");
     if (ok && editing === x.id) cancelEdit();
   }
@@ -134,7 +136,7 @@ export default function ReportingSettings() {
   }
   function cancelAreaEdit() { setAEditing(null); setTotals({}); setAmsg(null); }
   async function removeArea(x: AreaSet) {
-    if (!window.confirm(`ลบรายการพื้นที่ปลูกพืชทั้งหมด ปีงบประมาณ ${x.fy}?\nปีงบประมาณนี้จะไม่มีค่าเป้าหมาย (ใช้พื้นที่สะสมแทน) · รายงานที่ส่งแล้วไม่ถูกลบ`)) return;
+    if (!(await confirm({ title: "ลบรายการ", message: `ลบรายการพื้นที่ปลูกพืชทั้งหมด ปีงบประมาณ ${x.fy}?\nปีงบประมาณนี้จะไม่มีค่าเป้าหมาย (ใช้พื้นที่สะสมแทน) · รายงานที่ส่งแล้วไม่ถูกลบ`, danger: true, confirmLabel: "ลบ" }))) return;
     const ok = await putAreaSets(aList.filter(y => y.id !== x.id), "ลบรายการแล้ว");
     if (ok && aEditing === x.id) cancelAreaEdit();
   }
@@ -195,7 +197,7 @@ export default function ReportingSettings() {
   // เติมจำนวนเกษตรตำบลเริ่มต้นของแต่ละอำเภอ (ค่าจากไฟล์ Excel เดิม) เพื่อแก้ต่อได้เลย
   const fillDefaults = () => setTambons(Object.fromEntries(DISTRICTS.map(d => [d.name, String(d.tambon)])));
   async function removeTambon(x: TambonSet) {
-    if (!window.confirm(`ลบรายการเกษตรตำบลและเป้าหมายการผลิต ปีงบประมาณ ${x.fy}?\nปีงบประมาณนี้จะกลับไปใช้จำนวนเกษตรตำบลเริ่มต้นและตัวคูณ ${f0(cfg.targetPerTambon)} ตัน/ราย · รายงานที่ส่งแล้วไม่ถูกลบ`)) return;
+    if (!(await confirm({ title: "ลบรายการ", message: `ลบรายการเกษตรตำบลและเป้าหมายการผลิต ปีงบประมาณ ${x.fy}?\nปีงบประมาณนี้จะกลับไปใช้จำนวนเกษตรตำบลเริ่มต้นและตัวคูณ ${f0(cfg.targetPerTambon)} ตัน/ราย · รายงานที่ส่งแล้วไม่ถูกลบ`, danger: true, confirmLabel: "ลบ" }))) return;
     const ok = await putTambonSets(tList.filter(y => y.id !== x.id), "ลบรายการแล้ว");
     if (ok && tEditing === x.id) cancelTambonEdit();
   }

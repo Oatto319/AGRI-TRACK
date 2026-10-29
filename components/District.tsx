@@ -11,8 +11,9 @@ export function DistrictFrame({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [district, setDistrict] = useState("");
   useEffect(() => {
-    fetch("/api/me").then(r => (r.ok ? r.json() : null)).then((me: { role?: string; district?: string } | null) => {
-      if (me?.role === "district" && me.district) startTransition(() => setDistrict(me.district!));
+    fetch("/api/me").then(r => (r.ok ? r.json() : null)).then((me: { role?: string; district?: string; mustChange?: boolean } | null) => {
+      if (me?.mustChange) router.replace("/change-password");
+      else if (me?.role === "district" && me.district) startTransition(() => setDistrict(me.district!));
       else router.replace(me?.role === "province" ? "/province" : "/");
     }).catch(() => router.replace("/"));
   }, [router]);

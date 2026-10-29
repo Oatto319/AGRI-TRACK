@@ -57,7 +57,7 @@ for (const r of rows) {
 }
 try {
   if (force) await col.deleteMany({});
-  await col.bulkWrite(users.map(u => ({ replaceOne: { filter: { username: u.username }, replacement: { username: u.username, role: u.role, district: u.district ?? null, hash: u.hash }, upsert: true } })));
+  await col.bulkWrite(users.map(u => ({ replaceOne: { filter: { username: u.username }, replacement: { username: u.username, role: u.role, district: u.district ?? null, hash: u.hash, active: true, mustChange: true, createdAt: new Date().toISOString() }, upsert: true } })));
 } catch (e) { console.error("บันทึกบัญชีลง MongoDB ไม่ได้:", e.message); await client.close(); process.exit(1); }
 await fs.mkdir(DIR, { recursive: true });
 await fs.writeFile(CSV, lines.join("\r\n") + "\r\n", { mode: 0o600 });

@@ -5,7 +5,7 @@ import { buildPdf } from "@/lib/pdf";
 
 // GET /api/export-pdf?fy=2569 → รายงาน PDF เปรียบเทียบย้อนหลัง 3 ปีงบประมาณ (fy-2, fy-1, fy) เป็นปี พ.ศ.
 export async function GET(req: NextRequest) {
-  const auth = requireSession(req);
+  const auth = await requireSession(req);
   if ("res" in auth) return auth.res;
   const fy = Number(req.nextUrl.searchParams.get("fy"));
   if (!Number.isInteger(fy) || fy < 2500 || fy > 2700) return new Response("ปีงบประมาณไม่ถูกต้อง", { status: 400 });

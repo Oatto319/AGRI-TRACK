@@ -62,20 +62,44 @@ function parseBurn(row: Row): BurnReport {
 type Table = "reports" | "area_reports" | "burn_reports";
 const NO_ID = { projection: { _id: 0 } } as const; // ไม่ต้องการ _id ของ Mongo ในข้อมูลที่แอปใช้
 
-async function fetchAll(table: Table): Promise<Row[]> {
-  const rows = await (await db()).collection(table).find({}, NO_ID).sort({ district: 1, month: 1, round: 1 }).toArray();
+export interface ReportFilter { district?: string; month?: string }
+// กรองที่ฐานข้อมูล (ไม่ดึงทั้งคอลเลกชันมากรองในหน่วยความจำ) และเรียงตามอำเภอ/เดือน/รอบ
+async function fetchAll(table: Table, f: ReportFilter = {}): Promise<Row[]> {
+  const q: Record<string, string> = {};
+  if (f.district) q.district = f.district;
+  if (f.month) q.month = f.month;
+  const rows = await (await db()).collection(table).find(q, NO_ID).sort({ district: 1, month: 1, round: 1 }).toArray();
   return rows as Row[];
 }
-export async function readAll(): Promise<Report[]> { return (await fetchAll("reports")).map(parseReport); }
-export async function readAreaAll(): Promise<AreaReport[]> { return (await fetchAll("area_reports")).map(parseArea); }
-export async function readBurnAll(): Promise<BurnReport[]> { return (await fetchAll("burn_reports")).map(parseBurn); }
+// แถวที่ผิดรูปแบบ 1 แถวต้องไม่ทำให้ทั้งหน้าพัง — ข้ามแถวนั้นและบันทึก log ให้ผู้ดูแลตรวจสอบ
+function parseAll<T>(rows: Row[], parse: (r: Row) => T): T[] {
+  const out: T[] = [];
+  for (const r of rows) { try { out.push(parse(r)); } catch (e) { console.error("[store] ข้ามแถวที่ข้อมูลไม่ถูกต้อง:", e instanceof Error ? e.message : e); } }
+  return out;
+}
+export async function readAll(f?: ReportFilter): Promise<Report[]> { return parseAll(await fetchAll("reports", f), parseReport); }
+export async function readAreaAll(f?: ReportFilter): Promise<AreaReport[]> { return parseAll(await fetchAll("area_reports", f), parseArea); }
+export async function readBurnAll(f?: ReportFilter): Promise<BurnReport[]> { return parseAll(await fetchAll("burn_reports", f), parseBurn); }
 
-// อ่านรายงานเดิม (ถ้ามี) -> fn คืนรายงานใหม่ (โยน Error เพื่อปฏิเสธ) -> เขียนกลับ (upsert ตามคีย์ อำเภอ+เดือน+รอบ)
+/** มีผู้อื่นบันทึกรายงานเดียวกันตัดหน้าไป (ใช้ตอบ HTTP 409) */
+export class ConflictError extends Error { constructor() { super("มีผู้อื่นบันทึกรายงานนี้พร้อมกัน กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง"); } }
+
+// อ่านรายงานเดิม (ถ้ามี) -> fn คืนรายงานใหม่ (โยน Error เพื่อปฏิเสธ) -> เขียนกลับ ตามคีย์ อำเภอ+เดือน+รอบ
+// ล็อกแบบ optimistic: แต่ละแถวมี version เพิ่มทีละ 1 — ถ้าระหว่างอ่านกับเขียนมีคนอื่นแก้ไปก่อน จะเขียนไม่สำเร็จและโยน ConflictError แทนที่จะเขียนทับเงียบ ๆ
+// (แถวเก่าที่ยังไม่มี version ถือเป็น version 0)
 async function mutate<T extends Report | AreaReport | BurnReport>(table: Table, parse: (r: Row) => T, district: string, month: string, round: number, fn: (old?: T) => T): Promise<T> {
   const col = (await db()).collection(table), key = { district, month, round };
   const data = await col.findOne(key, NO_ID);
   const r = fn(data ? parse(data as Row) : undefined);
-  await col.replaceOne(key, toRow(r), { upsert: true });
+  const version = typeof data?.version === "number" ? data.version : 0;
+  const row = { ...toRow(r), version: version + 1 };
+  if (data) {
+    const res = await col.replaceOne(version ? { ...key, version } : { ...key, version: { $exists: false } }, row);
+    if (res.matchedCount === 0) throw new ConflictError();
+  } else {
+    try { await col.insertOne(row); }
+    catch (e) { if ((e as { code?: number }).code === 11000) throw new ConflictError(); throw e; }
+  }
   return r;
 }
 export const update = (district: string, month: string, round: number, fn: (old?: Report) => Report) => mutate("reports", parseReport, district, month, round, fn);
