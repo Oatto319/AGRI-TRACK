@@ -13,6 +13,7 @@ const nextConfig: NextConfig = {
       source: "/:path*",
       headers: [
         { key: "X-Content-Type-Options", value: "nosniff" },
+        { key: "Strict-Transport-Security", value: "max-age=15552000" }, // บังคับ HTTPS (เบราว์เซอร์ไม่สนใจหากเปิดผ่าน HTTP)
         { key: "X-Frame-Options", value: "DENY" },
         { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },

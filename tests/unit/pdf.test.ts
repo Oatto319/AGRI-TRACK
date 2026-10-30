@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_SETTINGS, DISTRICTS, type AreaReport, type BurnReport, type Report } from "@/lib/data";
+import { DEFAULT_CONFIG, DEFAULT_SETTINGS, DISTRICTS, type AreaReport, type BurnReport, type Report } from "@/lib/data";
 import { buildPdf, yearStat } from "@/lib/pdf";
 
 const who = { name: "x", position: "", phone: "" };
@@ -59,5 +59,20 @@ describe("ข้อมูลหยุดเผาในรายงาน (ใ�
     expect((buf.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length).toBe(1);
     const empty = await buildPdf(reports, [], DEFAULT_SETTINGS, 2570, []);
     expect((empty.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length).toBe(1);
+  });
+});
+
+describe("กราฟพื้นที่ไถกลบรายเดือนใน PDF", () => {
+  const pages = (b: Buffer) => (b.toString("latin1").match(/\/Type \/Page\b/g) ?? []).length;
+  it("ช่วงเดือนไถกลบที่จังหวัดตั้งเอง (พ.ย.–เม.ย. ไม่ใช่ พ.ย.–มิ.ย.) ยังสร้างได้หน้าเดียว", async () => {
+    const settings = { ...DEFAULT_SETTINGS, config: { ...DEFAULT_CONFIG, fiscalYears: [{ fy: 2570, startMonth: 11, endMonth: 6, topics: { area: { startMonth: 11, endMonth: 4 } } }] } };
+    const buf = await buildPdf([fert("ขุนหาญ", "2026-11", 5)], [area("ขุนหาญ", "2026-11", 100), area("ขุนหาญ", "2027-02", 200)], settings, 2570);
+    expect(pages(buf)).toBe(1);
+  });
+  it("ปีที่ข้อมูลยังไม่ครบทุกเดือน (เดือนท้ายไม่มีรายงาน) PDF ไม่ล้มและยังหน้าเดียว", async () => {
+    expect(pages(await buildPdf([], [area("ขุนหาญ", "2026-11", 100)], DEFAULT_SETTINGS, 2570))).toBe(1);
+  });
+  it("ไม่มีรายงานไถกลบเลย (ทุกเดือนว่าง) ก็ไม่ล้ม", async () => {
+    expect(pages(await buildPdf([], [], DEFAULT_SETTINGS, 2570))).toBe(1);
   });
 });

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { DISTRICTS, bkkDate, cfgOfMonth, dueDateOf, dueDaysFor, type Report } from "@/lib/data";
+import { REPORTER_MAX, parseAmount } from "@/lib/data/validate"; // import ตรงจากไฟล์ เพื่อไม่ขึ้นกับการ resolve ของ "@/lib/data"
 import { forbidden, requireSession } from "@/lib/auth";
-import { ConflictError, readAll, readSettings, update } from "@/lib/store";
+import { ConflictError, RejectError, readAll, readSettings, update } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
     if (d && d !== auth.session.district) return forbidden("ดูข้อมูลได้เฉพาะอำเภอของบัญชีที่เข้าสู่ระบบ");
     d = auth.session.district ?? null;
   }
-  return NextResponse.json(await readAll({ ...(d ? { district: d } : {}), ...(m ? { month: m } : {}) }));
+  return NextResponse.json(await readAll({ ...(d ? { district: d } : {}), ...(m ? { month: m } : {}) }), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function PUT(req: NextRequest) {
@@ -43,8 +44,8 @@ export async function PUT(req: NextRequest) {
     const v = inputValues[f.key];
     if (v === undefined || v === null || v === "") { if (body.status === "submitted") return bad(`กรอก${f.label} (ถ้าไม่มีให้ใส่ 0)`); continue; }
     if (typeof v !== "number" && typeof v !== "string") return bad(`${f.label}ต้องเป็นตัวเลข`);
-    const n = Number(v);
-    if (!Number.isFinite(n) || n < 0) return bad(`${f.label}ต้องเป็นตัวเลขที่ไม่ติดลบ`);
+    const n = parseAmount(v);
+    if (n === null) return bad(`${f.label}ต้องเป็นตัวเลขที่ไม่ติดลบ (ไม่เกิน 1,000,000,000)`);
     values[f.key] = n;
   }
   if (["name", "position", "phone"].some(key => inputReporter[key] !== undefined && typeof inputReporter[key] !== "string")) {
@@ -55,6 +56,7 @@ export async function PUT(req: NextRequest) {
     position: typeof inputReporter.position === "string" ? inputReporter.position.trim() : "",
     phone: typeof inputReporter.phone === "string" ? inputReporter.phone.trim() : "",
   };
+  if (rp.name.length > REPORTER_MAX.name || rp.position.length > REPORTER_MAX.position || rp.phone.length > REPORTER_MAX.phone) return bad("ข้อมูลผู้รายงานยาวเกินไป");
   if (body.status === "submitted") {
     if (!rp.name) return bad("กรอกชื่อผู้รายงาน"); // แบบฟอร์มของอำเภอกรอกเฉพาะชื่อ (ตรงกับรายงานไถกลบและหยุดเผา)
     if (rp.phone && !/^[0-9\- ]{9,12}$/.test(rp.phone)) return bad("เบอร์โทรไม่ถูกต้อง");
@@ -62,7 +64,7 @@ export async function PUT(req: NextRequest) {
   const { district, month, status } = body;
   try {
     const saved = await update(district, month, round, old => {
-      if (old?.status === "submitted" && status === "draft") throw new Error("ส่งรายงานแล้ว บันทึกเป็นร่างไม่ได้ (แก้ไขแล้วกดส่งซ้ำ)");
+      if (old?.status === "submitted" && status === "draft") throw new RejectError("ส่งรายงานแล้ว บันทึกเป็นร่างไม่ได้ (แก้ไขแล้วกดส่งซ้ำ)");
       const now = new Date();
       let meta: Partial<Report> = {};
       if (status === "submitted") {
@@ -74,6 +76,8 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json(saved);
   } catch (e) {
     if (e instanceof ConflictError) return NextResponse.json({ error: e.message }, { status: 409 });
-    return bad(e instanceof Error ? e.message : "บันทึกไม่สำเร็จ");
+    if (e instanceof RejectError) return bad(e.message);
+    console.error("[reports]", e); // ข้อผิดพลาดภายใน (เช่น ฐานข้อมูล) ดูได้ใน log เท่านั้น ไม่ส่งรายละเอียดให้ผู้ใช้
+    return NextResponse.json({ error: "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, { status: 500 });
   }
 }

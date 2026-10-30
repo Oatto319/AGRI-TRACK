@@ -17,7 +17,8 @@ export async function GET(req: NextRequest) {
       "Content-Disposition": `attachment; filename="agri-track-report-fy${fy}.pdf"`,
       "Cache-Control": "no-store",
     } });
-  } catch {
+  } catch (e) {
+    console.error("[export-pdf]", e); // บันทึกสาเหตุจริงไว้ใน log ฝั่งเซิร์ฟเวอร์ (ผู้ใช้เห็นเฉพาะข้อความทั่วไป)
     return new Response("สร้างไฟล์ PDF ไม่สำเร็จ กรุณาลองใหม่อีกครั้ง", { status: 500 });
   }
 }

@@ -56,7 +56,7 @@ for (const r of rows) {
   lines.push(`${r.username},${pw},${r.label}`);
 }
 try {
-  if (force) await col.deleteMany({});
+  if (force) { await col.deleteMany({}); await client.db(process.env.MONGODB_DB || "agri_track").collection("sessions").deleteMany({}); } // ล้าง session เดิมด้วย ไม่งั้น token เก่าของชื่อผู้ใช้เดียวกันยังใช้ได้กับบัญชีที่สร้างใหม่
   await col.bulkWrite(users.map(u => ({ replaceOne: { filter: { username: u.username }, replacement: { username: u.username, role: u.role, district: u.district ?? null, hash: u.hash, active: true, mustChange: true, createdAt: new Date().toISOString() }, upsert: true } })));
 } catch (e) { console.error("บันทึกบัญชีลง MongoDB ไม่ได้:", e.message); await client.close(); process.exit(1); }
 await fs.mkdir(DIR, { recursive: true });

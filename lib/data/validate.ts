@@ -143,3 +143,18 @@ export function validateConfig(c: unknown): string | null {
   return null;
 }
 /** เหมือน lb แต่ถ้าจังหวัดยังไม่ได้แก้ข้อความนี้ ให้ใช้ข้อความ fallback (ใช้กับ Excel เพื่อคงหัวคอลัมน์เดิม) */
+
+// ---------- ตรวจข้อมูลที่อำเภอกรอก (ใช้ร่วมกันใน /api/reports /api/area /api/burn) ----------
+export const MAX_AMOUNT = 1_000_000_000; // เพดานค่าตัวเลขต่อช่อง กันค่าใหญ่ผิดปกติทำให้ผลรวมล้นเป็น Infinity/NaN
+export const REPORTER_MAX = { name: 120, position: 120, phone: 20 } as const;
+
+/**
+ * แปลงค่าตัวเลขจากฟอร์ม — รับเฉพาะเลขฐานสิบธรรมดา ("12", "3.5", ".5") หรือ number ที่จำกัด
+ * ไม่รับ "0x10", "1e308", "Infinity", ช่องว่างล้วน และไม่เกิน MAX_AMOUNT · ไม่ผ่านคืน null
+ */
+export function parseAmount(v: unknown, integer = false): number | null {
+  const n = typeof v === "number" ? v : typeof v === "string" && /^(\d{1,12}|\d{0,12}\.\d{1,6})$/.test(v.trim()) ? Number(v.trim()) : NaN;
+  if (!Number.isFinite(n) || n < 0 || n > MAX_AMOUNT) return null;
+  if (integer && !Number.isInteger(n)) return null;
+  return n;
+}

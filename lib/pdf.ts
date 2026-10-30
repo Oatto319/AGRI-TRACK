@@ -6,8 +6,7 @@ import { aggregate, aggregateArea, aggregateBurn, monthsBetween, sumValues } fro
 
 /**
  * สร้างรายงาน PDF "รายงานสรุป ประจำปีงบประมาณ" (เปรียบเทียบย้อนหลัง 3 ปีงบประมาณ) (สรุปในหน้า A4 หน้าเดียว)
- * หัวรายงาน → การ์ด KPI → กราฟปุ๋ยอินทรีย์ 3 ปี + กราฟพื้นที่ไถกลบรายเดือน 3 ปี (เคียงข้างกัน) → ตารางสรุปเปรียบเทียบ 3 ปี + YoY
- * → การประชาสัมพันธ์เรื่องการหยุดเผา (จำนวนครั้งของปีงบประมาณนี้ เทียบ 3 ปี + จำนวนอำเภอที่จัดกิจกรรม)
+ * หัวรายงาน → การประชาสัมพันธ์เรื่องการหยุดเผา (หัวข้อแรก: จำนวนครั้งของปีงบประมาณนี้ เทียบ 3 ปี + จำนวนอำเภอที่จัดกิจกรรม) → การ์ด KPI → กราฟปุ๋ยอินทรีย์ 3 ปี + กราฟพื้นที่ไถกลบรายเดือน 3 ปี (เคียงข้างกัน) → ตารางสรุปเปรียบเทียบ 3 ปี + YoY
  * ใช้เฉพาะรายงานที่ "ส่งแล้ว" เหมือนหน้า Dashboard และไฟล์ Excel
  */
 
@@ -83,7 +82,7 @@ const C = {
 };
 type Tone = "good" | "warn" | "bad" | "none";
 const TONE: Record<Tone, { bg: string; fg: string }> = { good: { bg: "#dcfce7", fg: "#15803d" }, warn: { bg: "#fef3c7", fg: "#b45309" }, bad: { bg: "#ffe4e6", fg: "#be123c" }, none: { bg: "#f1f5f9", fg: "#64748b" } };
-const W = 595.28, H = 841.89, M = 34, CW = W - 2 * M;
+const W = 595.28, M = 34, CW = W - 2 * M;
 
 // ---------- ตัวสร้างเอกสาร ----------
 export async function buildPdf(reports: Report[], area: AreaReport[], settings: Settings, fy: number, burn: BurnReport[] = []): Promise<Buffer> {
@@ -92,7 +91,7 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   const [a, b, c] = years;
   const fdir = path.join(process.cwd(), "assets", "fonts");
   const reg = fs.readFileSync(path.join(fdir, "Sarabun-Regular.ttf")), bold = fs.readFileSync(path.join(fdir, "Sarabun-Bold.ttf"));
-  const doc = new PDFDocument({ size: "A4", margin: 0, font: reg as unknown as string, bufferPages: true, info: { Title: `AGRI-TRACK รายงานสรุป ประจำปีงบประมาณ ${c.fy}`, Author: "สำนักงานเกษตรจังหวัดศรีสะเกษ", Subject: "สรุปผลปุ๋ยอินทรีย์และไถกลบฟางข้าว" } });
+  const doc = new PDFDocument({ size: "A4", margin: 0, font: reg as unknown as string, bufferPages: true, info: { Title: `AGRI-TRACK รายงานสรุป ประจำปีงบประมาณ ${c.fy}`, Author: "สำนักงานเกษตรจังหวัดศรีสะเกษ", Subject: "สรุปผลปุ๋ยอินทรีย์ ไถกลบฟางข้าว และการประชาสัมพันธ์เรื่องการหยุดเผา" } });
   doc.registerFont("R", reg); doc.registerFont("B", bold);
   const chunks: Buffer[] = [];
   doc.on("data", (d: Buffer) => chunks.push(d));
@@ -164,15 +163,50 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   leaf(M + 38, M + 27, 9, "#ffffff", "#059669");
   text("AGRI-TRACK", M + 14, M + 43, { size: 6.4, bold: true, color: "#ffffff", w: 48, align: "center" });
   text(`รายงานสรุป ประจำปีงบประมาณ ${c.fy}`, M + 76, M + 8, { size: 17, bold: true, color: "#ffffff" });
-  text(`ปุ๋ยอินทรีย์ · ไถกลบฟางข้าว · ฟางก้อน  |  ปีงบประมาณ ${a.fy} – ${c.fy}`, M + 76, M + 33, { size: 8.6, color: "#d1fae5" });
+  text(`ปุ๋ยอินทรีย์ · ไถกลบฟางข้าว · ฟางก้อน · หยุดเผา  |  ปีงบประมาณ ${a.fy} – ${c.fy}`, M + 76, M + 33, { size: 8.6, color: "#d1fae5" });
   text("สำนักงานเกษตรจังหวัดศรีสะเกษ", M + 76, M + 45, { size: 8.6, color: "#d1fae5" });
   const p1 = `ออกรายงาน ${thaiDate(bkkDate())}`, p2 = `${c.districts} อำเภอ`, pw1 = width(p1, 8.4, true) + 26, pw2 = width(p2, 8.4, true) + 26;
   doc.save().fillOpacity(0.2).fillColor("#ffffff").roundedRect(W - M - 14 - pw1, M + 12, pw1, 18, 9).fill().roundedRect(W - M - 14 - pw2, M + 38, pw2, 18, 9).fill().restore();
   text(p1, W - M - 14 - pw1, M + 16.5, { size: 8.4, bold: true, color: "#ffffff", w: pw1, align: "center" });
   text(p2, W - M - 14 - pw2, M + 42.5, { size: 8.4, bold: true, color: "#ffffff", w: pw2, align: "center" });
 
+  // ================= การประชาสัมพันธ์เรื่องการหยุดเผา =================
+  const ry = M + hh + 10, rh = 92, B = c.burn, burnCol = "#c2410c";
+  card(M, ry, CW, rh, { top: burnCol });
+  sectionTitle(`การประชาสัมพันธ์เรื่องการหยุดเผา ปีงบประมาณ ${c.fy}`, M + 12, ry + 10);
+  text("หน่วย: ครั้ง", M, ry + 12, { size: 7.8, color: C.mute, w: CW - 14, align: "right" });
+  // ซ้าย: จำนวนครั้งของปีงบประมาณนี้ + YoY
+  text("จัดกิจกรรมเรียนรู้/ประชาสัมพันธ์แล้ว", M + 14, ry + 30, { size: 7.8, color: C.mute });
+  const bv = n0(B.activities);
+  text(bv, M + 14, ry + 40, { size: 24, bold: true, color: burnCol });
+  text("ครั้ง", M + 14 + width(bv, 24, true) + 4, ry + 40 + 24 * 0.42, { size: 9, color: C.mute });
+  const bch = yoy(B.activities, b.burn.activities);
+  pill(bch === null ? "- YoY" : `${sgn(bch)} YoY`, M + 14, ry + rh - 21, bch);
+  // กลาง: แท่งเปรียบเทียบ 3 ปี
+  const bx0 = M + 190, bBase = ry + rh - 22, bMaxH = 34, bMax = Math.max(...years.map(y => y.burn.activities), 1);
+  doc.save().moveTo(bx0 - 6, bBase).lineTo(bx0 + 3 * 40, bBase).lineWidth(0.5).strokeColor(C.line).stroke().restore();
+  years.forEach((y, i) => {
+    const v = y.burn.activities, h2 = v > 0 ? Math.max(3, (v / bMax) * bMaxH) : 2.5, x = bx0 + i * 40;
+    doc.save().roundedRect(x, bBase - h2, 22, h2, 2.4).fill(i === 2 ? burnCol : i === 1 ? "#fdba74" : C.gray).restore();
+    text(n0(v), x - 9, bBase - h2 - 10.5, { size: 7.8, bold: true, color: i === 2 ? burnCol : "#334155", w: 40, align: "center" });
+    text(`ปี ${y.fy}`, x - 9, bBase + 4, { size: 7.4, bold: i === 2, color: i === 2 ? C.ink : C.mute, w: 40, align: "center" });
+  });
+  // ขวา: อำเภอที่จัดกิจกรรม / ที่ยังไม่มี
+  const rx1 = M + 340, rw1 = CW - 340 - 14;
+  doc.save().moveTo(rx1 - 12, ry + 30).lineTo(rx1 - 12, ry + rh - 12).lineWidth(0.5).strokeColor(C.line).stroke().restore();
+  if (B.activities > 0) {
+    text(`อำเภอที่จัดกิจกรรมแล้ว ${B.sentD}/${c.districts} อำเภอ`, rx1, ry + 30, { size: 8.4, bold: true });
+    if (B.noActivity.length) {
+      text("อำเภอที่ยังไม่มีกิจกรรม:", rx1, ry + 44, { size: 7.8, bold: true, color: C.mute });
+      wrap(listTh(B.noActivity, 6), rw1, 7.8).slice(0, 3).forEach((ln, i) => text(ln, rx1, ry + 55 + i * 10, { size: 7.8, color: "#334155" }));
+    } else text("ทุกอำเภอจัดกิจกรรมแล้ว", rx1, ry + 44, { size: 7.8, color: C.green, bold: true });
+  } else {
+    text("ยังไม่มีการบันทึกกิจกรรมหยุดเผา", rx1, ry + 30, { size: 8.4, bold: true });
+    text("ในปีงบประมาณนี้", rx1, ry + 42, { size: 7.8, color: C.mute });
+  }
+
   // ================= การ์ด KPI (ไอคอน + กราฟแท่งเล็ก 3 ปี) =================
-  const kw = (CW - 30) / 4, ky = M + hh + 10, kh = 64;
+  const kw = (CW - 30) / 4, ky = ry + rh + 6, kh = 64;
   const kpis = [
     { top: C.green, tint: "#d1fae5", label: `ปุ๋ยอินทรีย์รวม ปี ${c.fy}`, value: n1(c.total), unit: "ตัน", vals: years.map(y => y.total), icon: "leaf" },
     { top: C.blue, tint: "#dbeafe", label: `พื้นที่ไถกลบสะสม ปี ${c.fy}`, value: n1(c.area.accum), unit: "ไร่", vals: years.map(y => y.area.accum), icon: "grid" },
@@ -255,23 +289,27 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   // ขวา: เส้น + พื้นที่ใต้เส้นของปีล่าสุด + ป้ายค่าสูงสุด
   const rx0 = M + gw + 10;
   frame(rx0, "พื้นที่ไถกลบรายเดือน เทียบ 3 ปี", "ไร่");
-  const sm = ["พ.ย.", "ธ.ค.", "ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย."];
-  const series = years.map(y => sm.map((_, i) => y.areaMonthly[i] ?? 0));
-  const lm = niceMax(Math.max(...series.flat(), 0));
+  // ป้ายเดือนตามช่วงเดือนไถกลบของปีงบประมาณล่าสุดที่จังหวัดตั้งไว้ (ไม่ผูกตายตัวที่ พ.ย.–มิ.ย.)
+  const SHORT_M = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+  const arFr = fiscalRange(c.fy, "area"), sm = monthsBetween(arFr.from, arFr.to).map(m => SHORT_M[Number(m.slice(5, 7)) - 1]);
+  // เดือนท้าย ๆ ที่ยังไม่มีรายงานเลย (เช่น ปีปัจจุบันที่ยังไม่ถึงเดือนนั้น) เป็น null → ไม่วาดจุด ไม่ให้เส้นตกลงเป็นศูนย์ · เดือนก่อนหน้านั้นที่เป็น 0 จริงยังวาดตามปกติ
+  const series = years.map(y => { const last = y.areaMonthly.reduce((li, v, i) => (v > 0 ? i : li), -1); return sm.map((_, i) => (i <= last ? y.areaMonthly[i] ?? 0 : null)); });
+  const lm = niceMax(Math.max(...series.flat().map(v => v ?? 0), 0));
   grid(rx0, lm.max, lm.step);
-  const xs = sm.map((_, i) => px(rx0) + (pw / (sm.length - 1)) * i);
+  const xs = sm.map((_, i) => px(rx0) + (sm.length > 1 ? (pw / (sm.length - 1)) * i : pw / 2));
   sm.forEach((m, i) => text(m, xs[i] - 16, py + ph + 7, { size: 7.8, bold: true, color: "#334155", w: 32, align: "center" }));
-  const ptsOf = (vs: number[]) => vs.map((v, i) => [xs[i], py + ph - (lm.max > 0 ? (v / lm.max) * ph : 0)] as const);
+  const ptsOf = (vs: (number | null)[]) => vs.flatMap((v, i) => (v === null ? [] : [[xs[i], py + ph - (lm.max > 0 ? (v / lm.max) * ph : 0)] as const]));
   const lastPts = ptsOf(series[2]);
-  doc.save().fillOpacity(0.1).fillColor(C.dark).moveTo(lastPts[0][0], py + ph); lastPts.forEach(([x, y]) => doc.lineTo(x, y)); doc.lineTo(lastPts[lastPts.length - 1][0], py + ph).closePath().fill().restore();
+  if (lastPts.length > 1) { doc.save().fillOpacity(0.1).fillColor(C.dark).moveTo(lastPts[0][0], py + ph); lastPts.forEach(([x, y]) => doc.lineTo(x, y)); doc.lineTo(lastPts[lastPts.length - 1][0], py + ph).closePath().fill().restore(); }
   series.forEach((vs, si) => {
     const pts = ptsOf(vs);
     doc.save().lineWidth(si === 2 ? 2.1 : 1.6).lineJoin("round").strokeColor(yearColor[si]); if (si === 0) doc.dash(3, { space: 2.5 });
     pts.forEach(([x, y], i) => (i ? doc.lineTo(x, y) : doc.moveTo(x, y))); doc.stroke().restore();
     pts.forEach(([x, y]) => doc.save().circle(x, y, si === 2 ? 2.8 : 2.3).lineWidth(1.3).fillAndStroke("#ffffff", yearColor[si]).restore());
   });
-  const peak = series[2].reduce((bi, v, i, arr) => (v > arr[bi] ? i : bi), 0);
-  if (series[2][peak] > 0) text(`สูงสุด ${n0(series[2][peak])}`, lastPts[peak][0] - 40, Math.max(py - 4, lastPts[peak][1] - 14), { size: 7.8, bold: true, color: C.dark, w: 80, align: "center" });
+  // ค่าสูงสุดของปีล่าสุด: วางที่แถวคำอธิบายสีด้านขวา ไม่ทับเส้นกราฟ
+  const peakV = Math.max(...series[2].map(v => v ?? 0), 0);
+  if (peakV > 0) text(`สูงสุด ${n0(peakV)}`, rx0, gy + 29.5, { size: 7.8, bold: true, color: C.dark, w: gw - 12, align: "right" });
 
   // ================= ตารางสรุปเปรียบเทียบ =================
   type Row = { g?: string; color?: string; tint?: string; l?: string; v?: (y: YearStat) => number; f?: (v: number) => string };
@@ -314,41 +352,6 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     pill(lbl, yoyR - 30 - pwd / 2, ry0 - 0.5, ch2, 12.5);
     ry0 += rowH;
   });
-
-  // ================= การประชาสัมพันธ์เรื่องการหยุดเผา =================
-  const ry = tby + th + 6, rh = 92, B = c.burn, burnCol = "#c2410c";
-  card(M, ry, CW, rh, { top: burnCol });
-  sectionTitle(`การประชาสัมพันธ์เรื่องการหยุดเผา ปีงบประมาณ ${c.fy}`, M + 12, ry + 10);
-  text("หน่วย: ครั้ง", M, ry + 12, { size: 7.8, color: C.mute, w: CW - 14, align: "right" });
-  // ซ้าย: จำนวนครั้งของปีงบประมาณนี้ + YoY
-  text("จัดกิจกรรมเรียนรู้/ประชาสัมพันธ์แล้ว", M + 14, ry + 30, { size: 7.8, color: C.mute });
-  const bv = n0(B.activities);
-  text(bv, M + 14, ry + 40, { size: 24, bold: true, color: burnCol });
-  text("ครั้ง", M + 14 + width(bv, 24, true) + 4, ry + 40 + 24 * 0.42, { size: 9, color: C.mute });
-  const bch = yoy(B.activities, b.burn.activities);
-  pill(bch === null ? "- YoY" : `${sgn(bch)} YoY`, M + 14, ry + rh - 21, bch);
-  // กลาง: แท่งเปรียบเทียบ 3 ปี
-  const bx0 = M + 190, bBase = ry + rh - 22, bMaxH = 34, bMax = Math.max(...years.map(y => y.burn.activities), 1);
-  doc.save().moveTo(bx0 - 6, bBase).lineTo(bx0 + 3 * 40, bBase).lineWidth(0.5).strokeColor(C.line).stroke().restore();
-  years.forEach((y, i) => {
-    const v = y.burn.activities, h2 = v > 0 ? Math.max(3, (v / bMax) * bMaxH) : 2.5, x = bx0 + i * 40;
-    doc.save().roundedRect(x, bBase - h2, 22, h2, 2.4).fill(i === 2 ? burnCol : i === 1 ? "#fdba74" : C.gray).restore();
-    text(n0(v), x - 9, bBase - h2 - 10.5, { size: 7.8, bold: true, color: i === 2 ? burnCol : "#334155", w: 40, align: "center" });
-    text(`ปี ${y.fy}`, x - 9, bBase + 4, { size: 7.4, bold: i === 2, color: i === 2 ? C.ink : C.mute, w: 40, align: "center" });
-  });
-  // ขวา: อำเภอที่จัดกิจกรรม / ที่ยังไม่มี
-  const rx1 = M + 340, rw1 = CW - 340 - 14;
-  doc.save().moveTo(rx1 - 12, ry + 30).lineTo(rx1 - 12, ry + rh - 12).lineWidth(0.5).strokeColor(C.line).stroke().restore();
-  if (B.activities > 0) {
-    text(`อำเภอที่จัดกิจกรรมแล้ว ${B.sentD}/${c.districts} อำเภอ`, rx1, ry + 30, { size: 8.4, bold: true });
-    if (B.noActivity.length) {
-      text("อำเภอที่ยังไม่มีกิจกรรม:", rx1, ry + 44, { size: 7.8, bold: true, color: C.mute });
-      wrap(listTh(B.noActivity, 6), rw1, 7.8).slice(0, 3).forEach((ln, i) => text(ln, rx1, ry + 55 + i * 10, { size: 7.8, color: "#334155" }));
-    } else text("ทุกอำเภอจัดกิจกรรมแล้ว", rx1, ry + 44, { size: 7.8, color: C.green, bold: true });
-  } else {
-    text("ยังไม่มีการบันทึกกิจกรรมหยุดเผา", rx1, ry + 30, { size: 8.4, bold: true });
-    text("ในปีงบประมาณนี้", rx1, ry + 42, { size: 7.8, color: C.mute });
-  }
 
   doc.end();
   return done;

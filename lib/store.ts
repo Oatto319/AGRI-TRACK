@@ -81,6 +81,9 @@ export async function readAll(f?: ReportFilter): Promise<Report[]> { return pars
 export async function readAreaAll(f?: ReportFilter): Promise<AreaReport[]> { return parseAll(await fetchAll("area_reports", f), parseArea); }
 export async function readBurnAll(f?: ReportFilter): Promise<BurnReport[]> { return parseAll(await fetchAll("burn_reports", f), parseBurn); }
 
+/** กฎของระบบที่ปฏิเสธการบันทึก (ใช้ตอบ HTTP 400 พร้อมข้อความนี้) · error อื่นถือเป็นข้อผิดพลาดภายในและไม่ส่งข้อความให้ผู้ใช้ */
+export class RejectError extends Error {}
+
 /** มีผู้อื่นบันทึกรายงานเดียวกันตัดหน้าไป (ใช้ตอบ HTTP 409) */
 export class ConflictError extends Error { constructor() { super("มีผู้อื่นบันทึกรายงานนี้พร้อมกัน กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง"); } }
 

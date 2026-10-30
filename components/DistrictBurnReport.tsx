@@ -15,7 +15,9 @@ export default function DistrictBurnReport() {
   const [today, setToday] = useState(""); // อ่านวันที่หลัง mount เท่านั้น
   const [round, setRound] = useState(1);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const BURN_FIELDS = cfgOfMonth(settings, month).burnFields, first = BURN_FIELDS[0]; // ช่องที่จังหวัดตั้งไว้ · ช่องแรกใช้เป็นตัวเลขสรุปด้านข้าง
+  const BURN_FIELDS = cfgOfMonth(settings, month).burnFields;
+  // ตัวเลขสรุปด้านข้าง: ใช้ช่อง "จำนวนกิจกรรม" ถ้ายังมี ไม่เช่นนั้นใช้ช่องแรกที่จังหวัดตั้งไว้ · ช่อง "ผู้เข้าร่วม" แสดงเฉพาะเมื่อจังหวัดยังไม่ลบออก
+  const first = BURN_FIELDS.find(f => f.key === "activities") ?? BURN_FIELDS[0], partField = BURN_FIELDS.find(f => f.key === "participants");
   const [all, setAll] = useState<BurnReport[]>([]);
   const [vals, setVals] = useState<Record<string, string>>({});
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
@@ -29,10 +31,12 @@ export default function DistrictBurnReport() {
   const overdue = !!due && !!today && today > due && status !== "submitted";
   const num = (k: string) => (vals[k] === undefined || vals[k] === "" ? 0 : Number(vals[k]) || 0);
 
-  // สะสมตั้งแต่ต้นปีงบประมาณ (ต.ค.) ถึงเดือนที่เลือก = รายงานที่ส่งแล้ว (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
+  // สะสมตั้งแต่ต้นช่วงรายงานของปีงบประมาณถึงเดือนที่เลือก (ไม่เกินสิ้นช่วง) = รายงานที่ส่งแล้ว (ไม่นับรอบนี้) + ค่าที่กำลังกรอก
+  // เดือนนอกช่วงไม่ถูกนับในสรุปรายปี จึงไม่รวมค่าที่กำลังกรอกด้วย (ตรงกับข้อความเตือนในหน้า)
   const fy = month ? fiscalYearOf(month) : 0, fr = fy ? fiscalRange(fy, "burn") : null;
   const outsideWarn = !!fr && (month < fr.from || month > fr.to); // เดือนนอกช่วงปีงบประมาณ: เตือนว่าไม่นับในสรุป
-  const accum = (k: BurnKey) => (fr ? all.filter(x => x.status === "submitted" && x.month >= fr.from && x.month <= month && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values[k] ?? 0), 0) : 0) + num(k);
+  const upTo = fr && month > fr.to ? fr.to : month;
+  const accum = (k: BurnKey) => (fr ? all.filter(x => x.status === "submitted" && x.month >= fr.from && x.month <= upTo && !(x.month === month && x.round === rd)).reduce((a, x) => a + (x.values[k] ?? 0), 0) : 0) + (outsideWarn ? 0 : num(k));
 
   useEffect(() => {
     const sp = new URLSearchParams(window.location.search), q = sp.get("month"), r = Number(sp.get("round") ?? 1);
@@ -120,9 +124,9 @@ export default function DistrictBurnReport() {
 
       <aside className="ux-side" aria-label="สรุปและส่งข้อมูล">
         <div className="ux-sum">
-          <small>กิจกรรมสะสมปีงบประมาณ {fy || ""}</small>
+          <small>{first.key === "activities" ? "กิจกรรม" : first.label}สะสมปีงบประมาณ {fy || ""}</small>
           <div className="big">{f0(accum(first.key))} <span>{first.unit}</span></div>
-          <div className="row"><span>ผู้เข้าร่วมสะสม</span><b>{f0(accum("participants"))} ราย</b></div>
+          {partField && <div className="row"><span>{partField.label} (สะสม)</span><b>{f0(accum(partField.key))} {partField.unit}</b></div>}
           <div className="row"><span>เดือนที่กรอก</span><b>{month ? thaiMonth(month) : "–"}{rounds > 1 ? ` · รอบ ${rd}` : ""}</b></div>
           <div className="row"><span>สถานะ</span><b>{status === "submitted" ? "ส่งแล้ว" : status === "draft" ? "ร่าง" : "ยังไม่ได้กรอก"}</b></div>
         </div>
@@ -143,8 +147,8 @@ export default function DistrictBurnReport() {
       <ul className="ux-hist" style={{ marginTop: ".8rem" }}>
         {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
           <li key={`${r.month}-${r.round}`}><button type="button" className={r.month === month && r.round === rd ? "cur" : ""} onClick={() => { setMonth(r.month); setRound(r.round); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
-            <span><b>{thaiMonth(r.month)}</b>{rounds > 1 && <> · รอบ {r.round}</>}<small>ผู้เข้าร่วม {f0(r.values.participants ?? 0)} ราย · {r.submittedAt ? `ส่งเมื่อ ${thaiDateTime(r.submittedAt)}` : "ยังไม่ได้ส่ง"}</small></span>
-            <b>{f0(r.values.activities ?? 0)} ครั้ง</b><StatusPill status={r.status} late={r.late} /></button></li>))}
+            <span><b>{thaiMonth(r.month)}</b>{rounds > 1 && <> · รอบ {r.round}</>}<small>{partField ? `${partField.label} ${f0(r.values[partField.key] ?? 0)} ${partField.unit} · ` : ""}{r.submittedAt ? `ส่งเมื่อ ${thaiDateTime(r.submittedAt)}` : "ยังไม่ได้ส่ง"}</small></span>
+            <b>{f0(r.values[first.key] ?? 0)} {first.unit}</b><StatusPill status={r.status} late={r.late} /></button></li>))}
         {!all.length && <li className="ux-empty">ยังไม่มีข้อมูล · เริ่มกรอกด้านบนได้เลย</li>}
       </ul>
     </section>
