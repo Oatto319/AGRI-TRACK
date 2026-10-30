@@ -109,7 +109,9 @@ export default function DistrictBurnReport() {
 
         {fr && <section className="ux-card">
           <h2>สรุปสะสมปีงบประมาณ {fy}</h2>
-          <p className="ux-note">คำนวณอัตโนมัติ · ดูเท่านั้น ไม่ต้องกรอก (ตั้งแต่ {thaiMonth(fr.from)} ถึง {thaiMonth(month)} นับรายงานที่ส่งแล้ว รวมค่าที่กำลังกรอก)</p>
+          <p className="ux-note">{month < fr.from
+            ? `คำนวณอัตโนมัติ · ดูเท่านั้น ไม่ต้องกรอก (ปีงบประมาณ ${fy} เริ่มนับตั้งแต่ ${thaiMonth(fr.from)} — เดือนที่เลือกอยู่ก่อนช่วงเริ่มต้น จึงยังเป็น 0 จนกว่าจะถึงช่วงรายงาน)`
+            : `คำนวณอัตโนมัติ · ดูเท่านั้น ไม่ต้องกรอก (ตั้งแต่ ${thaiMonth(fr.from)} ถึง ${thaiMonth(month > fr.to ? fr.to : month)} นับรายงานที่ส่งแล้ว รวมค่าที่กำลังกรอก)`}</p>
           <div className="ux-two" style={{ marginTop: ".9rem" }}>
             {BURN_FIELDS.map(f => <ReadField key={f.key} id={`ba-${f.key}`} label={`${f.label} (สะสม)`} value={f0(accum(f.key))} unit={f.unit} />)}
           </div>
