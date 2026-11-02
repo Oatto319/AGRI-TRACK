@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { AREA_FIELDS, DEFAULT_SETTINGS, areaTotalsFor, cfgOf, cfgOfMonth, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, fiscalYearOptions, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings, type Topic } from "@/lib/data";
-import { aggregate, aggregateArea, fmt, sumValues } from "@/lib/summary";
+import { aggregate, aggregateArea, aggregateBurn, fmt, sumValues } from "@/lib/summary";
 import { AreaCombo, AreaHBars, BarChart, FertCompareBars, PV_COLORS, TypeDonut, cumulate, monthShort } from "@/components/ProvinceCharts";
 import { useDistrict } from "@/components/District";
 import { I } from "@/components/Entry";
@@ -21,11 +21,12 @@ const ST_LABEL: Record<Row["st"], string> = { submitted: "ส่งแล้ว"
 const ST_CLASS: Record<Row["st"], string> = { submitted: "ok", late: "bad", draft: "warn", none: "bad", future: "mute" };
 const PAGE = 8;
 
-/** ป้ายเปลี่ยนแปลงเทียบปีงบประมาณก่อนหน้า (ขึ้น = ดีขึ้น) */
+/** ป้ายเปลี่ยนแปลงเทียบปีงบประมาณก่อนหน้า เป็นข้อความภาษาไทย (เขียว = เพิ่มขึ้น · แดง = ลดลง) */
 function Delta({ cur, prev }: { cur: number; prev: number }) {
-  if (!(prev > 0)) return <span className="ad-delta mute">ไม่มีข้อมูลปีก่อน</span>;
-  const p = ((cur - prev) / prev) * 100, up = p >= 0;
-  return <span className={`ad-delta ${up ? "up" : "down"}`}>{up ? "▲" : "▼"} {Math.abs(p).toLocaleString("th-TH", { maximumFractionDigits: 1 })}%</span>;
+  if (!(prev > 0)) return <span className="ad-delta mute">ไม่มีข้อมูลปีก่อนเทียบ</span>;
+  const p = ((cur - prev) / prev) * 100, n = Math.abs(p).toLocaleString("th-TH", { maximumFractionDigits: 1 });
+  if (Math.abs(p) < 0.05) return <span className="ad-delta mute">เท่ากับปีก่อน</span>;
+  return <span className={`ad-delta ${p > 0 ? "up" : "down"}`}>{p > 0 ? "เพิ่มขึ้น" : "ลดลง"} {n}% จากปีก่อน</span>;
 }
 
 export default function DistrictDashboard() {
@@ -91,6 +92,14 @@ export default function DistrictDashboard() {
     const pRanked = [...pagg.rows].sort((a, b) => b.total - a.total);
     const par = aggregateArea(area, pr.to, areaTotalsFor(settings, pr.to), pcfg.area).rows.find(r => r.name === district)!;
     const prev = { fy: pfy, total: pme.total, accum: par.accum, rank: pme.any ? pRanked.findIndex(r => r.name === district) + 1 : 0 };
+    // หยุดเผา: ผลรวมของอำเภอนี้ในปีงบประมาณที่เลือก เทียบปีก่อน (ช่องที่จังหวัดตั้งชื่อไว้: activities / villages / participants)
+    const brg = fiscalRange(fiscalYearOf(to), "burn"), pbrg = fiscalRange(pfy, "burn");
+    const bAgg = aggregateBurn(burn, brg.from, brg.to, dueDaysFor(settings, "burn", brg.to).length, cfg), bme = bAgg.rows.find(r => r.name === district)!;
+    const pbme = aggregateBurn(burn, pbrg.from, pbrg.to, dueDaysFor(settings, "burn", pbrg.to).length, pcfg).rows.find(r => r.name === district)!;
+    const bn = { act: bme.sums.activities ?? 0, vil: bme.sums.villages ?? bme.sums.communities ?? 0, par: bme.sums.participants ?? bme.sums.farmers ?? 0, sent: bme.sent, months: bAgg.months.length, late: bme.late, prevAct: pbme.sums.activities ?? 0 };
+    // สถานะส่งรายงานไถกลบฟางข้าว (นับเฉพาะรายงานที่ส่งแล้วในช่วงที่เลือก)
+    const aSub = area.filter(r => r.status === "submitted" && r.month >= from && r.month <= to);
+    const as = { sent: new Set(aSub.map(r => r.month)).size, months: arAll.months.length, late: aSub.filter(r => r.late).length };
     // ย้อนหลัง 2 ปีงบประมาณของอำเภอนี้ (เก่า → ใหม่) สำหรับกราฟเปรียบเทียบ
     const hist = [2, 1, 0].map(back => {
       const y = fiscalYearOf(to) - back;
@@ -100,12 +109,12 @@ export default function DistrictDashboard() {
       const aa = aggregateArea(area, rg.to, areaTotalsFor(settings, rg.to), c.area).rows.find(r => r.name === district)!;
       return { fy: y, fert: fa.total, fertTarget: fa.target, area: aa.accum, areaTarget: aa.target };
     });
-    return { agg, me, ar, mine, prev, hist, prevByMonth: agg.months.map(m => { const pm = pagg.months.find(x => x.slice(5) === m.slice(5)); return pm ? pme.byMonth[pm] ?? 0 : 0; }), arRows: arAll.rows, season: arAll.season, arMonths: arAll.months, ranked, rank: ranked.findIndex(r => r.name === district) + 1,
+    return { agg, me, ar, mine, prev, hist, bn, as, prevByMonth: agg.months.map(m => { const pm = pagg.months.find(x => x.slice(5) === m.slice(5)); return pm ? pme.byMonth[pm] ?? 0 : 0; }), arRows: arAll.rows, season: arAll.season, arMonths: arAll.months, ranked, rank: ranked.findIndex(r => r.name === district) + 1,
       rec: (m: string, rd: number) => mine.find(r => r.month === m && r.round === rd),
       mstat: (m: string) => { const g = me.got[m] ?? 0; return g >= dueDaysFor(settings, "fert", m).length ? "ok" : g > 0 || mine.some(r => r.month === m) ? "warn" : "no"; },
       mlate: (m: string) => mine.some(r => r.month === m && r.late),
       pct: me.target ? Math.round((me.total / me.target) * 100) : 0 };
-  }, [reports, valid, from, to, district, settings, area, cfg, K]);
+  }, [reports, valid, from, to, district, settings, area, burn, cfg, K]);
 
   // ---- งานที่ต้องกรอก (เดือน/รอบที่เลือก) ----
   const rdOf = (t: Topic) => Math.min(cr, nR(t, cm));
@@ -213,29 +222,25 @@ export default function DistrictDashboard() {
           </div>
         )}
 
-        {/* ===== การ์ด KPI 4 ใบ ===== */}
+        {/* ===== การ์ด KPI 3 ใบ: ปุ๋ยอินทรีย์ · ไถกลบฟางข้าว · หยุดเผา (ใต้การ์ดมีสถานะการส่งรายงานของหัวข้อนั้น) ===== */}
         <div className="ad-kpis">
           <div className="ad-kpi">
-            <div className="ad-kpi-h"><span>ปุ๋ยอินทรีย์รวม</span><i className="ic green">🌱</i></div>
+            <div className="ad-kpi-h"><span>ปุ๋ยอินทรีย์</span><i className="ic green">🌱</i></div>
             <div className="ad-kpi-v"><h2>{fmt(d.me.total)} <small>ตัน</small></h2><Delta cur={d.me.total} prev={d.prev.total} /></div>
-            <p>เทียบปีงบประมาณ {d.prev.fy} · {d.pct}% ของเป้าหมาย {fmt(d.me.target)} ตัน</p>
+            <p>{d.pct}% ของเป้าหมาย {fmt(d.me.target)} ตัน{d.me.sent ? ` · อันดับที่ ${d.rank} จาก ${d.ranked.length} อำเภอ` : ""}</p>
+            <p>ส่งรายงานแล้ว {d.me.sent}/{d.agg.months.length} เดือน{d.me.late ? ` · ส่งช้า ${d.me.late} ครั้ง` : " · ไม่มีส่งช้า"}</p>
           </div>
           <div className="ad-kpi">
-            <div className="ad-kpi-h"><span>เดือนที่ส่งรายงานแล้ว</span><i className="ic blue">✅</i></div>
-            <div className="ad-kpi-v"><h2>{d.me.sent} / {d.agg.months.length} <small>เดือน</small></h2>
-              <span className={`ad-delta ${d.me.sent < d.agg.months.length ? "warn" : "up"}`}>{d.me.sent < d.agg.months.length ? `ค้าง ${d.agg.months.length - d.me.sent} เดือน` : "ส่งครบ"}</span></div>
-            <p>{d.me.late ? `ส่งช้า ${d.me.late} ครั้งในปีงบประมาณนี้` : "ไม่มีรายการส่งช้า"}</p>
-          </div>
-          <div className="ad-kpi">
-            <div className="ad-kpi-h"><span>อันดับปุ๋ยในจังหวัด</span><i className="ic purple">🏆</i></div>
-            <div className="ad-kpi-v"><h2>{d.me.sent ? `ที่ ${d.rank}` : "–"} <small>จาก {d.ranked.length}</small></h2>
-              {d.me.sent && d.prev.rank ? (d.prev.rank === d.rank ? <span className="ad-delta mute">คงเดิม</span> : <span className={`ad-delta ${d.rank < d.prev.rank ? "up" : "down"}`}>{d.rank < d.prev.rank ? "▲" : "▼"} {Math.abs(d.prev.rank - d.rank)} อันดับ</span>) : <span className="ad-delta mute">ไม่มีข้อมูลปีก่อน</span>}</div>
-            <p>เทียบอันดับปีงบประมาณ {d.prev.fy}</p>
-          </div>
-          <div className="ad-kpi">
-            <div className="ad-kpi-h"><span>พื้นที่ไถกลบฟางข้าวสะสม</span><i className="ic amber">🌾</i></div>
+            <div className="ad-kpi-h"><span>ไถกลบฟางข้าว</span><i className="ic amber">🌾</i></div>
             <div className="ad-kpi-v"><h2>{f2(d.ar.accum)} <small>ไร่</small></h2><Delta cur={d.ar.accum} prev={d.prev.accum} /></div>
-            <p>เทียบปีงบประมาณ {d.prev.fy} · {f2(d.ar.pct)}% ของพื้นที่ปลูกทั้งหมด</p>
+            <p>{Math.round(d.ar.ofTarget)}% ของเป้าหมาย {f2(d.ar.target)} ไร่ · ฟางก้อน {fmt(strawBales(d.ar.accum, K))} ก้อน</p>
+            <p>ส่งรายงานแล้ว {d.as.sent}/{d.as.months} เดือน{d.as.late ? ` · ส่งช้า ${d.as.late} ครั้ง` : " · ไม่มีส่งช้า"}</p>
+          </div>
+          <div className="ad-kpi">
+            <div className="ad-kpi-h"><span>หยุดเผา</span><i className="ic purple">🔥</i></div>
+            <div className="ad-kpi-v"><h2>{fmt(d.bn.act)} <small>ครั้ง</small></h2><Delta cur={d.bn.act} prev={d.bn.prevAct} /></div>
+            <p>ชุมชน {fmt(d.bn.vil)} แห่ง · เกษตรกร/ผู้เข้าร่วม {fmt(d.bn.par)} ราย</p>
+            <p>ส่งรายงานแล้ว {d.bn.sent}/{d.bn.months} เดือน{d.bn.late ? ` · ส่งช้า ${d.bn.late} ครั้ง` : " · ไม่มีส่งช้า"}</p>
           </div>
         </div>
 

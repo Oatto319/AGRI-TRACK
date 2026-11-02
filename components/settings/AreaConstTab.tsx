@@ -2,10 +2,10 @@
 import { useState } from "react";
 import { strawBales, baleValue, strawTons, strawValue, areaTarget, type AppConfig } from "@/lib/data";
 import { f2 } from "@/components/Entry";
-import { Tip, type TabProps } from "./shared";
+import { AREA_FIELDS, Tip, effOf, type TabProps } from "./shared";
 
 // แท็บ 4: ตัวคูณไถกลบฟางข้าว/ฟางก้อน พร้อมช่องลองคำนวณ
-export default function AreaConstTab({ view, set }: TabProps) {
+export default function AreaConstTab({ draft, saved, view, scope, set, setScope }: TabProps) {
   const [ex, setEx] = useState({ rai: "1000", total: "10000" });
   const K = view.area;
   const rai = Number(ex.rai) || 0, tot = Number(ex.total) || 0;
@@ -37,6 +37,37 @@ export default function AreaConstTab({ view, set }: TabProps) {
           <div className="cf-prev-f"><span>เป้าหมาย {K.targetPct}%</span><b>{f2(areaTarget(tot, K))} ไร่</b></div>
         </aside>
       </div>
+      <AreaCompare draft={draft} saved={saved} scope={scope} setScope={setScope} />
     </>
+  );
+}
+
+// ตารางเปรียบเทียบค่าไถกลบฟางข้าวของทุกปีที่ตั้งเอง เทียบกับค่าตั้งต้น: ช่องที่ต่างจากค่าตั้งต้นจะเน้นสี และเตือนถ้าเป้าหมายร้อยละไม่เท่ากันระหว่างปี
+function AreaCompare({ draft, saved, scope, setScope }: { draft: TabProps["draft"]; saved: TabProps["saved"]; scope: string; setScope: (s: string) => void }) {
+  const years = Object.keys(draft.byYear ?? {}).sort().reverse();
+  const rows = [{ sc: "base", name: "ค่าตั้งต้น" }, ...years.map(y => ({ sc: y, name: `ปีงบประมาณ ${y}` }))].map(r => ({ ...r, a: effOf(draft, r.sc).area, unsaved: JSON.stringify(effOf(draft, r.sc).area) !== JSON.stringify(effOf(saved, r.sc).area) }));
+  const base = rows[0].a;
+  const pcts = rows.filter(r => r.sc !== "base").map(r => ({ name: r.name, v: r.a.targetPct }));
+  const pctDiffer = new Set(pcts.map(p => p.v)).size > 1 || pcts.some(p => p.v !== base.targetPct);
+  return (
+    <section className="cf-cmp" aria-label="เปรียบเทียบค่าไถกลบฟางข้าวรายปีงบประมาณ">
+      <h3 className="cf-h3">เปรียบเทียบค่าที่ตั้งของแต่ละปีงบประมาณ</h3>
+      {pctDiffer
+        ? <p className="cf-cmp-warn" role="status">เป้าหมายร้อยละของพื้นที่ปลูกไม่เท่ากันทุกปี: {rows.map(r => `${r.name} = ${r.a.targetPct}%`).join(" · ")}</p>
+        : <p className="ux-note">เป้าหมายร้อยละเท่ากันทุกปี ({base.targetPct}%)</p>}
+      <div className="cf-cmp-wrap">
+        <table>
+          <thead><tr><th>ปีงบประมาณ</th>{AREA_FIELDS.map(f => <th key={f.key}>{f.label}<small>{f.unit}</small></th>)}</tr></thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.sc} className={r.sc === scope ? "on" : ""}>
+                <th scope="row"><button type="button" className="cf-cmp-go" onClick={() => setScope(r.sc)} title="เลือกปีนี้เพื่อแก้ไข">{r.name}</button>{r.unsaved && <span className="cf-cmp-un">ยังไม่บันทึก</span>}</th>
+                {AREA_FIELDS.map(f => <td key={f.key} className={r.sc !== "base" && r.a[f.key] !== base[f.key] ? "diff" : ""}>{r.a[f.key].toLocaleString("th-TH")}</td>)}
+              </tr>))}
+          </tbody>
+        </table>
+      </div>
+      <p className="ux-note">ช่องสีเหลืองคือค่าที่ต่างจากค่าตั้งต้น · ปีที่ไม่อยู่ในตารางใช้ค่าตั้งต้น · กดชื่อปีเพื่อไปแก้ไขปีนั้น · ป้าย “ยังไม่บันทึก” = แก้แล้วแต่ยังไม่กดบันทึก (Dashboard จะยังไม่เปลี่ยนจนกว่าจะบันทึก)</p>
+    </section>
   );
 }

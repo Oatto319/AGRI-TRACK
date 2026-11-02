@@ -1,14 +1,13 @@
 "use client";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { areaTotalsFor, cfgOfMonth, dueDaysFor, fiscalYearOf, thaiMonth } from "@/lib/data";
+import { areaTotalsFor, cfgOf, cfgOfMonth, dueDaysFor, fiscalRange, fiscalYearOf, thaiMonth } from "@/lib/data";
 import { aggregate, aggregateArea, fmt } from "@/lib/summary";
 import { AreaCombo, AreaHBars, FertCompareBars, Icons, PV_COLORS, RankBoard, Ring, Sparkline, StatusBar, TypeDonut, cumulate } from "@/components/ProvinceCharts";
 import { FilterBar, useProvince } from "@/components/Province";
 import ProgressCards from "@/components/ProgressCards";
+import ThreeYearCompare from "@/components/ThreeYearCompare";
 import DistrictMap, { type MapDatum } from "@/components/DistrictMap";
-import TrendChart from "@/components/TrendChart";
-import { buildTrend } from "@/lib/trend";
 import { scanReports } from "@/lib/anomaly";
 
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
@@ -54,14 +53,21 @@ export default function ProvinceDashboard() {
   const yearTxt = valid ? (fiscalYearOf(from) === fiscalYearOf(to) ? `ปีงบประมาณ ${fiscalYearOf(to)}` : multiYear ? `${Number(from.slice(0, 4)) + 543}–${Number(to.slice(0, 4)) + 543}` : `${Number(to.slice(0, 4)) + 543}`) : "";
   const rounds = agg?.rounds ?? 1;
 
-  // แผนที่รายอำเภอ + แนวโน้มสะสมเทียบเป้า + ค่าที่ควรตรวจสอบ
+  // แผนที่รายอำเภอ + ค่าที่ควรตรวจสอบ
   const [mapTopic, setMapTopic] = useState<"fert" | "area">("fert");
-  const fertMonthly = Object.fromEntries((agg?.months ?? []).map(m => [m, rows.some(r => r.byMonth[m] !== null) ? sum(r => r.byMonth[m] ?? 0) : null]));
-  const fertTrend = buildTrend(agg?.months ?? [], fertMonthly, target);
-  const areaTrend = buildTrend(ar?.months ?? [], Object.fromEntries((ar?.months ?? []).map(m => { const v = (ar?.rows ?? []).reduce((a, r) => a + (r.byMonth[m] ?? 0), 0); return [m, v > 0 ? v : null]; })), ar?.sums.target ?? 0);
   const mapData: MapDatum[] = mapTopic === "fert"
     ? rows.map(r => ({ name: r.name, value: r.target > 0 ? (r.total / r.target) * 100 : null, detail: r.target > 0 ? `ปุ๋ยสะสม ${f2(r.total)} จากเป้า ${f2(r.target)} ตัน (${Math.round((r.total / r.target) * 100)}%)` : "ยังไม่ได้ตั้งเป้า" }))
     : (ar?.rows ?? []).map(r => ({ name: r.name, value: r.target > 0 ? r.ofTarget : null, detail: r.target > 0 ? `ไถกลบสะสม ${f2(r.accum)} จากเป้า ${f2(r.target)} ไร่ (${Math.round(r.ofTarget)}%)` : "ยังไม่ได้ตั้งพื้นที่ปลูก/เป้า" }));
+  // เปรียบเทียบย้อนหลัง 3 ปีงบประมาณ (ปีงบประมาณของช่วงที่เลือก และ 2 ปีก่อนหน้า) ใช้เฉพาะรายงานที่ส่งแล้วเหมือนส่วนอื่น
+  const fyNow = valid ? fiscalYearOf(to) : 0;
+  const threeYears = useMemo(() => (reports && area && valid
+    ? [fyNow - 2, fyNow - 1, fyNow].map(y => {
+        const r = fiscalRange(y), c = cfgOf(settings, y);
+        const a = aggregate(reports, r.from, r.to, dueDaysFor(settings, "fert", r.to).length, c);
+        const z = aggregateArea(area, r.to, areaTotalsFor(settings, r.to), c.area);
+        return { label: `ปี ${y}`, fert: a.rows.reduce((x, row) => x + row.total, 0), area: z.sums.accum };
+      })
+    : null), [reports, area, valid, fyNow, settings]);
   const anomalies = useMemo(() => (reports && valid ? scanReports(reports, FIELDS, from, to, "ตัน") : []), [reports, valid, from, to, FIELDS]);
 
   const areaRows = ar ? [
@@ -113,8 +119,8 @@ export default function ProvinceDashboard() {
             ...(ar ? [{ key: "area", label: "ไถกลบฟางข้าว", unit: "ไร่", note: `พื้นที่สะสมเทียบเป้าร้อยละ ${AREA_TARGET_PCT} ของพื้นที่ปลูกพืชทั้งหมด · อำเภอที่ยังไม่ตั้งพื้นที่ปลูกจะแสดงว่ายังไม่ตั้งเป้า`, rows: ar.rows.map(r => ({ name: r.name, value: r.accum, target: r.target, hasTarget: r.assigned })) }] : []),
           ]} />
 
-          {/* แผนที่รายอำเภอ + แนวโน้มสะสมเทียบเป้าหมาย */}
-          <h2 className="pv-sec">แผนที่และแนวโน้มเทียบเป้าหมาย · {yearTxt}</h2>
+          {/* แผนที่รายอำเภอเทียบเป้าหมาย */}
+          <h2 className="pv-sec">แผนที่เทียบเป้าหมายและเปรียบเทียบ 3 ปี · {yearTxt}</h2>
           <div className="pv-trend">
             <section className="pv-card">
               <h2>แผนที่ผลงานรายอำเภอ</h2>
@@ -124,10 +130,12 @@ export default function ProvinceDashboard() {
               </div>
               <DistrictMap data={mapData} caption={`แผนที่จังหวัดศรีสะเกษ แสดงร้อยละเทียบเป้าหมาย${mapTopic === "fert" ? "ปุ๋ยอินทรีย์" : "ไถกลบฟางข้าว"}รายอำเภอ`} />
             </section>
-            <div className="pv-col">
-              <section className="pv-card"><h2>แนวโน้มปุ๋ยอินทรีย์สะสม</h2><p className="pv-note">ทั้งจังหวัด เทียบเป้าหมาย {fmt(target)} ตัน</p><TrendChart trend={fertTrend} unit="ตัน" title="แนวโน้มปุ๋ยอินทรีย์สะสม" labelOf={m => monthLabel(m, multiYear)} /></section>
-              {ar && <section className="pv-card"><h2>แนวโน้มพื้นที่ไถกลบสะสม</h2><p className="pv-note">ทั้งจังหวัด เทียบเป้าหมายร้อยละ {AREA_TARGET_PCT} ของพื้นที่ปลูกพืชทั้งหมด</p><TrendChart trend={areaTrend} unit="ไร่" title="แนวโน้มพื้นที่ไถกลบสะสม" labelOf={m => monthLabel(m, ar.months[0].slice(0, 4) !== ar.months[ar.months.length - 1].slice(0, 4))} /></section>}
-            </div>
+            {threeYears && (
+              <div className="pv-col">
+                <ThreeYearCompare title="ปุ๋ยอินทรีย์ เทียบ 3 ปี" unit="ตัน" data={threeYears.map(y => ({ label: y.label, value: y.fert }))} />
+                <ThreeYearCompare title="ไถกลบฟางข้าว เทียบ 3 ปี" unit="ไร่" data={threeYears.map(y => ({ label: y.label, value: y.area }))} />
+              </div>
+            )}
           </div>
 
           {/* 10 อันดับ + โดนัท + กราฟแท่ง */}

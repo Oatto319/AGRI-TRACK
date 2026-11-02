@@ -37,7 +37,7 @@ export function yearStat(reports: Report[], area: AreaReport[], settings: Settin
   const rows = agg.rows;
   const brg = fiscalRange(fy, "burn"), bAgg = aggregateBurn(burn, brg.from, brg.to, dueDaysFor(settings, "burn", brg.to).length, cfg);
   // ช่องหยุดเผาจังหวัดเพิ่ม/ลบเองได้ ช่องที่ไม่มีนับเป็น 0
-  // หมายเหตุ: คีย์ "communities" และ "farmers" เป็นชื่อที่สมมติ ถ้าในระบบตั้งชื่อคีย์อื่นให้แก้ให้ตรงกัน
+  // ช่องหยุดเผาตามค่าเริ่มต้นของระบบ: villages = หมู่บ้าน/ชุมชนที่ดำเนินการ · participants = ผู้เข้าร่วมกิจกรรม (ราย)
   const bs = (k: string) => (bAgg.sums as Record<string, number>)[k] ?? 0;
   const total = rows.reduce((a, r) => a + r.total, 0), target = rows.reduce((a, r) => a + r.target, 0);
   const sub = reports.filter(r => r.status === "submitted" && r.month >= from && r.month <= to);
@@ -58,7 +58,7 @@ export function yearStat(reports: Report[], area: AreaReport[], settings: Settin
       late: ar.sums.late, submitted: subA.length, onTimePct: subA.length ? ((subA.length - ar.sums.late) / subA.length) * 100 : null },
     areaMonthly: ar.months.map(m => ar.rows.reduce((x, r) => x + (r.byMonth[m] ?? 0), 0)),
     topArea: [...ar.rows].sort((x, y) => y.accum - x.accum).filter(r => r.accum > 0).map(r => ({ name: r.name, accum: r.accum }))[0] ?? null,
-    burn: { activities: bs("activities"), communities: bs("communities"), farmers: bs("farmers"), sentD: bAgg.rows.filter(r => r.any).length,
+    burn: { activities: bs("activities"), communities: bs("villages"), farmers: bs("participants"), sentD: bAgg.rows.filter(r => r.any).length,
       noActivity: bAgg.rows.filter(r => ((r.sums as Record<string, number>).activities ?? 0) <= 0).map(r => r.name) },
     late, submitted, onTimePct: submitted ? ((submitted - late) / submitted) * 100 : null,
     lagging: [...rows].filter(r => r.target > 0 && r.total < r.target).sort((a, b) => pctOf(a) - pctOf(b)).slice(0, 3).map(r => ({ name: r.name, pct: pctOf(r) })),

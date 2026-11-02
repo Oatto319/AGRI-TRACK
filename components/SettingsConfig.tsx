@@ -4,7 +4,7 @@ import { cfgOf, thaiMonth, currentMonth, fiscalYearOf, fiscalYearOptions, fiscal
 import { useProvince } from "@/components/Province";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { I } from "@/components/Entry";
-import { TABS, SLICES, clone, effOf, same, yearPart, type Msg, type TabKey, type TabProps } from "./settings/shared";
+import { TABS, SLICES, areaChanges, clone, effOf, same, yearPart, type Msg, type TabKey, type TabProps } from "./settings/shared";
 import FiscalYearsTab from "./settings/FiscalYearsTab";
 import FertFieldsTab from "./settings/FertFieldsTab";
 import BurnFieldsTab from "./settings/BurnFieldsTab";
@@ -22,6 +22,7 @@ export default function ConfigSettings() {
   const [tab, setTab] = useState<TabKey>("fy");
   const [msg, setMsg] = useState<Msg>(null);
   const [busy, setBusy] = useState(false);
+  const [saveLog, setSaveLog] = useState<{ at: string; items: ReturnType<typeof areaChanges> } | null>(null); // รายการค่าไถกลบฟางข้าวที่แก้ในการบันทึกล่าสุด
   // เดือนปัจจุบันอ่านหลัง mount เท่านั้น (ห้ามเรียก new Date() ตอน render เพราะ Next.js prerender หน้านี้)
   const [cur, setCur] = useState("");
   const curFy = cur ? fiscalYearOf(cur) : 0;
@@ -67,6 +68,7 @@ export default function ConfigSettings() {
   async function save() {
     if (problems.length) { setTab(problems[0].tab); if (problems[0].sc) setScope(problems[0].sc); return setMsg({ t: problems[0].text + " — กรุณากรอกให้ครบก่อนบันทึก", bad: true }); }
     setBusy(true); setMsg(null);
+    const items = areaChanges(saved, draft);
     try {
       const res = await fetch("/api/settings", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ config: draft }) });
       const data: unknown = await res.json();
@@ -76,10 +78,11 @@ export default function ConfigSettings() {
       }
       setSettings(data as Settings); setLoadedFrom(data as Settings);
       setMsg({ t: "บันทึกเรียบร้อย — แบบฟอร์มของอำเภอ ตาราง Dashboard Excel และ PDF ใช้ค่าใหม่แล้ว" });
+      setSaveLog(items.length ? { at: new Date().toLocaleString("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" }), items } : null);
     } catch { setMsg({ t: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่อีกครั้ง", bad: true }); }
     finally { setBusy(false); }
   }
-  const tp: TabProps = { draft, view, scope, curFy, set, setG, setScope, setMsg };
+  const tp: TabProps = { draft, saved, view, scope, curFy, set, setG, setScope, setMsg };
   const body: Record<TabKey, React.ReactNode> = {
     fy: <FiscalYearsTab {...tp} />, fert: <FertFieldsTab {...tp} />, burn: <BurnFieldsTab {...tp} />, area: <AreaConstTab {...tp} />, text: <LabelsTab {...tp} />,
   };
@@ -118,6 +121,18 @@ export default function ConfigSettings() {
         {tab === "fy" && <p className="ux-note" style={{ marginTop: 0 }}>แท็บนี้ใช้ร่วมกันทุกปี ไม่ขึ้นกับปีที่เลือกด้านบน</p>}
         {body[tab]}
       </div>
+
+      {saveLog && (
+        <section className="cf-log" aria-label="รายการค่าไถกลบฟางข้าวที่แก้ไขล่าสุด">
+          <header><b>รายการที่แก้ไขล่าสุด (ไถกลบฟางข้าว) · บันทึกเมื่อ {saveLog.at} น.</b>
+            <button type="button" className="ux-btn line sm" onClick={() => setSaveLog(null)}>ปิด</button></header>
+          <table>
+            <thead><tr><th>ปีงบประมาณ</th><th>รายการ</th><th>ค่าเดิม</th><th>ค่าใหม่</th></tr></thead>
+            <tbody>{saveLog.items.map(it => (
+              <tr key={it.scope + it.label}><td>{it.scope === "base" ? "ค่าตั้งต้น" : `ปีงบประมาณ ${it.scope}`}</td><td>{it.label}</td>
+                <td>{it.from.toLocaleString("th-TH")} {it.unit}</td><td><b>{it.to.toLocaleString("th-TH")} {it.unit}</b></td></tr>))}</tbody>
+          </table>
+        </section>)}
 
       <div className="ux-sticky-save">
         <span>{msg ? <span className={`ux-toast${msg.bad ? " bad" : ""}`} role="status">{msg.t}</span> : <span className="ux-note">{dirty ? `มีการแก้ไขที่ยังไม่บันทึก (${changedScopes.map(sc => sc === "base" ? "ค่าตั้งต้น" : "ปีงบประมาณ " + sc).join(", ")}${changed("fy") ? ", รายการปีงบประมาณ" : ""})` : "ยังไม่มีการแก้ไข"}</span>}</span>

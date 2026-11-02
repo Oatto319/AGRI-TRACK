@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { I } from "@/components/Entry";
-import type { AppConfig, YearConfig } from "@/lib/data";
+import type { AppConfig, AreaConst, YearConfig } from "@/lib/data";
 
 export type TabKey = "fy" | "fert" | "burn" | "area" | "text";
 export const TABS: { key: TabKey; label: string; icon: keyof typeof I }[] = [
@@ -16,13 +16,27 @@ export const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.strin
 // ค่าที่ใช้จริงของ scope: "base" = ค่าตั้งต้น · ตัวเลข = ปีงบประมาณนั้น (ถ้าไม่ได้ตั้งเอง ใช้ค่าตั้งต้น)
 export const effOf = (c: AppConfig, scope: string): AppConfig => (scope === "base" ? c : { ...c, ...(c.byYear?.[scope] ?? {}) });
 export const yearPart = (c: YearConfig): YearConfig => ({ targetPerTambon: c.targetPerTambon, fertFields: c.fertFields, burnFields: c.burnFields, area: c.area, topics: c.topics, labels: c.labels });
+// ชื่อและหน่วยของค่าไถกลบฟางข้าวแต่ละตัว (ใช้ทั้งในแท็บ ตารางเปรียบเทียบรายปี และรายการที่แก้ไขหลังบันทึก)
+export const AREA_FIELDS: { key: keyof AreaConst; label: string; unit: string }[] = [
+  { key: "targetPct", label: "เป้าหมายพื้นที่ไถกลบ", unit: "%" }, { key: "strawKgPerRai", label: "ฟางข้าวต่อไร่", unit: "กก./ไร่" },
+  { key: "strawValuePerRai", label: "มูลค่าไถกลบฟางข้าวต่อไร่", unit: "บาท/ไร่" }, { key: "balesPerRai", label: "ฟางก้อนต่อไร่", unit: "ก้อน/ไร่" },
+  { key: "balePrice", label: "ราคาฟางก้อน", unit: "บาท/ก้อน" },
+];
+/** รายการค่าไถกลบฟางข้าวที่เปลี่ยนระหว่างค่าที่บันทึกไว้เดิม (a) กับฉบับร่าง (b) แยกตามปีงบประมาณ · "base" = ค่าตั้งต้น */
+export const areaChanges = (a: AppConfig, b: AppConfig) => {
+  const scopes = ["base", ...Array.from(new Set([...Object.keys(a.byYear ?? {}), ...Object.keys(b.byYear ?? {})])).sort().reverse()];
+  return scopes.flatMap(sc => AREA_FIELDS.flatMap(f => {
+    const from = effOf(a, sc).area[f.key], to = effOf(b, sc).area[f.key];
+    return from === to ? [] : [{ scope: sc, label: f.label, unit: f.unit, from, to }];
+  }));
+};
 export const MONTH_NAMES = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
 export const UNITS = ["ครั้ง", "หมู่บ้าน", "คน", "ราย", "ชิ้น", "แห่ง", "ตำบล", "ไร่", "ตัน"];
 
 export type Msg = { t: string; bad?: boolean } | null;
 /** ค่าและฟังก์ชันที่หน้าตั้งค่าส่งให้แต่ละแท็บ: draft = ฉบับร่างทั้งหมด · view = ค่าของปีงบประมาณที่กำลังแก้ · set/setG = แก้ค่าของปีนั้น/ค่าที่ใช้ร่วมทุกปี */
 export interface TabProps {
-  draft: AppConfig; view: AppConfig; scope: string; curFy: number;
+  draft: AppConfig; saved: AppConfig; view: AppConfig; scope: string; curFy: number;
   set: (f: (c: YearConfig) => void) => void;
   setG: (f: (d: AppConfig) => void) => void;
   setScope: (s: string) => void; setMsg: (m: Msg) => void;

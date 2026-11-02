@@ -12,7 +12,8 @@ export default function ReportingSettings() {
   const confirm = useConfirm();
   const [q, setQ] = useState("");
   const { settings, setSettings } = useProvince();
-  const cfg = cfgOf(settings), AREA_TARGET_PCT = cfg.area.targetPct;
+  const cfg = cfgOf(settings);
+  const pctOfFy = (fy: number) => cfgOf(settings, fy).area.targetPct; // เป้าหมายร้อยละของพื้นที่ปลูก แยกตามปีงบประมาณ (ปีที่ไม่ได้ตั้งเองใช้ค่าตั้งต้น)
   const [days, setDays] = useState<string[]>(["31"]);
   const [topic, setTopic] = useState<Topic>("area");
   const [fyIn, setFyIn] = useState<number | null>(null); // null = ปีงบประมาณปัจจุบัน
@@ -270,7 +271,7 @@ export default function ReportingSettings() {
           </div>
         </Step>
 
-        <Step n={2} title="พื้นที่ปลูกพืชทั้งหมดรายอำเภอ" hint={`กำหนดรายปีงบประมาณ · ใช้คำนวณเป้าหมายร้อยละ ${AREA_TARGET_PCT} และร้อยละของพื้นที่สะสม · อำเภอไม่ต้องกรอก · เว้นว่าง = ยังไม่กำหนด`} done={aList.length > 0}>
+        <Step n={2} title="พื้นที่ปลูกพืชทั้งหมดรายอำเภอ" hint={`กำหนดรายปีงบประมาณ · ใช้คำนวณเป้าหมายร้อยละ ${pctOfFy(aFy)} ของปีงบประมาณที่เลือก และร้อยละของพื้นที่สะสม · อำเภอไม่ต้องกรอก · เว้นว่าง = ยังไม่กำหนด`} done={aList.length > 0}>
           <div id="area-form" style={{ scrollMarginTop: "5rem" }}>
           {aEditing && <div className="ux-banner warn" role="status" style={{ marginTop: 0, marginBottom: ".9rem" }}>{I.info}<div>กำลังแก้ไขพื้นที่ปลูกพืชทั้งหมด ปีงบประมาณ {aList.find(x => x.id === aEditing)?.fy} — ปรับแล้วกด “บันทึกการแก้ไข”</div></div>}
           <div className="ux-formgrid" style={{ marginBottom: ".9rem" }}>
@@ -284,14 +285,14 @@ export default function ReportingSettings() {
           </div>
           <div className="ux-kpis" style={{ marginBottom: ".9rem" }}>
             <div className="ux-kpi"><i>{I.box}</i><div><small>รวมทั้งจังหวัด</small><b>{f2(sumTotal)} <span>ไร่</span></b></div></div>
-            <div className="ux-kpi" style={{ ["--kc" as string]: "#b08a2c" }}><i>{I.check}</i><div><small>เป้าหมายร้อยละ {AREA_TARGET_PCT}</small><b>{f2((sumTotal * AREA_TARGET_PCT) / 100)} <span>ไร่</span></b></div></div>
+            <div className="ux-kpi" style={{ ["--kc" as string]: "#b08a2c" }}><i>{I.check}</i><div><small>เป้าหมายร้อยละ {pctOfFy(aFy)}</small><b>{f2((sumTotal * pctOfFy(aFy)) / 100)} <span>ไร่</span></b></div></div>
             <div className="ux-kpi" style={{ ["--kc" as string]: "#059669" }}><i>{I.send}</i><div><small>กำหนดแล้ว</small><b>{setCount} / {DISTRICTS.length} <span>อำเภอ</span></b></div></div>
           </div>
           <input className="ux-search" type="search" placeholder="ค้นหาชื่ออำเภอ" aria-label="ค้นหาอำเภอ" value={q} onChange={e => setQ(e.target.value)} />
           <div className="ux-areas" style={{ marginTop: ".9rem" }}>
             {shown.map(d => (
               <div className="ux-areacell" key={d.name}>
-                <label htmlFor={`a-${d.name}`}>{d.name}<small>เป้า {f2((num(d.name) * AREA_TARGET_PCT) / 100)} ไร่</small></label>
+                <label htmlFor={`a-${d.name}`}>{d.name}<small>เป้า {f2((num(d.name) * pctOfFy(aFy)) / 100)} ไร่</small></label>
                 <div className={`ux-num-in${totals[d.name] ? " filled" : ""}`}>
                   <input id={`a-${d.name}`} type="number" inputMode="decimal" min={0} step="any" placeholder="ยังไม่กำหนด" value={totals[d.name] ?? ""} onChange={e => setTotals({ ...totals, [d.name]: e.target.value })} /><span>ไร่</span>
                 </div>
@@ -317,7 +318,7 @@ export default function ReportingSettings() {
                     <div className="tx">
                       <b>พื้นที่ปลูกพืชทั้งหมด</b>
                       <span className="fy">ปีงบประมาณ {x.fy}</span>
-                      <p><strong>รวม {f2(sum)} ไร่</strong> · เป้าหมายร้อยละ {AREA_TARGET_PCT} = {f2((sum * AREA_TARGET_PCT) / 100)} ไร่ · กำหนดแล้ว {cnt} / {DISTRICTS.length} อำเภอ</p>
+                      <p><strong>รวม {f2(sum)} ไร่</strong> · เป้าหมายร้อยละ {pctOfFy(x.fy)} = {f2((sum * pctOfFy(x.fy)) / 100)} ไร่ · กำหนดแล้ว {cnt} / {DISTRICTS.length} อำเภอ</p>
                     </div>
                     <div className="act">
                       <button type="button" className="ux-btn line sm" disabled={abusy} onClick={() => startAreaEdit(x)}>แก้ไข</button>
@@ -397,4 +398,4 @@ export default function ReportingSettings() {
       </div>
     </div>
   );
-}
+} 

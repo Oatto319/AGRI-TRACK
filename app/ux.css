@@ -400,3 +400,19 @@ body{background:var(--bg)}
 .pub-login{color:#fff;border:1.5px solid rgba(255,255,255,.45);border-radius:10px;padding:.45rem 1rem;text-decoration:none;font-size:.9rem}.pub-login:hover{background:var(--indigo2)}
 .pub-main{max-width:1180px;margin:0 auto;padding:1.5rem clamp(1rem,3vw,2rem) 3rem}
 .pub-foot{color:var(--muted);font-size:.85rem;text-align:center;margin-top:1.5rem}
+
+/* ตารางเปรียบเทียบค่าไถกลบฟางข้าวรายปี + รายการที่แก้ไขหลังบันทึก */
+.cf-cmp{margin-top:1.4rem}
+.cf-cmp-warn{background:#fef3c7;border:1px solid #fcd34d;color:#92400e;border-radius:12px;padding:.6rem .9rem;margin:.2rem 0 .8rem;font-weight:600;line-height:1.5}
+.cf-cmp-wrap,.cf-log{overflow-x:auto}
+.cf-cmp table,.cf-log table{width:100%;border-collapse:collapse;font-size:.92rem}
+.cf-cmp th,.cf-cmp td,.cf-log th,.cf-log td{border-bottom:1px solid #e8ede5;padding:.5rem .7rem;text-align:right;white-space:nowrap}
+.cf-cmp thead th,.cf-log thead th{background:#f5f7f3;font-weight:700;vertical-align:bottom}
+.cf-cmp thead small{display:block;color:var(--muted);font-weight:400}
+.cf-cmp tbody th,.cf-log td:first-child,.cf-log td:nth-child(2),.cf-log thead th:first-child,.cf-log thead th:nth-child(2){text-align:left}
+.cf-cmp tr.on{background:#f0faf4}
+.cf-cmp td.diff{background:#fef3c7;color:#92400e;font-weight:700}
+.cf-cmp-go{border:0;background:none;font:inherit;font-weight:600;color:var(--brand-d);cursor:pointer;padding:0;text-decoration:underline dotted}
+.cf-log{background:#fff;border:1px solid #d2ecdc;border-radius:16px;padding:1rem 1.2rem;margin:-4rem 0 5rem}
+.cf-log header{display:flex;justify-content:space-between;align-items:center;gap:.8rem;flex-wrap:wrap;margin-bottom:.6rem}
+.cf-cmp-un{display:inline-block;margin-left:.5rem;background:#fef3c7;color:#92400e;border-radius:99px;padding:.05rem .6rem;font-size:.78rem;font-weight:700}
