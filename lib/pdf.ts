@@ -6,7 +6,7 @@ import { aggregate, aggregateArea, aggregateBurn, monthsBetween, sumValues } fro
 
 /**
  * สร้างรายงาน PDF "รายงานสรุป ประจำปีงบประมาณ" (เปรียบเทียบย้อนหลัง 3 ปีงบประมาณ) (สรุปในหน้า A4 หน้าเดียว)
- * หัวรายงาน → การประชาสัมพันธ์เรื่องการหยุดเผา (หัวข้อแรก: จำนวนครั้งของปีงบประมาณนี้ เทียบ 3 ปี + จำนวนอำเภอที่จัดกิจกรรม) → การ์ด KPI → กราฟปุ๋ยอินทรีย์ 3 ปี + กราฟพื้นที่ไถกลบรายเดือน 3 ปี (เคียงข้างกัน) → ตารางสรุปเปรียบเทียบ 3 ปี + YoY
+ * หัวรายงาน → การประชาสัมพันธ์เรื่องการหยุดเผา (หัวข้อแรก: จำนวนครั้ง + ชุมชน + เกษตรกร ของปีงบประมาณนี้ เทียบ 3 ปี) → การ์ด KPI → กราฟปุ๋ยอินทรีย์ 3 ปี + กราฟพื้นที่ไถกลบรายเดือน 3 ปี (เคียงข้างกัน) → ตารางสรุปเปรียบเทียบ 3 ปี
  * ใช้เฉพาะรายงานที่ "ส่งแล้ว" เหมือนหน้า Dashboard และไฟล์ Excel
  */
 
@@ -23,9 +23,9 @@ export interface YearStat {
   fy: number; from: string; to: string;
   sent: number; districts: number; total: number; target: number; pct: number; reached: number;
   cats: number[]; quarters: number[];
-  area: { accum: number; total: number; target: number; pct: number; ofTarget: number; straw: number; value: number; bales: number; baleValue: number; reachedD: number; sentD: number; assigned: boolean };
+  area: { accum: number; total: number; target: number; pct: number; ofTarget: number; straw: number; value: number; bales: number; baleValue: number; reachedD: number; sentD: number; assigned: boolean; late: number; submitted: number; onTimePct: number | null };
   areaMonthly: number[]; topArea: { name: string; accum: number } | null;
-  burn: { activities: number; sentD: number; noActivity: string[] };
+  burn: { activities: number; communities: number; farmers: number; sentD: number; noActivity: string[] };
   late: number; submitted: number; onTimePct: number | null;
   lagging: { name: string; pct: number }[]; notSent: string[]; lateByDistrict: { name: string; n: number }[]; areaLow: { name: string; pct: number }[];
 }
@@ -36,7 +36,9 @@ export function yearStat(reports: Report[], area: AreaReport[], settings: Settin
   const ar = aggregateArea(area, to, areaTotalsFor(settings, to), cfg.area);
   const rows = agg.rows;
   const brg = fiscalRange(fy, "burn"), bAgg = aggregateBurn(burn, brg.from, brg.to, dueDaysFor(settings, "burn", brg.to).length, cfg);
-  const bs = (k: string) => (bAgg.sums as Record<string, number>)[k] ?? 0; // ช่องหยุดเผาจังหวัดเพิ่ม/ลบเองได้ ช่องที่ไม่มีนับเป็น 0
+  // ช่องหยุดเผาจังหวัดเพิ่ม/ลบเองได้ ช่องที่ไม่มีนับเป็น 0
+  // หมายเหตุ: คีย์ "communities" และ "farmers" เป็นชื่อที่สมมติ ถ้าในระบบตั้งชื่อคีย์อื่นให้แก้ให้ตรงกัน
+  const bs = (k: string) => (bAgg.sums as Record<string, number>)[k] ?? 0;
   const total = rows.reduce((a, r) => a + r.total, 0), target = rows.reduce((a, r) => a + r.target, 0);
   const sub = reports.filter(r => r.status === "submitted" && r.month >= from && r.month <= to);
   const subA = area.filter(r => r.status === "submitted" && r.month >= from && r.month <= to);
@@ -52,10 +54,11 @@ export function yearStat(reports: Report[], area: AreaReport[], settings: Settin
     reached: rows.filter(r => r.target > 0 && r.total >= r.target).length,
     cats: CATS.map(c => rows.reduce((a, r) => a + c.keys.reduce((s, k) => s + (r.sums[k as keyof typeof r.sums] ?? 0), 0), 0)), quarters,
     area: { accum: ar.sums.accum, total: ar.sums.total, target: ar.sums.target, pct: ar.pct, ofTarget: ar.ofTarget, straw: ar.sums.straw, value: ar.sums.value, bales: ar.sums.bales, baleValue: ar.sums.baleValue,
-      reachedD: ar.rows.filter(r => r.target > 0 && r.accum >= r.target).length, sentD: ar.rows.filter(r => r.any).length, assigned: ar.sums.assigned },
+      reachedD: ar.rows.filter(r => r.target > 0 && r.accum >= r.target).length, sentD: ar.rows.filter(r => r.any).length, assigned: ar.sums.assigned,
+      late: ar.sums.late, submitted: subA.length, onTimePct: subA.length ? ((subA.length - ar.sums.late) / subA.length) * 100 : null },
     areaMonthly: ar.months.map(m => ar.rows.reduce((x, r) => x + (r.byMonth[m] ?? 0), 0)),
     topArea: [...ar.rows].sort((x, y) => y.accum - x.accum).filter(r => r.accum > 0).map(r => ({ name: r.name, accum: r.accum }))[0] ?? null,
-    burn: { activities: bs("activities"), sentD: bAgg.rows.filter(r => r.any).length,
+    burn: { activities: bs("activities"), communities: bs("communities"), farmers: bs("farmers"), sentD: bAgg.rows.filter(r => r.any).length,
       noActivity: bAgg.rows.filter(r => ((r.sums as Record<string, number>).activities ?? 0) <= 0).map(r => r.name) },
     late, submitted, onTimePct: submitted ? ((submitted - late) / submitted) * 100 : null,
     lagging: [...rows].filter(r => r.target > 0 && r.total < r.target).sort((a, b) => pctOf(a) - pctOf(b)).slice(0, 3).map(r => ({ name: r.name, pct: pctOf(r) })),
@@ -68,13 +71,16 @@ export function yearStat(reports: Report[], area: AreaReport[], settings: Settin
 }
 
 
-const listTh = (xs: string[], max = 4) => `${xs.slice(0, max).join(" · ")}${xs.length > max ? ` และอีก ${xs.length - max} อำเภอ` : ""}`;
-
 // ---------- ตัวช่วยจัดรูปแบบ ----------
 const n1 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 1 });
 const n0 = (v: number) => v.toLocaleString("en-US", { maximumFractionDigits: 0 });
 const yoy = (cur: number, prev: number): number | null => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
-const sgn = (v: number | null, d = 1) => (v === null ? "-" : `${v > 0 ? "+" : ""}${v.toFixed(d)}%`);
+// ข้อความเปรียบเทียบกับปีก่อนแบบภาษาไทย (ใช้ในส่วนหยุดเผา)
+const yoyTh = (v: number | null) =>
+  v === null ? "ไม่มีข้อมูลปีก่อนเทียบ"
+  : v > 0 ? `เพิ่มขึ้น ${v.toFixed(1)}% จากปีก่อน`
+  : v < 0 ? `ลดลง ${Math.abs(v).toFixed(1)}% จากปีก่อน`
+  : "เท่ากับปีก่อน";
 
 const C = {
   ink: "#0f172a", mute: "#64748b", soft: "#94a3b8", line: "#e2e8f0", rule: "#eef2f7", bg: "#f8fafc", dark: "#064e3b", green: "#059669", mint: "#10b981",
@@ -174,16 +180,25 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   const ry = M + hh + 10, rh = 92, B = c.burn, burnCol = "#c2410c";
   card(M, ry, CW, rh, { top: burnCol });
   sectionTitle(`การประชาสัมพันธ์เรื่องการหยุดเผา ปีงบประมาณ ${c.fy}`, M + 12, ry + 10);
-  text("หน่วย: ครั้ง", M, ry + 12, { size: 7.8, color: C.mute, w: CW - 14, align: "right" });
-  // ซ้าย: จำนวนครั้งของปีงบประมาณนี้ + YoY
-  text("จัดกิจกรรมเรียนรู้/ประชาสัมพันธ์แล้ว", M + 14, ry + 30, { size: 7.8, color: C.mute });
-  const bv = n0(B.activities);
-  text(bv, M + 14, ry + 40, { size: 24, bold: true, color: burnCol });
-  text("ครั้ง", M + 14 + width(bv, 24, true) + 4, ry + 40 + 24 * 0.42, { size: 9, color: C.mute });
+  // สรุปตัวเลขของปีงบประมาณนี้: จำนวนครั้ง · ชุมชน · เกษตรกร (เรียงซ้าย→ขวา) แล้วตามด้วยแท่งเปรียบเทียบ 3 ปี
+  const stat = (x: number, label: string, v: number, unit: string, color: string) => {
+    text(label, x, ry + 30, { size: 7.8, color: C.mute });
+    const s2 = n0(v);
+    text(s2, x, ry + 40, { size: 24, bold: true, color });
+    text(unit, x + width(s2, 24, true) + 4, ry + 40 + 24 * 0.42, { size: 9, color: C.mute });
+  };
+  const vline = (x: number) => doc.save().moveTo(x, ry + 30).lineTo(x, ry + rh - 12).lineWidth(0.5).strokeColor(C.line).stroke().restore();
+  stat(M + 14, "จัดกิจกรรมเรียนรู้/ประชาสัมพันธ์แล้ว", B.activities, "ครั้ง", burnCol);
   const bch = yoy(B.activities, b.burn.activities);
-  pill(bch === null ? "- YoY" : `${sgn(bch)} YoY`, M + 14, ry + rh - 21, bch);
-  // กลาง: แท่งเปรียบเทียบ 3 ปี
-  const bx0 = M + 190, bBase = ry + rh - 22, bMaxH = 34, bMax = Math.max(...years.map(y => y.burn.activities), 1);
+  pill(yoyTh(bch), M + 14, ry + rh - 21, bch);
+  vline(M + 152);
+  stat(M + 164, "ชุมชนที่เข้าร่วม", B.communities, "ชุมชน", "#334155");
+  vline(M + 250);
+  stat(M + 262, "เกษตรกรที่เข้าร่วม", B.farmers, "ราย", "#334155");
+  vline(M + 356);
+  // ขวา: แท่งเปรียบเทียบจำนวนครั้ง 3 ปี
+  text("จำนวนครั้ง เทียบ 3 ปี", M + 376, ry + 30, { size: 7.8, color: C.mute });
+  const bx0 = M + 376, bBase = ry + rh - 22, bMaxH = 26, bMax = Math.max(...years.map(y => y.burn.activities), 1);
   doc.save().moveTo(bx0 - 6, bBase).lineTo(bx0 + 3 * 40, bBase).lineWidth(0.5).strokeColor(C.line).stroke().restore();
   years.forEach((y, i) => {
     const v = y.burn.activities, h2 = v > 0 ? Math.max(3, (v / bMax) * bMaxH) : 2.5, x = bx0 + i * 40;
@@ -191,19 +206,6 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     text(n0(v), x - 9, bBase - h2 - 10.5, { size: 7.8, bold: true, color: i === 2 ? burnCol : "#334155", w: 40, align: "center" });
     text(`ปี ${y.fy}`, x - 9, bBase + 4, { size: 7.4, bold: i === 2, color: i === 2 ? C.ink : C.mute, w: 40, align: "center" });
   });
-  // ขวา: อำเภอที่จัดกิจกรรม / ที่ยังไม่มี
-  const rx1 = M + 340, rw1 = CW - 340 - 14;
-  doc.save().moveTo(rx1 - 12, ry + 30).lineTo(rx1 - 12, ry + rh - 12).lineWidth(0.5).strokeColor(C.line).stroke().restore();
-  if (B.activities > 0) {
-    text(`อำเภอที่จัดกิจกรรมแล้ว ${B.sentD}/${c.districts} อำเภอ`, rx1, ry + 30, { size: 8.4, bold: true });
-    if (B.noActivity.length) {
-      text("อำเภอที่ยังไม่มีกิจกรรม:", rx1, ry + 44, { size: 7.8, bold: true, color: C.mute });
-      wrap(listTh(B.noActivity, 6), rw1, 7.8).slice(0, 3).forEach((ln, i) => text(ln, rx1, ry + 55 + i * 10, { size: 7.8, color: "#334155" }));
-    } else text("ทุกอำเภอจัดกิจกรรมแล้ว", rx1, ry + 44, { size: 7.8, color: C.green, bold: true });
-  } else {
-    text("ยังไม่มีการบันทึกกิจกรรมหยุดเผา", rx1, ry + 30, { size: 8.4, bold: true });
-    text("ในปีงบประมาณนี้", rx1, ry + 42, { size: 7.8, color: C.mute });
-  }
 
   // ================= การ์ด KPI (ไอคอน + กราฟแท่งเล็ก 3 ปี) =================
   const kw = (CW - 30) / 4, ky = ry + rh + 6, kh = 64;
@@ -214,7 +216,7 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     { top: C.purple, tint: "#ede9fe", label: `มูลค่าฟางก้อน ปี ${c.fy}`, value: n0(c.area.baleValue), unit: "บาท", vals: years.map(y => y.area.baleValue), icon: "baht" },
   ];
   kpis.forEach((k, i) => {
-    const x = M + i * (kw + 10), inner = kw - 20, v = yoy(k.vals[2], k.vals[1]);
+    const x = M + i * (kw + 10), inner = kw - 20;
     card(x, ky, kw, kh, { top: k.top });
     text(k.label, x + 10, ky + 9, { size: 7.6, color: C.mute, w: inner - 20 });
     const icx = x + kw - 19, icy = ky + 17;
@@ -226,25 +228,36 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     let vs = 15.5; while (vs > 9.5 && width(k.value, vs, true) + 4 + width(k.unit, 8) > inner) vs -= 0.5; // ตัวเลขยาวให้ย่อ ไม่ให้ล้นการ์ด
     text(k.value, x + 10, ky + 24, { size: vs, bold: true });
     text(k.unit, x + 10 + width(k.value, vs, true) + 3, ky + 24 + vs * 0.38, { size: 8, color: C.mute });
-    pill(v === null ? "- YoY" : `${sgn(v)} YoY`, x + 10, ky + kh - 19, v);
     const mx = Math.max(...k.vals, 1);
     k.vals.forEach((val, j) => { const h2 = Math.max(3, (val / mx) * 15); doc.save().roundedRect(x + kw - 35 + j * 8, ky + kh - 7 - h2, 6, h2, 1.5).fill(yearColor[j]).restore(); });
   });
 
   // ================= วงแหวนสถานะ 3 ใบ =================
   const ty0 = ky + kh + 6, rw = (CW - 20) / 3, rh0 = 60;
-  const onTime = c.onTimePct;
-  const rings: { color: string; frac: number | null; center: string; title: string; chip: string; tone: Tone; l1: string; l2: string }[] = [
+  const rings: { color: string; frac: number | null; center: string; title: string; chip: string; tone: Tone; l1: string; l2: string; icon?: boolean }[] = [
     { color: C.green, frac: c.target > 0 ? c.pct / 100 : null, center: c.target > 0 ? `${c.pct.toFixed(1)}%` : "-", title: "ปุ๋ยอินทรีย์เทียบเป้า", chip: c.target <= 0 ? "ยังไม่ตั้งเป้า" : c.pct >= 100 ? "บรรลุเป้าหมาย" : c.pct >= 75 ? "ใกล้ถึงเป้า" : "ควรเร่งรัด", tone: c.target <= 0 ? "none" : c.pct >= 100 ? "good" : c.pct >= 75 ? "warn" : "bad",
       l1: `บรรลุเป้า ${c.reached}/${c.districts} อำเภอ`, l2: `ผลิต ${n0(c.total)} / เป้า ${n0(c.target)} ตัน` },
     { color: C.blue, frac: c.area.target > 0 ? c.area.ofTarget / 100 : null, center: c.area.target > 0 ? `${Math.round(c.area.ofTarget)}%` : "-", title: `ไถกลบเทียบเป้า ${K.targetPct}%`, chip: c.area.target <= 0 ? "ยังไม่ตั้งเป้า" : c.area.ofTarget >= 100 ? "บรรลุเป้าหมาย" : c.area.ofTarget >= 75 ? "ใกล้ถึงเป้า" : "ควรเร่งรัด", tone: c.area.target <= 0 ? "none" : c.area.ofTarget >= 100 ? "good" : c.area.ofTarget >= 75 ? "warn" : "bad",
       l1: `บรรลุเป้า ${c.area.reachedD}/${c.districts} อำเภอ`, l2: `ไถกลบ ${c.area.pct.toFixed(1)}% ของพื้นที่ปลูก` },
-    { color: C.purple, frac: onTime === null ? null : onTime / 100, center: onTime === null ? "-" : `${onTime.toFixed(1)}%`, title: "การส่งรายงานตรงเวลา", chip: onTime === null ? "ยังไม่มีข้อมูล" : onTime >= 90 ? "ตรงเวลาดี" : "ควรเร่งรัด", tone: onTime === null ? "none" : onTime >= 90 ? "good" : "warn",
-      l1: `ส่งแล้ว ${c.sent}/${c.districts} อำเภอ`, l2: `ส่งช้า ${c.late} จาก ${c.submitted} ฉบับ` },
+    { color: C.orange, frac: null, center: "", title: "ฟางก้อน", chip: "", tone: "warn", icon: true, l1: "", l2: "" },
   ];
   rings.forEach((r, i) => {
     const x = M + i * (rw + 10);
     card(x, ty0, rw, rh0);
+    if (r.icon) {
+      // การ์ดฟางก้อน: เปรียบเทียบจำนวนก้อน 3 ปีงบประมาณ (แท่ง 3 แท่ง)
+      text("ฟางก้อน เทียบ 3 ปี", x + 12, ty0 + 7, { size: 9.4, bold: true });
+      text("หน่วย: ก้อน", x, ty0 + 8.5, { size: 7, color: C.mute, w: rw - 10, align: "right" });
+      const vals = years.map(y => y.area.bales), mx = Math.max(...vals, 1), colW = 52, x0 = x + (rw - colW * 3) / 2, base = ty0 + rh0 - 14, maxH = 16;
+      doc.save().moveTo(x + 10, base).lineTo(x + rw - 10, base).lineWidth(0.5).strokeColor(C.line).stroke().restore();
+      vals.forEach((v, i) => {
+        const h2 = v > 0 ? Math.max(3, (v / mx) * maxH) : 2.5, bx = x0 + i * colW + (colW - 20) / 2;
+        doc.save().roundedRect(bx, base - h2, 20, h2, 2.2).fill(i === 2 ? C.orange : i === 1 ? "#fcd34d" : C.gray).restore();
+        text(n0(v), x0 + i * colW, base - h2 - 9, { size: 7, bold: true, color: i === 2 ? "#b45309" : "#334155", w: colW, align: "center" });
+        text(`ปี ${years[i].fy}`, x0 + i * colW, base + 3, { size: 7, bold: i === 2, color: i === 2 ? C.ink : C.mute, w: colW, align: "center" });
+      });
+      return;
+    }
     ring(x + 35, ty0 + rh0 / 2, 21, r.frac, r.color, 5);
     text(r.center, x + 35 - 20, ty0 + rh0 / 2 - 4.6, { size: r.center.length > 5 ? 8 : 9, bold: true, w: 40, align: "center" });
     text(r.title, x + 68, ty0 + 8, { size: 9.4, bold: true });
@@ -286,7 +299,7 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     });
     wrap(cat.label, gW - 2, 7.8).slice(0, 2).forEach((ln, i) => text(ln, px(M) + gW * ci, py + ph + 6 + i * 9.5, { size: 7.8, bold: true, color: "#334155", w: gW, align: "center" }));
   });
-  // ขวา: เส้น + พื้นที่ใต้เส้นของปีล่าสุด + ป้ายค่าสูงสุด
+  // ขวา: เส้น + พื้นที่ใต้เส้นของปีล่าสุด
   const rx0 = M + gw + 10;
   frame(rx0, "พื้นที่ไถกลบรายเดือน เทียบ 3 ปี", "ไร่");
   // ป้ายเดือนตามช่วงเดือนไถกลบของปีงบประมาณล่าสุดที่จังหวัดตั้งไว้ (ไม่ผูกตายตัวที่ พ.ย.–มิ.ย.)
@@ -307,9 +320,6 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     pts.forEach(([x, y], i) => (i ? doc.lineTo(x, y) : doc.moveTo(x, y))); doc.stroke().restore();
     pts.forEach(([x, y]) => doc.save().circle(x, y, si === 2 ? 2.8 : 2.3).lineWidth(1.3).fillAndStroke("#ffffff", yearColor[si]).restore());
   });
-  // ค่าสูงสุดของปีล่าสุด: วางที่แถวคำอธิบายสีด้านขวา ไม่ทับเส้นกราฟ
-  const peakV = Math.max(...series[2].map(v => v ?? 0), 0);
-  if (peakV > 0) text(`สูงสุด ${n0(peakV)}`, rx0, gy + 29.5, { size: 7.8, bold: true, color: C.dark, w: gw - 12, align: "right" });
 
   // ================= ตารางสรุปเปรียบเทียบ =================
   type Row = { g?: string; color?: string; tint?: string; l?: string; v?: (y: YearStat) => number; f?: (v: number) => string };
@@ -330,14 +340,13 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
   card(M, tby, CW, th);
   sectionTitle("ตารางสรุปเปรียบเทียบย้อนหลัง 3 ปีงบประมาณ", M + 12, tby + 10);
   text("ตัวชี้วัดสำคัญ (Key Metrics)", M, tby + 12, { size: 7.8, color: C.mute, w: CW - 14, align: "right" });
-  const yr = [M + 282, M + 352, M + 422], yoyR = M + CW - 12, hy = tby + 30, bodyTop = hy + 20;
+  const yr = [M + 340, M + 420, M + 500], hy = tby + 30, bodyTop = hy + 20;
   // แถบไฮไลต์คอลัมน์ปีล่าสุด
   doc.save().fillOpacity(0.55).fillColor("#d9ece3").rect(yr[2] - 62, hy + 8, 76, th - 38).fill().restore();
   doc.save().roundedRect(M + 8, hy, CW - 16, 17, 6).fill("#f1f5f9").restore();
   doc.save().roundedRect(yr[2] - 62, hy, 76, 17, 6).fill(C.dark).restore();
   text("ตัวชี้วัด", M + 16, hy + 3, { size: 7.8, bold: true, color: C.mute });
   years.forEach((y, i) => text(`ปี ${y.fy}`, yr[i] - 62, hy + 3, { size: 7.8, bold: true, color: i === 2 ? "#ffffff" : C.mute, w: 76 - (i === 2 ? 8 : 14), align: "right" }));
-  text("% YoY", yoyR - 60, hy + 3, { size: 7.8, bold: true, color: C.mute, w: 60, align: "center" });
   let ry0 = bodyTop;
   rowsDef.forEach(r => {
     if (r.g) {
@@ -348,8 +357,6 @@ export async function buildPdf(reports: Report[], area: AreaReport[], settings: 
     }
     text(r.l!, M + 16, ry0 + 1.5, { size: 8 });
     years.forEach((y, j) => text(r.f!(r.v!(y)), yr[j] - 62, ry0 + 1.5, { size: 8, w: 76 - (j === 2 ? 8 : 14), align: "right", bold: j === 2, color: j === 2 ? C.ink : "#334155" }));
-    const ch2 = yoy(r.v!(c), r.v!(b)), lbl = ch2 === null ? "-" : sgn(ch2, 2), pwd = width(lbl, 7.4, true) + (ch2 === null ? 14 : 24);
-    pill(lbl, yoyR - 30 - pwd / 2, ry0 - 0.5, ch2, 12.5);
     ry0 += rowH;
   });
 
