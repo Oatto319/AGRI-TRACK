@@ -14,6 +14,7 @@ export default function ProvinceTable() {
   const { reports, area, burn, error, from, to, valid, agg, settings } = useProvince();
   const [tab, setTab] = useState<Tab>("fert");
   const [hist, setHist] = useState(false);
+  const [fertView, setFertView] = useState<"type" | "month">("type");
   const cfg = useMemo(() => cfgOfMonth(settings, to), [settings, to]), K = cfg.area;
   const a = useMemo(() => (area && valid ? aggregateArea(area, to, areaTotalsFor(settings, to), cfg.area) : null), [area, to, settings, valid, cfg]);
   const b = useMemo(() => (burn && valid ? aggregateBurn(burn, from, to, dueDaysFor(settings, "burn", to).length, cfg) : null), [burn, from, to, settings, valid, cfg]);
@@ -52,7 +53,12 @@ export default function ProvinceTable() {
             { icon: I.alert, color: "#e11d48", label: "ส่งช้า", value: String(sum(r => r.late)), unit: "ครั้ง" }]} />
           <section className="ux-card"><h2>{lb(cfg, "sec.fert")} · {rangeLabel(from, to)}</h2>
             <p className="ux-note">แถบความคืบหน้า: เขียว = ถึงเป้าหมายของอำเภอแล้ว · ทอง = ยังไม่ถึงเป้า · เลื่อนตารางไปทางขวาเพื่อดูทุกคอลัมน์</p>
-            <div style={{ marginTop: ".9rem" }}><FertTable agg={agg} cfg={cfg} /></div></section>
+            <div className="ux-seg" role="group" aria-label="มุมมองตารางปุ๋ย" style={{ marginTop: ".6rem" }}>
+              <button aria-pressed={fertView === "type"} onClick={() => setFertView("type")}>แยกตามชนิด</button>
+              <button aria-pressed={fertView === "month"} onClick={() => setFertView("month")}>รายเดือน</button>
+            </div>
+            {fertView === "month" && <p className="ux-note" style={{ marginTop: ".5rem" }}>คอลัมน์รายเดือน = ปริมาณปุ๋ยอินทรีย์รวมทุกชนิด (ตัน) ที่อำเภอรายงานในเดือนนั้น · “–” = ยังไม่มีรายงานที่ส่งแล้วของเดือนนั้น</p>}
+            <div style={{ marginTop: ".9rem" }}><FertTable agg={agg} cfg={cfg} view={fertView} /></div></section>
         </>}
 
         {tab === "area" && (a ? <>

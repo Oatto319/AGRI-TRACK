@@ -11,7 +11,7 @@ export interface TokenData { sid: string; username: string; role: Role; district
 
 function secret(): string {
   const s = process.env.AUTH_SECRET;
-  if (!s || s.length < 16) throw new Error("ยังไม่ได้ตั้งค่า AUTH_SECRET (อย่างน้อย 16 ตัวอักษร) ใน .env.local — ดู .env.example");
+  if (!s || s.length < 32) throw new Error("ยังไม่ได้ตั้งค่า AUTH_SECRET (อย่างน้อย 32 ตัวอักษร) ใน .env.local — ดู .env.example");
   return s;
 }
 const sign = (payload: string) => createHmac("sha256", secret()).update(payload).digest("base64url");

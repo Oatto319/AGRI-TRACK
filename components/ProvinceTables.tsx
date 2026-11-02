@@ -20,26 +20,26 @@ export function KpiRow({ items }: { items: { icon: React.ReactNode; color: strin
 }
 
 /** ตารางปุ๋ยอินทรีย์รายอำเภอ */
-export function FertTable({ agg, cfg }: { agg: Agg; cfg: AppConfig }) {
+export function FertTable({ agg, cfg, view = "type" }: { agg: Agg; cfg: AppConfig; view?: "type" | "month" }) {
   const FIELDS = cfg.fertFields;
   const rows = agg.rows, sum = (f: (r: (typeof rows)[number]) => number) => rows.reduce((a, r) => a + f(r), 0);
   const total = sum(r => r.total), target = sum(r => r.target), n = agg.months.length;
   return (
     <div className="ux-tw"><table className="ux-table"><thead><tr>
       <th className="sticky">{lb(cfg, "t.district")}</th><th>{lb(cfg, "t.tambon")}</th><th>{lb(cfg, "t.target")}</th>
-      {FIELDS.map(f => <th key={f.key}>{f.label}</th>)}<th>{lb(cfg, "t.total")}</th><th>{lb(cfg, "t.reach")}</th><th>{lb(cfg, "t.sent")}</th><th>{lb(cfg, "t.late")}</th></tr></thead>
+      {view === "month" ? agg.months.map(m => <th key={m}>{thaiMonthShort(m)} (ตัน)</th>) : FIELDS.map(f => <th key={f.key}>{f.label}</th>)}<th>{lb(cfg, "t.total")}</th><th>{lb(cfg, "t.reach")}</th><th>{lb(cfg, "t.sent")}</th><th>{lb(cfg, "t.late")}</th></tr></thead>
       <tbody>{rows.map(r => {
         const pct = r.target ? (r.total / r.target) * 100 : 0;
         return (
           <tr key={r.name}><td className="sticky">{r.name}</td><td>{r.tambon}</td><td>{fmt(r.target)}</td>
-            {FIELDS.map(f => <td key={f.key}>{fmt(r.sums[f.key])}</td>)}
+            {view === "month" ? agg.months.map(m => <td key={m}>{r.byMonth[m] == null ? "–" : fmt(r.byMonth[m] as number)}</td>) : FIELDS.map(f => <td key={f.key}>{fmt(r.sums[f.key])}</td>)}
             <td><b>{fmt(r.total)}</b></td>
             <td><Bar pct={pct} color={pct >= 100 ? "var(--ok)" : "#c09a3a"} /></td>
             <td><span className={`ux-pill ${r.sent === n && n > 0 ? "ok" : r.sent ? "warn" : "bad"}`}>{r.sent}/{n}</span></td>
             <td>{r.late ? <span className="ux-pill bad">{r.late}</span> : "–"}</td></tr>);
       })}</tbody>
       <tfoot><tr><td className="sticky" style={{ background: "#eff3ed" }}>{lb(cfg, "t.sumRow")}</td><td>{fmt(sum(r => r.tambon))}</td><td>{fmt(target)}</td>
-        {FIELDS.map(f => <td key={f.key}>{fmt(sum(r => r.sums[f.key]))}</td>)}<td>{fmt(total)}</td>
+        {view === "month" ? agg.months.map(m => <td key={m}>{fmt(sum(r => r.byMonth[m] ?? 0))}</td>) : FIELDS.map(f => <td key={f.key}>{fmt(sum(r => r.sums[f.key]))}</td>)}<td>{fmt(total)}</td>
         <td>{target ? Math.round((total / target) * 100) : 0}%</td><td></td><td>{sum(r => r.late)}</td></tr></tfoot></table></div>);
 }
 
