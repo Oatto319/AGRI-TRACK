@@ -35,13 +35,15 @@ export default function Shell({ org, role, links, children }:
   return (
     <div className="app">
       <header className="tb">
-        <button ref={burger} className="tb-btn" aria-label="เปิดเมนู" aria-expanded={open} aria-controls="sidebar" onClick={() => setOpenPath(path)}>
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+        <button ref={burger} className="tb-btn" aria-label={open ? "ปิดเมนู" : "เปิดเมนู"} aria-expanded={open} aria-controls="sidebar" onClick={() => setOpenPath(current => current === path ? null : path)}>
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+            {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
+          </svg>
         </button>
         <div><b>{current || org}</b><small>{org}</small></div>
       </header>
 
-      <div className={`sb-scrim${open ? " open" : ""}`} onClick={() => setOpenPath(null)} aria-hidden="true" />
+      <div className={`sb-scrim${open ? " open" : ""}`} onClick={() => { setOpenPath(null); burger.current?.focus(); }} aria-hidden="true" />
       <aside id="sidebar" className={`sb${open ? " open" : ""}`} aria-label="เมนู">
         <div className="sb-brand">
           <span className="sb-logo">{Logo}</span>
