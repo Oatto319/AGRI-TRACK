@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeDb } from "../helpers/fakeMongo";
 import { cookieOf, makeReq, seedUser, PW } from "../helpers/api";
+import { hashPassword } from "@/lib/password";
 
 const fake = vi.hoisted(() => ({ db: null as unknown as ReturnType<typeof import("../helpers/fakeMongo").createFakeDb> }));
 vi.mock("@/lib/mongo", () => ({ db: async () => fake.db }));
@@ -12,16 +13,17 @@ import { GET as getArea } from "@/app/api/area/route";
 import { PUT as putSettings } from "@/app/api/settings/route";
 import { ConflictError, update } from "@/lib/store";
 
-const signIn = async (u: string) => cookieOf(await login(makeReq("/api/login", { method: "POST", body: { username: u, password: PW } })));
+const TEST_PASSWORDS: Record<string, string> = { province: "ProvincePass9", khunhan: PW, phayuha: "AnotherPass8" };
+const signIn = async (username: string) => cookieOf(await login(makeReq("/api/login", { method: "POST", body: { account: username === "province" ? "province" : username === "khunhan" ? "ขุนหาญ" : "พยุห์", password: TEST_PASSWORDS[username] } })));
 let kh: string, ph: string, prov: string;
 const body = (o: Record<string, unknown> = {}) => ({ district: "ขุนหาญ", month: "2026-11", round: 1, values: { manure: "10", compost: "5", crotalaria: "0", cowpea: "0", jackbean: "0", mungbean: "0", othergm: "0", biomass: "0" }, reporter: { name: "สมชาย" }, status: "submitted", ...o });
 const put = (cookie: string, b: unknown) => putReport(makeReq("/api/reports", { method: "PUT", cookie, body: b }));
 
 beforeEach(async () => {
   fake.db.reset(); vi.useRealTimers();
-  await seedUser(fake.db, "province", "province");
+  await seedUser(fake.db, "province", "province", undefined, { hash: await hashPassword(TEST_PASSWORDS.province) });
   await seedUser(fake.db, "khunhan", "district", "ขุนหาญ");
-  await seedUser(fake.db, "phayuha", "district", "พยุห์");
+  await seedUser(fake.db, "phayuha", "district", "พยุห์", { hash: await hashPassword(TEST_PASSWORDS.phayuha) });
   [prov, kh, ph] = [await signIn("province"), await signIn("khunhan"), await signIn("phayuha")];
 });
 

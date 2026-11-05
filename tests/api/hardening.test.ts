@@ -15,7 +15,7 @@ import { PUT as putBurn } from "@/app/api/burn/route";
 import { parseAmount } from "@/lib/data/validate";
 import * as store from "@/lib/store";
 
-const signIn = async () => cookieOf(await login(makeReq("/api/login", { method: "POST", body: { username: "khunhan", password: PW } })));
+const signIn = async () => cookieOf(await login(makeReq("/api/login", { method: "POST", body: { account: "ขุนหาญ", password: PW } })));
 const fert = { manure: "10", compost: "5", crotalaria: "0", cowpea: "0", jackbean: "0", mungbean: "0", othergm: "0", biomass: "0" };
 const repBody = (o: Record<string, unknown> = {}) => ({ district: "ขุนหาญ", month: "2026-11", round: 1, status: "submitted", reporter: { name: "สมชาย" }, values: fert, ...o });
 let kh: string;

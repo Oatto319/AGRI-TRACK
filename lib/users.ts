@@ -29,11 +29,30 @@ async function findUser(username: string): Promise<UserDoc | null> {
   return u;
 }
 
-/** ตรวจชื่อผู้ใช้/รหัสผ่าน — บัญชีที่ถูกปิดใช้งานเข้าไม่ได้ (ตอบเหมือนรหัสผ่านผิด) */
-export async function verifyLogin(username: string, password: string): Promise<PublicUser | null> {
-  const u = await findUser(username.trim().toLowerCase());
-  const ok = await checkPassword(password, u?.hash ?? DUMMY_HASH);
-  if (!u || !ok || u.active === false) return null;
+/** ตัวเลือกใช้จำกัดบัญชีที่ตรวจ; role และสิทธิ์ได้จากข้อมูลบัญชีในฐานข้อมูล */
+export async function verifyAccountLogin(account: string, password: string): Promise<PublicUser | null> {
+  let filter: { role: Role; district?: string };
+  if (account === "province") filter = { role: "province" };
+  else {
+    const district = DISTRICTS.find(d => d.name === account);
+    if (!district) {
+      await checkPassword(password, DUMMY_HASH);
+      return null;
+    }
+    filter = { role: "district", district: district.name };
+  }
+  const rows = await (await users()).find(filter, NO_ID).toArray();
+  if (rows.length === 0) {
+    await checkPassword(password, DUMMY_HASH);
+    return null;
+  }
+  const matches = (await Promise.all(rows.map(async u => {
+    checkRow(u);
+    return await checkPassword(password, u.hash) ? u : null;
+  }))).flatMap(u => u && u.active !== false ? [u] : []);
+  if (matches.length !== 1) return null;
+  const u = matches[0];
+  if (!u) return null;
   const now = new Date().toISOString();
   await (await users()).updateOne({ username: u.username }, { $set: { lastLoginAt: now } });
   return toPublic({ ...u, lastLoginAt: now });
@@ -58,11 +77,12 @@ export async function createUser(input: Record<string, unknown>): Promise<{ user
   const password = input.password === undefined || input.password === "" ? generatePassword() : input.password;
   const pwErr = validatePassword(password, username);
   if (pwErr) throw new UserError(pwErr);
-  const doc: UserDoc = { username, role: input.role, ...(input.role === "district" ? { district: input.district as string } : {}), hash: await hashPassword(password as string),
+  if (typeof password !== "string") throw new UserError("รหัสผ่านไม่ถูกต้อง");
+  const doc: UserDoc = { username, role: input.role, ...(input.role === "district" ? { district: input.district as string } : {}), hash: await hashPassword(password),
     active: true, mustChange: true, createdAt: new Date().toISOString() };
   try { await (await users()).insertOne(doc); }
   catch (e) { if ((e as { code?: number }).code === 11000) throw new UserError("มีชื่อผู้ใช้นี้อยู่แล้ว", 409); throw e; }
-  return { user: toPublic(doc), password: password as string };
+  return { user: toPublic(doc), password };
 }
 
 /** ปิด/เปิดบัญชี หรือรีเซ็ตรหัสผ่าน (สร้างรหัสใหม่ให้และบังคับเปลี่ยนตอนเข้าครั้งหน้า) — กันไม่ให้ปิด/ลดสิทธิ์บัญชีจังหวัดสุดท้าย */
@@ -82,7 +102,6 @@ export async function updateUser(actor: string, input: { username: string; activ
   if (Object.keys(set).length === 0) throw new UserError("ไม่มีข้อมูลที่ต้องแก้ไข");
   await (await users()).updateOne({ username: u.username }, { $set: set });
   if (input.active === false || input.resetPassword) await revokeSessions(u.username); // ออกจากระบบทุกเครื่องทันที
-  if (input.resetPassword) await (await db()).collection("login_attempts").deleteOne({ _id: `user:${u.username}` } as never); // ปลดล็อกการเดารหัสผ่านด้วย
   return { user: toPublic({ ...u, ...set }), ...(password ? { password } : {}) };
 }
 
@@ -92,8 +111,9 @@ export async function changePassword(username: string, current: unknown, next: u
   if (!u || typeof current !== "string" || !(await checkPassword(current, u.hash))) throw new UserError("รหัสผ่านปัจจุบันไม่ถูกต้อง", 403);
   const err = validatePassword(next, username);
   if (err) throw new UserError(err);
+  if (typeof next !== "string") throw new UserError("รหัสผ่านไม่ถูกต้อง");
   if (next === current) throw new UserError("รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม");
-  await (await users()).updateOne({ username }, { $set: { hash: await hashPassword(next as string), mustChange: false } });
+  await (await users()).updateOne({ username }, { $set: { hash: await hashPassword(next), mustChange: false } });
   await revokeSessions(username, keepSid);
 }
 

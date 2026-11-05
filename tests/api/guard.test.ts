@@ -36,7 +36,7 @@ describe("export ต้องล็อกอิน", () => {
     expect((await exportPdf(makeReq("/api/export-pdf?fy=2570"))).status).toBe(401);
   });
   it("ล็อกอินแล้วดาวน์โหลด Excel ได้", async () => {
-    const c = cookieOf(await login(makeReq("/api/login", { method: "POST", body: { username: "province", password: PW } })));
+    const c = cookieOf(await login(makeReq("/api/login", { method: "POST", body: { account: "province", password: PW } })));
     const res = await exportXlsx(makeReq("/api/export?from=2026-11&to=2027-06", { cookie: c }));
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("spreadsheetml");

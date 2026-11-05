@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeDb } from "../helpers/fakeMongo";
 import { PW, cookieOf, makeReq, seedUser } from "../helpers/api";
+import { hashPassword } from "@/lib/password";
 
 const fake = vi.hoisted(() => ({ db: null as unknown as ReturnType<typeof import("../helpers/fakeMongo").createFakeDb> }));
 vi.mock("@/lib/mongo", () => ({ db: async () => fake.db }));
@@ -12,52 +13,62 @@ import { GET as me } from "@/app/api/me/route";
 import { POST as changePw } from "@/app/api/password/route";
 import { GET as settingsGet } from "@/app/api/settings/route";
 
-const doLogin = (username: string, password: string, headers: Record<string, string> = {}) => login(makeReq("/api/login", { method: "POST", body: { username, password }, headers }));
-const signIn = async (u: string) => cookieOf(await doLogin(u, PW));
+const PROVINCE_PW = "ProvincePass9";
+const DISTRICT_PW = PW;
+const doLogin = (account: string, password: string, headers: Record<string, string> = {}) => login(makeReq("/api/login", { method: "POST", body: { account, password }, headers }));
+const signIn = async (username: string) => cookieOf(await doLogin(username === "province" ? "province" : "ขุนหาญ", username === "province" ? PROVINCE_PW : DISTRICT_PW));
 
 beforeEach(async () => {
   fake.db.reset();
-  await seedUser(fake.db, "province", "province");
-  await seedUser(fake.db, "khunhan", "district", "ขุนหาญ");
+  await seedUser(fake.db, "province", "province", undefined, { hash: await hashPassword(PROVINCE_PW) });
+  await seedUser(fake.db, "khunhan", "district", "ขุนหาญ", { hash: await hashPassword(DISTRICT_PW) });
 });
 
 describe("เข้าสู่ระบบ", () => {
-  it("สำเร็จแล้วได้ cookie ที่ httpOnly และ role จากฐานข้อมูล", async () => {
-    const res = await doLogin("khunhan", PW);
+  it("เลือกอำเภอและใช้รหัสผ่านแล้วได้ cookie ที่ httpOnly และ role จากฐานข้อมูล", async () => {
+    const res = await doLogin("ขุนหาญ", DISTRICT_PW);
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ role: "district", district: "ขุนหาญ", mustChange: false });
     expect(res.headers.get("set-cookie")).toMatch(/HttpOnly/i);
   });
-  it("ชื่อผู้ใช้ไม่สนตัวพิมพ์เล็ก/ใหญ่ ส่วนรหัสผิดได้ 401 ข้อความเดียวกับไม่พบผู้ใช้", async () => {
-    expect((await doLogin("KHUNHAN", PW)).status).toBe(200);
-    const bad = await doLogin("khunhan", "ผิด1234"), ghost = await doLogin("nobody", "ผิด1234");
-    expect(bad.status).toBe(401);
-    expect(await bad.json()).toEqual(await ghost.json());
+  it("รหัสผ่านของจังหวัดเข้าสู่บัญชีจังหวัด และรหัสผิดได้ 401", async () => {
+    expect(await (await doLogin("province", PROVINCE_PW)).json()).toEqual({ role: "province", mustChange: false });
+    expect((await doLogin("ขุนหาญ", "ผิด1234")).status).toBe(401);
+  });
+  it("ต้องเลือกหน่วยงาน และตัวเลือกที่ไม่อยู่ในรายการเข้าสู่ระบบไม่ได้", async () => {
+    expect((await login(makeReq("/api/login", { method: "POST", body: { password: DISTRICT_PW } }))).status).toBe(400);
+    expect((await doLogin("อำเภอปลอม", DISTRICT_PW)).status).toBe(401);
+  });
+  it("รหัสผ่านเดียวกันใช้เข้าคนละบัญชีได้ตามหน่วยงานที่เลือก", async () => {
+    const district = await fake.db.collection("app_users").findOne({ username: "khunhan" });
+    await fake.db.collection("app_users").updateOne({ username: "province" }, { $set: { hash: district!.hash } });
+    expect(await (await doLogin("province", DISTRICT_PW)).json()).toMatchObject({ role: "province" });
+    expect(await (await doLogin("ขุนหาญ", DISTRICT_PW)).json()).toMatchObject({ role: "district", district: "ขุนหาญ" });
   });
   it("บัญชีที่ถูกปิดใช้งานเข้าไม่ได้", async () => {
     await fake.db.collection("app_users").updateOne({ username: "khunhan" }, { $set: { active: false } });
-    expect((await doLogin("khunhan", PW)).status).toBe(401);
+    expect((await doLogin("ขุนหาญ", DISTRICT_PW)).status).toBe(401);
   });
-  it("ผิดครบ 5 ครั้งถูกล็อก (429 + Retry-After) แม้ครั้งที่ 6 รหัสจะถูก", async () => {
-    for (let i = 0; i < 5; i++) expect((await doLogin("khunhan", "ผิด1234")).status).toBe(401);
-    const locked = await doLogin("khunhan", PW);
+  it("ผิดครบจำนวนครั้งที่กำหนดถูกล็อก (429 + Retry-After) แม้รหัสจะถูก", async () => {
+    for (let i = 0; i < 30; i++) expect((await doLogin("ขุนหาญ", "ผิด1234")).status).toBe(401);
+    const locked = await doLogin("ขุนหาญ", DISTRICT_PW);
     expect(locked.status).toBe(429);
     expect(Number(locked.headers.get("retry-after"))).toBeGreaterThan(0);
   });
   it("ล็อกอินสำเร็จล้างตัวนับความผิดพลาด", async () => {
-    for (let i = 0; i < 4; i++) await doLogin("khunhan", "ผิด1234");
-    expect((await doLogin("khunhan", PW)).status).toBe(200);
-    for (let i = 0; i < 4; i++) expect((await doLogin("khunhan", "ผิด1234")).status).toBe(401);
+    for (let i = 0; i < 29; i++) await doLogin("ขุนหาญ", "ผิด1234");
+    expect((await doLogin("ขุนหาญ", DISTRICT_PW)).status).toBe(200);
+    for (let i = 0; i < 29; i++) expect((await doLogin("ขุนหาญ", "ผิด1234")).status).toBe(401);
   });
   it("ไม่ส่งข้อความ error ภายในของฐานข้อมูลให้ผู้ใช้", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(fake.db, "collection").mockImplementation(() => { throw new Error("mongodb://secret-host:27017 refused"); });
-    const res = await doLogin("khunhan", PW);
+    const res = await doLogin("ขุนหาญ", DISTRICT_PW);
     expect(res.status).toBe(500);
     expect(JSON.stringify(await res.json())).not.toContain("secret-host");
   });
   it("ปฏิเสธคำขอข้ามเว็บ (Origin ไม่ตรง Host)", async () => {
-    const res = await doLogin("khunhan", PW, { origin: "https://evil.example", host: "localhost" });
+    const res = await doLogin("ขุนหาญ", DISTRICT_PW, { origin: "https://evil.example", host: "localhost" });
     expect(res.status).toBe(403);
   });
 });
@@ -98,7 +109,7 @@ describe("บังคับเปลี่ยนรหัสผ่านคร�
     expect(res.status).toBe(200);
     expect((await settingsGet(makeReq("/api/settings", { cookie: c1 }))).status).toBe(200);
     expect((await me(makeReq("/api/me", { cookie: c2 }))).status).toBe(401);
-    expect((await doLogin("khunhan", "NewPassw0rd9")).status).toBe(200);
+    expect((await doLogin("ขุนหาญ", "NewPassw0rd9")).status).toBe(200);
   });
   it("ปฏิเสธรหัสเดิมผิด / รหัสใหม่อ่อน / รหัสใหม่ซ้ำเดิม", async () => {
     const c = await signIn("khunhan");
@@ -106,6 +117,7 @@ describe("บังคับเปลี่ยนรหัสผ่านคร�
     expect((await post({ current: "ผิด1234", next: "NewPassw0rd9" })).status).toBe(403);
     expect((await post({ current: PW, next: "short" })).status).toBe(400);
     expect((await post({ current: PW, next: PW })).status).toBe(400);
+    expect((await post({ current: PW, next: PROVINCE_PW })).status).toBe(200);
   });
 });
 

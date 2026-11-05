@@ -2,12 +2,13 @@
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useState } from "react";
+import { DISTRICTS } from "@/lib/data";
 
 const ic = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
 
 export default function Login() {
   const router = useRouter();
-  const [user, setUser] = useState("");
+  const [account, setAccount] = useState("");
   const [pass, setPass] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
@@ -15,10 +16,10 @@ export default function Login() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !pass) return setError("กรอกชื่อผู้ใช้และรหัสผ่านให้ครบ");
+    if (!account || !pass) return setError("เลือกหน่วยงานและกรอกรหัสผ่านให้ครบ");
     setBusy(true); setError("");
     try {
-      const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: user, password: pass }) });
+      const res = await fetch("/api/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ account, password: pass }) });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return setError(data.error ?? `เข้าสู่ระบบไม่สำเร็จ (เซิร์ฟเวอร์ตอบ ${res.status} — ดู error ใน terminal)`);
       if (data.mustChange) return router.push("/change-password"); // บัญชีใหม่/ถูกรีเซ็ตรหัส ต้องตั้งรหัสผ่านเองก่อน
@@ -47,13 +48,17 @@ export default function Login() {
       <section className="lgx-form">
         <form className="lgx-card" onSubmit={submit} noValidate>
           <h2>เข้าสู่ระบบ</h2>
-          <p>ใช้ชื่อผู้ใช้และรหัสผ่านที่สำนักงานเกษตรจังหวัดมอบให้</p>
-          <div className="lgx-f"><label htmlFor="u">ชื่อผู้ใช้</label>
-            <div className="lgx-in"><svg {...ic}><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
-              <input id="u" type="text" value={user} onChange={e => setUser(e.target.value)} autoComplete="username" placeholder="เช่น ชื่ออำเภอหรือ province" /></div></div>
+          <p>เลือกหน่วยงาน แล้วกรอกรหัสผ่านที่ได้รับจากสำนักงาน</p>
+          <div className="lgx-f"><label htmlFor="account">อำเภอ / หน่วยงาน</label>
+            <div className="lgx-in"><svg {...ic}><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" /><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01" /></svg>
+              <select id="account" value={account} onChange={e => setAccount(e.target.value)} autoComplete="organization" required>
+                <option value="">เลือกอำเภอ / หน่วยงาน</option>
+                {DISTRICTS.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                <option value="province">จังหวัดศรีสะเกษ</option>
+              </select></div></div>
           <div className="lgx-f"><label htmlFor="p">รหัสผ่าน</label>
             <div className="lgx-in"><svg {...ic}><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
-              <input id="p" type={show ? "text" : "password"} value={pass} onChange={e => setPass(e.target.value)} autoComplete="current-password" />
+              <input id="p" type={show ? "text" : "password"} value={pass} onChange={e => setPass(e.target.value)} autoComplete="current-password" placeholder="กรอกรหัสผ่าน" />
               <button type="button" className="lgx-eye" aria-label={show ? "ซ่อนรหัสผ่าน" : "แสดงรหัสผ่าน"} onClick={() => setShow(!show)}>
                 <svg {...ic}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" />{show && <path d="M3 3l18 18" />}</svg></button></div></div>
           {error && <p className="lgx-err" role="alert">{error}</p>}

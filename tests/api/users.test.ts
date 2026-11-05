@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createFakeDb } from "../helpers/fakeMongo";
 import { PW, cookieOf, makeReq, seedUser } from "../helpers/api";
+import { hashPassword } from "@/lib/password";
 
 const fake = vi.hoisted(() => ({ db: null as unknown as ReturnType<typeof import("../helpers/fakeMongo").createFakeDb> }));
 vi.mock("@/lib/mongo", () => ({ db: async () => fake.db }));
@@ -11,16 +12,17 @@ import { POST as login } from "@/app/api/login/route";
 import { GET as me } from "@/app/api/me/route";
 import { GET as listU, PATCH as patchU, POST as postU } from "@/app/api/users/route";
 
-const signIn = async (u: string, pw = PW) => login(makeReq("/api/login", { method: "POST", body: { username: u, password: pw } }));
+const PROVINCE_PW = "ProvincePass9";
+const signIn = async (account = "ขุนหาญ", pw = PW) => login(makeReq("/api/login", { method: "POST", body: { account, password: pw } }));
 let prov: string, kh: string;
 const call = (fn: (req: NextRequest) => Promise<Response>, method: string, cookie: string, body?: unknown) => fn(makeReq("/api/users", { method, cookie, body }));
 
 beforeEach(async () => {
   fake.db.reset();
   await fake.db.collection("app_users").createIndex({ username: 1 }, { unique: true }); // เหมือน lib/mongo.ts
-  await seedUser(fake.db, "province", "province");
+  await seedUser(fake.db, "province", "province", undefined, { hash: await hashPassword(PROVINCE_PW) });
   await seedUser(fake.db, "khunhan", "district", "ขุนหาญ");
-  [prov, kh] = [cookieOf(await signIn("province")), cookieOf(await signIn("khunhan"))];
+  [prov, kh] = [cookieOf(await signIn("province", PROVINCE_PW)), cookieOf(await signIn())];
 });
 
 describe("จัดการผู้ใช้ (จังหวัดเท่านั้น)", () => {
@@ -40,7 +42,7 @@ describe("จัดการผู้ใช้ (จังหวัดเท่�
     const { user, password } = await res.json();
     expect(user).toMatchObject({ username: "phayuha", role: "district", district: "พยุห์", active: true, mustChange: true });
     expect(password).toMatch(/^[A-Za-z0-9]{12}$/);
-    const lr = await signIn("phayuha", password);
+    const lr = await signIn("พยุห์", password);
     expect(await lr.json()).toMatchObject({ mustChange: true });
     expect(await (await call(listU, "GET", prov)).text()).not.toContain(password); // ไม่เก็บ/ไม่ส่งซ้ำ
   });
@@ -53,16 +55,17 @@ describe("จัดการผู้ใช้ (จังหวัดเท่�
   it("ปิดบัญชี: ผู้ใช้ที่ล็อกอินค้างอยู่ถูกตัดออกทันที และเปิดกลับมาได้", async () => {
     expect((await call(patchU, "PATCH", prov, { username: "khunhan", active: false })).status).toBe(200);
     expect((await me(makeReq("/api/me", { cookie: kh }))).status).toBe(401);
-    expect((await signIn("khunhan")).status).toBe(401);
+    expect((await signIn()).status).toBe(401);
     await call(patchU, "PATCH", prov, { username: "khunhan", active: true });
-    expect((await signIn("khunhan")).status).toBe(200);
+    expect((await signIn()).status).toBe(200);
   });
-  it("รีเซ็ตรหัสผ่าน: ได้รหัสใหม่ รหัสเก่าใช้ไม่ได้ ปลดล็อกการเดารหัส และบังคับเปลี่ยน", async () => {
-    for (let i = 0; i < 5; i++) await signIn("khunhan", "ผิด1234"); // ถูกล็อก
-    expect((await signIn("khunhan")).status).toBe(429);
+  it("รีเซ็ตรหัสผ่าน: ได้รหัสใหม่ และบังคับเปลี่ยน (การล็อกตาม IP ยังคงอยู่)", async () => {
+    for (let i = 0; i < 30; i++) await signIn("ขุนหาญ", "ผิด1234");
+    expect((await signIn()).status).toBe(429);
     const { password } = await (await call(patchU, "PATCH", prov, { username: "khunhan", resetPassword: true })).json();
-    expect((await signIn("khunhan")).status).toBe(401);
-    const ok = await signIn("khunhan", password);
+    expect((await signIn("ขุนหาญ", password)).status).toBe(429);
+    await fake.db.collection("login_attempts").deleteOne({ _id: "ip:unknown" }); // จำลองหมดเวลาล็อก IP
+    const ok = await signIn("ขุนหาญ", password);
     expect(ok.status).toBe(200);
     expect((await ok.json()).mustChange).toBe(true);
   });
