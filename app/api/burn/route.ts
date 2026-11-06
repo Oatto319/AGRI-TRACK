@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { DISTRICTS, bkkDate, cfgOfMonth, dueDateOf, dueDaysFor, type BurnReport } from "@/lib/data";
 import { REPORTER_MAX, parseAmount } from "@/lib/data/validate"; // import ตรงจากไฟล์ เพื่อไม่ขึ้นกับการ resolve ของ "@/lib/data"
 import { forbidden, requireSession } from "@/lib/auth";
+import { writeLock } from "@/lib/retention-guard";
 import { ConflictError, RejectError, readBurnAll, readSettings, updateBurn } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
@@ -25,6 +26,8 @@ export async function PUT(req: NextRequest) {
   const auth = await requireSession(req);
   if ("res" in auth) return auth.res;
   if (auth.session.role !== "district") return NextResponse.json({ error: "เฉพาะเจ้าหน้าที่อำเภอเท่านั้นที่กรอกรายงานได้" }, { status: 403 });
+  const lock = await writeLock(auth.session.role);
+  if (lock) return lock;
   let body: unknown;
   try { body = await req.json(); } catch { return bad("ข้อมูลไม่ถูกต้อง"); }
   if (!isRecord(body)) return bad("ข้อมูลไม่ถูกต้อง");

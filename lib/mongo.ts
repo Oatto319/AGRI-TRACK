@@ -64,6 +64,9 @@ export async function db(): Promise<Db> {
     database.collection("reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true }),
     database.collection("area_reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true }),
     database.collection("burn_reports").createIndex({ district: 1, month: 1, round: 1 }, { unique: true }),
+    database.collection("reports").createIndex({ month: 1 }), // ใช้ตรวจข้อมูลที่หลุดกรอบ 5 ปีอย่างเร็ว (lib/archive.ts)
+    database.collection("area_reports").createIndex({ month: 1 }),
+    database.collection("burn_reports").createIndex({ month: 1 }),
     database.collection("app_users").createIndex({ username: 1 }, { unique: true }),
     database.collection("sessions").createIndex({ exp: 1 }, { expireAfterSeconds: 0 }), // session หมดอายุแล้วลบเอง
     database.collection("login_attempts").createIndex({ expireAt: 1 }, { expireAfterSeconds: 0 }),

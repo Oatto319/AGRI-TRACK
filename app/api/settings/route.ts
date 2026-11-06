@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, connection } from "next/server";
 import { validateAreaSets, validateAreaTotals, validateConfig, validateDueDays, validateSchedules, validateTambonSets } from "@/lib/data";
 import { forbidden, requireSession } from "@/lib/auth";
+import { writeLock } from "@/lib/retention-guard";
 import { readSettings, writeSettings } from "@/lib/store";
 
 const bad = (m: string) => NextResponse.json({ error: m }, { status: 400 });
@@ -19,6 +20,8 @@ export async function PUT(req: NextRequest) {
   const auth = await requireSession(req);
   if ("res" in auth) return auth.res;
   if (auth.session.role !== "province") return forbidden("เฉพาะเจ้าหน้าที่จังหวัดเท่านั้นที่แก้ไขการตั้งค่าได้");
+  const lock = await writeLock(auth.session.role);
+  if (lock) return lock;
   let body: unknown;
   try { body = await req.json(); } catch { return bad("ข้อมูลไม่ถูกต้อง"); }
   if (typeof body !== "object" || body === null || Array.isArray(body)) return bad("ข้อมูลไม่ถูกต้อง");
