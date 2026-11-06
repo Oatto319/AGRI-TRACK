@@ -33,7 +33,9 @@ export async function GET(req: NextRequest) {
       body = await buildWorkbook(reports, from, to, dueDaysFor(settings, "fert", to).length, area, areaTotalsFor(settings, to), burn, dueDaysFor(settings, "burn", to).length, cfgOfMonth(settings, to));
       type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"; name = `agri-track-archive-fy${fy}.xlsx`;
     }
-    await logExport({ fy, format, by: auth.session.username, counts, bytes: Buffer.byteLength(body), sha256: fingerprint(body) });
+    const dataSha256 = inv.snapshots.get(fy);
+    if (!dataSha256) throw new Error(`Missing archive snapshot for fiscal year ${fy}`);
+    await logExport({ fy, format, by: auth.session.username, counts, bytes: Buffer.byteLength(body), sha256: fingerprint(body), dataSha256 });
     return new Response(typeof body === "string" ? body : new Uint8Array(body), { headers: { "Content-Type": type, "Content-Disposition": `attachment; filename="${name}"`, "Cache-Control": "no-store" } });
   } catch (e) {
     console.error("[archive-export]", e);

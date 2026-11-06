@@ -16,7 +16,7 @@ export default function RetentionBanner({ role }: { role: "province" | "district
   const load = useCallback(() => {
     fetch("/api/archive").then(r => (r.ok ? r.json() : null)).then((d: S | null) => setS(d && typeof d.level === "string" ? { level: d.level, message: d.message ?? "" } : null)).catch(() => setS(null));
   }, []);
-  useEffect(() => { load(); }, [load, path]); // eslint-disable-line react-hooks/set-state-in-effect -- โหลดสถานะตอนเปลี่ยนหน้า
+  useEffect(() => { load(); }, [load, path]);
   useEffect(() => { window.addEventListener(RETENTION_REFRESH, load); return () => window.removeEventListener(RETENTION_REFRESH, load); }, [load]);
   const locked = s?.level === "locked", onArchive = path === ARCHIVE_PATH;
   useEffect(() => { if (role === "province" && locked && !onArchive) router.replace(ARCHIVE_PATH); }, [role, locked, onArchive, router]);

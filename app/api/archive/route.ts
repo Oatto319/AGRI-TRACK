@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse, connection } from "next/server";
 import { forbidden, requireSession } from "@/lib/auth";
-import { getRetentionStatus, purgeFy, readExportLogs } from "@/lib/archive";
+import { ArchiveChangedError, getRetentionStatus, purgeFy, readExportLogs } from "@/lib/archive";
 import { RETENTION_YEARS, WARN_DAYS } from "@/lib/retention";
 
 const bad = (m: string, status = 400) => NextResponse.json({ error: m }, { status, headers: { "Cache-Control": "no-store" } });
@@ -41,9 +41,11 @@ export async function POST(req: NextRequest) {
     if (!item) return bad("ไม่พบข้อมูลของปีงบประมาณนี้", 404);
     if (!item.expired) return bad(`ปีงบประมาณ ${fy} ยังอยู่ในกรอบการเก็บ ${RETENTION_YEARS} ปี ลบไม่ได้`);
     if (!item.purgeReady) return bad("ต้อง export ทั้งไฟล์ Excel และ JSON ของปีนี้ให้ครบ (และข้อมูลต้องไม่เปลี่ยนหลัง export) ก่อนจึงจะลบได้");
-    const { deleted } = await purgeFy(fy, auth.session.username);
+    if (!item.snapshotSha256) return bad("ไม่พบข้อมูลยืนยันชุดสำรอง กรุณา export ใหม่ทั้ง Excel และ JSON");
+    const { deleted } = await purgeFy(fy, auth.session.username, item.snapshotSha256);
     return NextResponse.json({ ok: true, fy, deleted }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
+    if (e instanceof ArchiveChangedError) return bad("ข้อมูลเปลี่ยนหลังสำรอง กรุณา export ทั้งไฟล์ Excel และ JSON ใหม่ก่อนลบ", 409);
     console.error("[archive-purge]", e);
     return bad("ลบข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง", 500);
   }

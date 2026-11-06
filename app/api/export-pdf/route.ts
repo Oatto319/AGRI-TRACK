@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { requireSession } from "@/lib/auth";
+import { forbidden, requireSession } from "@/lib/auth";
 import { readAll, readAreaAll, readBurnAll, readSettings } from "@/lib/store";
 import { buildPdf } from "@/lib/pdf";
 
@@ -7,6 +7,7 @@ import { buildPdf } from "@/lib/pdf";
 export async function GET(req: NextRequest) {
   const auth = await requireSession(req);
   if ("res" in auth) return auth.res;
+  if (auth.session.role !== "province") return forbidden("เฉพาะเจ้าหน้าที่จังหวัดเท่านั้นที่ export ข้อมูลได้");
   const fy = Number(req.nextUrl.searchParams.get("fy"));
   if (!Number.isInteger(fy) || fy < 2500 || fy > 2700) return new Response("ปีงบประมาณไม่ถูกต้อง", { status: 400 });
   try {

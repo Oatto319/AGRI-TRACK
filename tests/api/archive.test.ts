@@ -12,6 +12,7 @@ import { PUT as putReport } from "@/app/api/reports/route";
 import { PUT as putSettings } from "@/app/api/settings/route";
 import { GET as getArchive, POST as postArchive } from "@/app/api/archive/route";
 import { GET as exportArchive } from "@/app/api/archive/export/route";
+import { ArchiveChangedError, fyInventory, purgeFy } from "@/lib/archive";
 
 const row = (month: string) => ({ district: "ขุนหาญ", month, round: 1, status: "submitted", reporter: { name: "สมชาย", position: "", phone: "" }, amounts: { manure: 10 }, updated_at: "2022-01-05T00:00:00.000Z", submitted_at: "2022-01-05T00:00:00.000Z", due_date: "2022-01-31", late: false, version: 1 });
 const rep = { district: "ขุนหาญ", month: "2026-11", round: 1, status: "submitted", reporter: { name: "สมชาย" }, values: { manure: "10", compost: "0", crotalaria: "0", cowpea: "0", jackbean: "0", mungbean: "0", othergm: "0", biomass: "0" } };
@@ -65,6 +66,31 @@ describe("เก็บข้อมูล 5 ปี + บังคับ export", 
     await exportArchive(makeReq("/api/archive/export?fy=2570&format=xlsx", { cookie: prov }));
     await exportArchive(makeReq("/api/archive/export?fy=2570&format=json", { cookie: prov }));
     expect((await purge({ action: "purge", fy: 2570, confirm: "2570" })).status).toBe(400);
+  });
+  it("แก้ข้อมูลเดิมจำนวนเท่าเดิมหลัง export แล้วต้องสำรองใหม่ก่อนลบ", async () => {
+    const purge = (b: unknown) => postArchive(makeReq("/api/archive", { method: "POST", cookie: prov, body: b }));
+    await exportArchive(makeReq("/api/archive/export?fy=2565&format=xlsx", { cookie: prov }));
+    await exportArchive(makeReq("/api/archive/export?fy=2565&format=json", { cookie: prov }));
+    await fake.db.collection("reports").updateOne({ month: "2021-12" }, { $set: { amounts: { manure: 999 } }, $inc: { version: 1 } });
+
+    const status = await (await getArchive(makeReq("/api/archive", { cookie: prov }))).json();
+    expect(status.level).toBe("locked");
+    expect(status.items[0]).toMatchObject({ fy: 2565, counts: { reports: 2 }, purgeReady: false });
+    expect((await purge({ action: "purge", fy: 2565, confirm: "2565" })).status).toBe(400);
+    expect(await fake.db.collection("reports").countDocuments({})).toBe(2);
+  });
+  it("ไม่ลบแถวที่เปลี่ยนระหว่างตรวจ snapshot กับลบ", async () => {
+    const { snapshots } = await fyInventory();
+    const reports = fake.db.collection("reports");
+    const deleteOne = reports.deleteOne.bind(reports);
+    vi.spyOn(reports, "deleteOne").mockImplementationOnce(async filter => {
+      await reports.updateOne({ month: "2021-12" }, { $set: { amounts: { manure: 999 } }, $inc: { version: 1 } });
+      return deleteOne(filter);
+    });
+
+    await expect(purgeFy(2565, "province", snapshots.get(2565)!)).rejects.toBeInstanceOf(ArchiveChangedError);
+    expect(await reports.countDocuments({})).toBe(2);
+    expect((await reports.findOne({ month: "2021-12" }))?.amounts).toEqual({ manure: 999 });
   });
   it("ไม่มีข้อมูลหลุดกรอบ = ไม่ล็อก", async () => {
     fake.db.collection("reports").docs = [];

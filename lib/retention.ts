@@ -24,11 +24,12 @@ export const totalOf = (c: Counts) => c.reports + c.area + c.burn;
 const sameCounts = (a: Counts, b: Counts) => a.reports === b.reports && a.area === b.area && a.burn === b.burn;
 
 export type ExportFormat = "xlsx" | "json";
-export interface ExportRecord { fy: number; format: ExportFormat; at: string; by: string; counts: Counts; bytes?: number; sha256?: string }
+export interface ExportRecord { fy: number; format: ExportFormat; at: string; by: string; counts: Counts; bytes?: number; sha256?: string; dataSha256?: string }
 
 export type Level = "ok" | "warn" | "locked";
 export interface FyItem {
   fy: number; counts: Counts; total: number; expired: boolean;
+  snapshotSha256?: string;
   xlsxAt?: string; jsonAt?: string; // เวลา export ล่าสุดที่จำนวนรายการยังตรงกับข้อมูลปัจจุบัน (ถ้าข้อมูลเปลี่ยนหลัง export ถือว่ายังไม่ได้ export)
   exported: boolean;   // มีไฟล์ Excel ที่ตรงกับข้อมูลปัจจุบัน → ปลดล็อกได้
   purgeReady: boolean; // มีทั้ง Excel และ JSON ที่ตรงกับข้อมูลปัจจุบัน → ลบข้อมูลเก่าได้
@@ -41,14 +42,15 @@ export interface RetentionStatus {
   message: string;
 }
 
-const latest = (logs: ExportRecord[], fy: number, format: ExportFormat, counts: Counts) =>
-  logs.filter(l => l.fy === fy && l.format === format && sameCounts(l.counts, counts)).map(l => l.at).sort().pop();
+const latest = (logs: ExportRecord[], fy: number, format: ExportFormat, counts: Counts, snapshotSha256?: string) =>
+  logs.filter(l => l.fy === fy && l.format === format && sameCounts(l.counts, counts) && !!snapshotSha256 && l.dataSha256 === snapshotSha256).map(l => l.at).sort().pop();
 
-export function computeStatus(today: string, counts: Map<number, Counts>, logs: ExportRecord[]): RetentionStatus {
+export function computeStatus(today: string, counts: Map<number, Counts>, logs: ExportRecord[], snapshots: Map<number, string>): RetentionStatus {
   const currentFy = budgetYearOfDate(today), rolloverDate = nextRolloverDate(currentFy), daysToRollover = daysBetween(today, rolloverDate);
   const items: FyItem[] = [...counts.entries()].filter(([, c]) => totalOf(c) > 0).sort((a, b) => a[0] - b[0]).map(([fy, c]) => {
-    const xlsxAt = latest(logs, fy, "xlsx", c), jsonAt = latest(logs, fy, "json", c);
-    return { fy, counts: c, total: totalOf(c), expired: isExpiredFy(fy, currentFy), ...(xlsxAt ? { xlsxAt } : {}), ...(jsonAt ? { jsonAt } : {}), exported: !!xlsxAt, purgeReady: !!xlsxAt && !!jsonAt };
+    const snapshotSha256 = snapshots.get(fy);
+    const xlsxAt = latest(logs, fy, "xlsx", c, snapshotSha256), jsonAt = latest(logs, fy, "json", c, snapshotSha256);
+    return { fy, counts: c, total: totalOf(c), expired: isExpiredFy(fy, currentFy), ...(snapshotSha256 ? { snapshotSha256 } : {}), ...(xlsxAt ? { xlsxAt } : {}), ...(jsonAt ? { jsonAt } : {}), exported: !!xlsxAt, purgeReady: !!xlsxAt && !!jsonAt };
   });
   const blocking = items.filter(i => i.expired && !i.exported).map(i => i.fy);
   const oldest = oldestKeptFy(currentFy), next = items.find(i => i.fy === oldest);

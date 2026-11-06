@@ -2,9 +2,15 @@ import { NextResponse } from "next/server";
 import { lockedStatus } from "./archive";
 import type { Role } from "./users";
 
-/** ใช้ที่ต้นของทุก API ที่บันทึกข้อมูล: ถ้าระบบถูกล็อกเพราะยังไม่ export ข้อมูลที่หลุดกรอบ 5 ปี คืน HTTP 423 พร้อมข้อความ (ไม่ล็อก = คืน null) */
+/** ใช้ที่ต้นของทุก API ที่บันทึกข้อมูล: คืน 423 เมื่อล็อก, 500 เมื่อตรวจสถานะไม่ได้, หรือ null เมื่อเขียนได้ */
 export async function writeLock(role: Role): Promise<NextResponse | null> {
-  const s = await lockedStatus();
+  let s: Awaited<ReturnType<typeof lockedStatus>>;
+  try {
+    s = await lockedStatus();
+  } catch (e) {
+    console.error("[retention-guard]", e);
+    return NextResponse.json({ error: "ตรวจสถานะการเก็บข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" }, { status: 500, headers: { "Cache-Control": "no-store" } });
+  }
   if (!s) return null;
   const error = role === "province"
     ? `${s.message} — ไปที่เมนู "สำรองข้อมูล" เพื่อ export`
