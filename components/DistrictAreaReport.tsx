@@ -1,17 +1,18 @@
 "use client";
-import { startTransition, useEffect, useState } from "react";
-import { DEFAULT_SETTINGS, MAX_ROUNDS, cfgOfMonth, lbx, baleValue, strawBales, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, fiscalRange, fiscalYearOf, fiscalYearOptions, cfgOf, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, thaiMonthShort, type AreaReport, type Reporter, type Settings } from "@/lib/data";
+import { startTransition, useEffect, useRef, useState } from "react";
+import { DEFAULT_SETTINGS, MAX_ROUNDS, cfgOfMonth, lbx, baleValue, strawBales, areaPct, areaSeasonOf, areaTarget, effectiveTotal, bkkDate, areaTotalsFor, currentMonth, dueDateOf, dueDaysFor, isAreaMonth, nearestAreaMonth, fiscalRange, fiscalYearOf, fiscalYearOptions, cfgOf, strawTons, strawValue, thaiDateTime, thaiMonth, thaiMonthShort, type AreaReport, type Reporter, type Settings } from "@/lib/data";
 import { useDistrict } from "@/components/District";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { detectAnomalies } from "@/lib/anomaly";
 import { monthsBetween } from "@/lib/summary";
-import { DueBanner, I, NumField, PageHead, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
+import { DueBanner, I, NumField, ReadField, RoundTabs, Step, StatusPill, TextField } from "@/components/Entry";
+import { PeriodBar, SubmitCard, SuccessCard, putReport, sigOf, useAutosave, type FormProps } from "@/components/ReportKit";
 
 const toStr = (v: AreaReport["values"]) => Object.fromEntries(Object.entries(v).map(([k, n]) => [k, String(n)]));
 const load = async <T,>(url: string) => { const r = await fetch(url); if (!r.ok) throw new Error("โหลดไม่สำเร็จ"); return (await r.json()) as T; };
 const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
 
-export default function DistrictAreaReport() {
+export default function DistrictAreaReport({ onSwitch, onPeriod }: FormProps) {
   const { district } = useDistrict();
   const confirm = useConfirm();
   const [month, setMonth] = useState("");
@@ -24,6 +25,8 @@ export default function DistrictAreaReport() {
   const [rep, setRep] = useState<Reporter>({ name: "", position: "", phone: "" });
   const [msg, setMsg] = useState<{ t: string; bad?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sent, setSent] = useState<AreaReport | null>(null); // รายงานที่เพิ่งส่ง → แสดงหน้ายืนยัน
+  const skipReset = useRef(false); // บันทึกร่างอัตโนมัติเสร็จแล้ว ไม่ต้องเขียนทับสิ่งที่กำลังพิมพ์
 
   const dueDays = dueDaysFor(settings, "area", month), rounds = dueDays.length, rd = Math.min(round, rounds);
   const rec = all.find(x => x.month === month && x.round === rd);
@@ -67,7 +70,9 @@ export default function DistrictAreaReport() {
       .then(([reports, st]) => { setAll(reports); setSettings(st); })
       .catch(() => setMsg({ t: "ไม่สามารถโหลดข้อมูลได้ กรุณาลองใหม่อีกครั้ง", bad: true }));
   }, [district]);
+  useEffect(() => { if (month) onPeriod(month, rd); }, [month, rd, onPeriod]);
   useEffect(() => {
+    if (skipReset.current) { skipReset.current = false; return; }
     const last = [...all].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
     startTransition(() => {
       setVals(rec ? toStr(rec.values) : {});
@@ -79,27 +84,22 @@ export default function DistrictAreaReport() {
   const anomalies = detectAnomalies({
     values: vals.area !== undefined && vals.area !== "" ? { area: Number(vals.area) } : {}, history: earlier.map(x => ({ area: x.values.area ?? 0 })), fields: [{ key: "area", label: "พื้นที่ไถกลบฟางข้าว" }], unit: "ไร่",
   });
-  async function save(s: "draft" | "submitted") {
-    if (s === "submitted" && anomalies.length && !(await confirm({ title: "มีค่าที่อาจผิดปกติ", message: `${anomalies.map(a => "• " + a.message).join("\n")}\n\nตรวจแล้วถูกต้องและต้องการส่งต่อใช่หรือไม่?`, confirmLabel: "ถูกต้อง ส่งรายงาน", cancelLabel: "กลับไปตรวจ" }))) return;
+  const body = (status: "draft" | "submitted") => ({ district, month, round: rd, values: vals, reporter: { name: rep.name }, status });
+  async function submit() {
+    if (anomalies.length && !(await confirm({ title: "มีค่าที่อาจผิดปกติ", message: `${anomalies.map(a => "• " + a.message).join("\n")}\n\nตรวจแล้วถูกต้องและต้องการส่งต่อใช่หรือไม่?`, confirmLabel: "ถูกต้อง ส่งรายงาน", cancelLabel: "กลับไปตรวจ" }))) return;
     setBusy(true); setMsg(null);
-    try {
-      const response = await fetch("/api/area", { method: "PUT", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ district, month, round: rd, values: vals, reporter: { name: rep.name }, status: s }) });
-      const data: unknown = await response.json();
-      if (!response.ok) {
-        setMsg({ t: typeof data === "object" && data !== null && "error" in data && typeof data.error === "string" ? data.error : "บันทึกไม่สำเร็จ", bad: true });
-        return;
-      }
-      const saved = data as AreaReport;
-      setAll(p => [...p.filter(x => !(x.month === month && x.round === rd)), saved]);
-      const where = `เดือน${thaiMonth(month)}${rounds > 1 ? ` รอบที่ ${rd}` : ""}`;
-      if (s === "draft") setMsg({ t: "บันทึกร่างแล้ว" });
-      else setMsg({ t: `ส่งข้อมูลพื้นที่และฟางข้าว${where}แล้ว เมื่อ ${saved.submittedAt ? thaiDateTime(saved.submittedAt) : ""}${saved.late ? ` · ส่งช้า (กำหนดส่ง ${saved.dueDate ? thaiDate(saved.dueDate) : ""})` : " · ส่งตรงเวลา"}`, bad: !!saved.late });
-    } catch {
-      setMsg({ t: "เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ กรุณาลองใหม่อีกครั้ง", bad: true });
-    } finally {
-      setBusy(false);
-    }
+    const r = await putReport<AreaReport>("/api/area", body("submitted"));
+    setBusy(false);
+    if (!r.ok) { setMsg({ t: r.error, bad: true }); return; }
+    setAll(p => [...p.filter(x => !(x.month === month && x.round === rd)), r.saved]);
+    setSent(r.saved);
+  }
+  async function autoSave() {
+    const r = await putReport<AreaReport>("/api/area", body("draft"));
+    if (!r.ok) return false;
+    skipReset.current = true;
+    setAll(p => [...p.filter(x => !(x.month === r.saved.month && x.round === r.saved.round)), r.saved]);
+    return true;
   }
 
   const hasArea = vals.area !== undefined && vals.area !== "";
@@ -109,33 +109,41 @@ export default function DistrictAreaReport() {
   ];
   const ready = checks.every(c => c.ok) && inSeason;
   const ofTarget = target > 0 ? (accum / target) * 100 : 0;
+  // มีข้อมูลที่ยังไม่ได้บันทึก (เทียบกับร่างที่บันทึกไว้ล่าสุด) → บันทึกร่างให้เอง · รายงานที่ส่งแล้วไม่ถูกเขียนทับเป็นร่าง
+  const curSig = sigOf([vals.area], rep.name), recSig = sigOf([rec?.values.area], rec?.reporter.name ?? "");
+  const dirty = hasArea && curSig !== recSig;
+  const auto = useAutosave({ enabled: !!month && inSeason && status !== "submitted" && !busy, dirty, sig: `${month}|${rd}|${curSig}`, save: autoSave });
+
+  if (sent) return <SuccessCard district={district} settings={settings} topic="area" month={month} round={rd} rounds={rounds} saved={sent} onNext={onSwitch} onReview={() => setSent(null)} />;
 
   return (<>
-    <PageHead title="กรอกพื้นที่ไถกลบฟางข้าว" sub={`อำเภอ${district} · กรอกเฉพาะจำนวนไร่ที่ไถกลบในเดือนนั้น ส่วนฟางข้าว มูลค่า และยอดสะสมระบบคำนวณให้เอง`}
-      chips={[{ label: "รายงานเฉพาะเดือน", value: fr ? `${thaiMonthShort(fr.from)} – ${thaiMonthShort(fr.to)}` : "—" }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }]} />
+    <div className="ux-chips" style={{ marginTop: 0, marginBottom: "1rem" }}>
+      {[{ label: "รายงานเฉพาะเดือน", value: fr ? `${thaiMonthShort(fr.from)} – ${thaiMonthShort(fr.to)}` : "—" }, { label: "ต้องรายงาน", value: `${rounds} ครั้ง/เดือน` }].map(c => <span key={c.label} className="ux-chip">{c.label} <b>{c.value}</b></span>)}
+    </div>
+    <PeriodBar label={month ? `เดือน${thaiMonth(month)}` : "กำลังโหลด…"} note={`ปีงบประมาณ ${fy || "–"}${month && today && today.slice(0, 7) === month ? " · เดือนปัจจุบัน" : ""}`} forceOpen={!inSeason}
+      extra={<>
+        {!inSeason && <div className="ux-banner bad" role="alert">{I.alert}<div>เดือน{thaiMonth(month)}อยู่นอกช่วงรายงานพื้นที่ กรุณาเลือกเดือนระหว่าง{fr ? `${thaiMonth(fr.from)} – ${thaiMonth(fr.to)}` : "ที่กำหนด"}</div></div>}
+        <RoundTabs dueDays={dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
+        {inSeason && <DueBanner rec={rec} due={due} overdue={overdue} noun="ข้อมูล" />}</>}>
+      <label className="ux-lbl" htmlFor="fy">ปีงบประมาณ</label>
+      <select id="fy" className="ux-select" value={fy || ""} onChange={e => pickFy(Number(e.target.value))}>
+        {fyOptions.map(y => { const r = fiscalRange(y, "area"); return <option key={y} value={y}>ปีงบประมาณ {y} ({thaiMonth(r.from)} – {thaiMonth(r.to)})</option>; })}
+      </select>
+      {fr && <>
+        <p className="ux-lbl" style={{ marginTop: "1rem" }}>เดือนที่ต้องส่ง ({fyMonths.length} เดือน) · กดเลือกเดือนที่จะรายงาน</p>
+        <div className="fm-grid" role="group" aria-label="เดือนที่ต้องส่งในปีงบประมาณ">
+          {fyMonths.map(m => { const info = monthInfo(m), sel = m === month, now = !!today && today.slice(0, 7) === m;
+            return (
+              <button key={m} type="button" aria-pressed={sel} className={`fm-m ${info.cls}${sel ? " sel" : ""}${now ? " now" : ""}`} onClick={() => { setMonth(m); setRound(1); }}>
+                <b>{thaiMonth(m)}</b><small>{info.text}</small>{now && <em>เดือนนี้</em>}
+              </button>); })}
+        </div>
+      </>}
+    </PeriodBar>
+
     <div className="ux-split">
       <div className="ux-stack">
-        <Step n={1} title="เลือกปีงบประมาณและเดือนที่รายงาน" hint={fr ? `เลือกปีงบประมาณก่อน ระบบจะแสดงเดือนที่ต้องส่ง (${thaiMonth(fr.from)} – ${thaiMonth(fr.to)})` : "เลือกปีงบประมาณก่อน ระบบจะแสดงเดือนที่ต้องส่ง"} done={!!month && inSeason}>
-          <label className="ux-lbl" htmlFor="fy">ปีงบประมาณ</label>
-          <select id="fy" className="ux-select" value={fy || ""} onChange={e => pickFy(Number(e.target.value))}>
-            {fyOptions.map(y => { const r = fiscalRange(y, "area"); return <option key={y} value={y}>ปีงบประมาณ {y} ({thaiMonth(r.from)} – {thaiMonth(r.to)})</option>; })}
-          </select>
-          {fr && <>
-            <p className="ux-lbl" style={{ marginTop: "1rem" }}>เดือนที่ต้องส่ง ({fyMonths.length} เดือน) · กดเลือกเดือนที่จะรายงาน</p>
-            <div className="fm-grid" role="group" aria-label="เดือนที่ต้องส่งในปีงบประมาณ">
-              {fyMonths.map(m => { const info = monthInfo(m), sel = m === month, now = !!today && today.slice(0, 7) === m;
-                return (
-                  <button key={m} type="button" aria-pressed={sel} className={`fm-m ${info.cls}${sel ? " sel" : ""}${now ? " now" : ""}`} onClick={() => { setMonth(m); setRound(1); }}>
-                    <b>{thaiMonth(m)}</b><small>{info.text}</small>{now && <em>เดือนนี้</em>}
-                  </button>); })}
-            </div>
-          </>}
-          {!inSeason && <div className="ux-banner bad" role="alert">{I.alert}<div>เดือน{thaiMonth(month)}อยู่นอกช่วงรายงานพื้นที่ กรุณาเลือกเดือนระหว่าง{fr ? `${thaiMonth(fr.from)} – ${thaiMonth(fr.to)}` : "ที่กำหนด"}</div></div>}
-          <RoundTabs dueDays={dueDays} month={month} rd={rd} done={r => all.find(x => x.month === month && x.round === r)?.status === "submitted"} onPick={setRound} />
-          {inSeason && <DueBanner rec={rec} due={due} overdue={overdue} noun="ข้อมูล" />}
-        </Step>
-
-        <Step n={2} title="กรอกพื้นที่ที่ไถกลบในเดือนนี้" hint="กรอกเฉพาะช่องแรก ช่องสีเทาคำนวณให้อัตโนมัติ" done={hasArea}>
+        <Step n={1} title="กรอกพื้นที่ที่ไถกลบในเดือนนี้" hint="กรอกเฉพาะช่องแรก ช่องสีเทาคำนวณให้อัตโนมัติ" done={hasArea}>
           <div className="ux-two">
             <NumField id="area" label={lbx(cfg, "a.field", "พื้นที่ไถกลบฟางข้าวเดือนนี้")} unit="ไร่" value={vals.area ?? ""} disabled={!inSeason} onChange={v => setVals({ ...vals, area: v })} />
             <ReadField id="st" label="ปริมาณฟางข้าว" value={f2(strawTons(thisArea, K))} unit="ตัน" />
@@ -146,7 +154,7 @@ export default function DistrictAreaReport() {
           <p className="ux-hint">ฟางข้าว (ตัน) = ไร่ × {K.strawKgPerRai} กก. ÷ 1,000 · มูลค่า = ไร่ × {K.strawValuePerRai} บาท · ฟางก้อน = ไร่ × {K.balesPerRai} ก้อน · ราคาฟางก้อน = ก้อน × {K.balePrice} บาท</p>
         </Step>
 
-        <Step n={3} title="ผู้รายงาน" hint="ระบบจำชื่อจากครั้งก่อนให้อัตโนมัติ" done={!!rep.name.trim()}>
+        <Step n={2} title="ผู้รายงาน" hint="ระบบจำชื่อจากครั้งก่อนให้อัตโนมัติ" done={!!rep.name.trim()}>
           <div className="ux-two"><TextField id="rname" label="ชื่อ-สกุล" value={rep.name} onChange={v => setRep({ ...rep, name: v })} /></div>
         </Step>
 
@@ -176,20 +184,12 @@ export default function DistrictAreaReport() {
           <div className="row"><span>เดือนที่กรอก</span><b>{month ? thaiMonth(month) : "–"}{rounds > 1 ? ` · รอบ ${rd}` : ""}</b></div>
           <div className="row"><span>สถานะ</span><b>{status === "submitted" ? "ส่งแล้ว" : status === "draft" ? "ร่าง" : "ยังไม่ได้กรอก"}</b></div>
         </div>
-        <div className="ux-card">
-          <h2>ก่อนส่งต้องมีครบ</h2>
-          <ul className="ux-todo">{checks.map(c => <li key={c.t} className={c.ok ? "ok" : ""}><i>{c.ok ? "✓" : "!"}</i>{c.t}</li>)}</ul>
-          {msg && <p className={`ux-toast${msg.bad ? " bad" : ""}`} style={{ marginTop: ".9rem" }} role="status">{msg.t}</p>}
-          <div className="ux-actions" style={{ marginTop: ".9rem" }}>
-            <button className="ux-btn gold" disabled={busy || !month || !ready} onClick={() => save("submitted")}>{I.send}{status === "submitted" ? "ส่งซ้ำ (แก้ไข)" : "ส่งข้อมูล"}</button>
-            {status !== "submitted" && <button className="ux-btn line" disabled={busy || !month || !inSeason} onClick={() => save("draft")}>{I.save}บันทึกร่างไว้ก่อน</button>}
-          </div>
-        </div>
+        <SubmitCard checks={checks} ready={ready} busy={busy} disabled={!month} submitted={status === "submitted"} msg={msg} auto={auto} dirty={dirty} onSubmit={() => void submit()} />
       </aside>
     </div>
 
-    <section className="ux-card" style={{ marginTop: "1.2rem" }}>
-      <h2>ประวัติการรายงาน</h2><p className="ux-note">กดที่รายการเพื่อเปิดดูหรือแก้ไข</p>
+    <details className="ux-card rk-hist">
+      <summary>ประวัติการรายงาน ({all.length})</summary><p className="ux-note">กดที่รายการเพื่อเปิดดูหรือแก้ไข</p>
       <ul className="ux-hist" style={{ marginTop: ".8rem" }}>
         {[...all].sort((a, b) => b.month.localeCompare(a.month) || b.round - a.round).map(r => (
           <li key={`${r.month}-${r.round}`}><button type="button" className={r.month === month && r.round === rd ? "cur" : ""} onClick={() => { setMonth(r.month); setRound(r.round); window.scrollTo({ top: 0, behavior: "smooth" }); }}>
@@ -197,6 +197,6 @@ export default function DistrictAreaReport() {
             <b>{f2(r.values.area ?? 0)} ไร่</b><StatusPill status={r.status} late={r.late} /></button></li>))}
         {!all.length && <li className="ux-empty">ยังไม่มีข้อมูล · เริ่มกรอกด้านบนได้เลย</li>}
       </ul>
-    </section>
+    </details>
   </>);
 }

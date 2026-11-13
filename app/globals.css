@@ -297,7 +297,7 @@ input[type=text],input[type=number],select,textarea{border-radius:12px;border:1p
 .pv-area small{display:block;color:#76826d;font-size:.8rem;margin-top:.2rem}
 .pv-chips{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(7.4rem,1fr));gap:.4rem}
 .pv-chips li{padding:.32rem .55rem;border-radius:7px;font-size:.8rem;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:center}
-.pv-chips .ok,.pv-key .ok{background:#266f42}.pv-chips .part,.pv-key .part{background:#94701c}.pv-chips .no,.pv-key .no{background:#9b3d3d}
+.pv-chips .ok,.pv-key .ok{background:#059669}.pv-chips .part,.pv-key .part{background:#b45309}.pv-chips .no,.pv-key .no{background:#9b3d3d}
 .pv-key{margin:.8rem 0 0;font-size:.8rem;color:#76826d;display:flex;gap:.4rem .9rem;flex-wrap:wrap;align-items:center}
 .pv-key i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:.3rem;vertical-align:-1px}
 .pv-foot{display:flex;justify-content:flex-end}

@@ -4,6 +4,7 @@ import { cfgOf, thaiMonth, currentMonth, fiscalYearOf, fiscalYearOptions, fiscal
 import { useProvince } from "@/components/Province";
 import { useConfirm } from "@/components/ConfirmDialog";
 import { I } from "@/components/Entry";
+import Hint from "@/components/Hint";
 import { TABS, SLICES, areaChanges, clone, effOf, same, yearPart, type Msg, type TabKey, type TabProps } from "./settings/shared";
 import FiscalYearsTab from "./settings/FiscalYearsTab";
 import FertFieldsTab from "./settings/FertFieldsTab";
@@ -11,7 +12,7 @@ import BurnFieldsTab from "./settings/BurnFieldsTab";
 import AreaConstTab from "./settings/AreaConstTab";
 import LabelsTab from "./settings/LabelsTab";
 
-// หน้าตั้งค่าที่จังหวัดแก้เองได้ทั้งหมดโดยไม่ต้องแตะโค้ด — แบ่งเป็น 5 แท็บ (แต่ละแท็บอยู่ในไฟล์ของตัวเองที่ components/settings/)
+// หน้าตั้งค่าที่จังหวัดแก้เองได้ทั้งหมดโดยไม่ต้องแตะโค้ด — แบ่งเป็น 4 แท็บหลัก + "ขั้นสูง" (ชื่อหัวข้อตาราง ใช้นาน ๆ ครั้ง) (แต่ละแท็บอยู่ในไฟล์ของตัวเองที่ components/settings/)
 // ไฟล์นี้ดูแลเฉพาะสถานะร่าง การเลือกปีงบประมาณ การตรวจก่อนบันทึก และการบันทึกผ่าน PUT /api/settings (เซิร์ฟเวอร์อนุญาตเฉพาะบัญชีจังหวัด)
 export default function ConfigSettings() {
   const confirm = useConfirm();
@@ -26,7 +27,7 @@ export default function ConfigSettings() {
   // เดือนปัจจุบันอ่านหลัง mount เท่านั้น (ห้ามเรียก new Date() ตอน render เพราะ Next.js prerender หน้านี้)
   const [cur, setCur] = useState("");
   const curFy = cur ? fiscalYearOf(cur) : 0;
-  const [scope, setScope] = useState<string>("base"); // ปีงบประมาณที่กำลังแก้ ("base" = ค่าตั้งต้น) · พอรู้ปีปัจจุบันจะสลับเป็นปีนั้นให้อัตโนมัติหนึ่งครั้ง
+  const [scope, setScope] = useState<string>("base"); // ปีงบประมาณที่กำลังแก้ ("base" = ค่ามาตรฐาน) · พอรู้ปีปัจจุบันจะสลับเป็นปีนั้นให้อัตโนมัติหนึ่งครั้ง
   const autoScoped = useRef(false);
   useEffect(() => { startTransition(() => { setCur(currentMonth()); }); }, []);
   useEffect(() => {
@@ -47,7 +48,7 @@ export default function ConfigSettings() {
     window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h);
   }, [dirty]);
 
-  // set = แก้ค่าของปีงบประมาณที่เลือก (ปีที่ยังไม่มีค่าเฉพาะ จะสร้างจากค่าตั้งต้นตอนแก้ครั้งแรก) · setG = แก้ค่าที่ใช้ร่วมทุกปี (รายการปีงบประมาณ)
+  // set = แก้ค่าของปีงบประมาณที่เลือก (ปีที่ยังไม่มีค่าเฉพาะ จะสร้างจากค่ามาตรฐานตอนแก้ครั้งแรก) · setG = แก้ค่าที่ใช้ร่วมทุกปี (รายการปีงบประมาณ)
   const set = (f: (c: YearConfig) => void) => {
     const d = clone(draft);
     if (scope === "base") f(d);
@@ -60,7 +61,7 @@ export default function ConfigSettings() {
   const problems: { tab: TabKey; text: string; sc?: string }[] = [];
   const scopesAll: (string | "base")[] = ["base", ...Object.keys(draft.byYear ?? {})];
   for (const sc of scopesAll) {
-    const e = effOf(draft, sc), who = sc === "base" ? "ค่าตั้งต้น" : `ปีงบประมาณ ${sc}`;
+    const e = effOf(draft, sc), who = sc === "base" ? "ค่ามาตรฐาน" : `ปีงบประมาณ ${sc}`;
     e.fertFields.forEach((f, i) => { if (!f.label.trim()) problems.push({ tab: "fert", text: `${who}: ช่องปุ๋ยลำดับที่ ${i + 1} ยังไม่ได้ตั้งชื่อ`, sc }); if (!f.group.trim()) problems.push({ tab: "fert", text: `${who}: ช่องปุ๋ยลำดับที่ ${i + 1} ยังไม่ได้ระบุกลุ่ม`, sc }); });
     e.burnFields.forEach((f, i) => { if (!f.label.trim()) problems.push({ tab: "burn", text: `${who}: ช่องหยุดเผาลำดับที่ ${i + 1} ยังไม่ได้ตั้งชื่อ`, sc }); if (!f.unit.trim()) problems.push({ tab: "burn", text: `${who}: ช่องหยุดเผาลำดับที่ ${i + 1} ยังไม่ได้ระบุหน่วย`, sc }); });
   }
@@ -88,17 +89,21 @@ export default function ConfigSettings() {
   };
   return (
     <div style={{ maxWidth: 1040 }}>
-      <div className="cf-scope">
-        <label htmlFor="cf-year"><b>ปีงบประมาณที่จะแก้ไข</b></label>
+      {tab !== "fy" && <div className="cf-scope">
+        <label htmlFor="cf-year"><b>กำลังตั้งค่าของ</b></label><Hint term="ค่ามาตรฐาน">คือค่าที่ใช้กับทุกปีงบประมาณ ยกเว้นปีที่คุณตั้งค่าเฉพาะไว้เอง</Hint>
         <select id="cf-year" className="ux-select" value={scope} onChange={e => setScope(e.target.value)}>
-          <option value="base">ค่าตั้งต้น — ใช้กับทุกปีที่ยังไม่ได้ตั้งเอง</option>
+          <option value="base">ค่ามาตรฐาน — ใช้กับทุกปีที่ยังไม่ได้ตั้งเอง</option>
           {fiscalYearOptions(draft, [...(curFy ? [curFy - 1, curFy, curFy + 1, curFy + 2] : []), ...Object.keys(draft.byYear ?? {}).map(Number)]).map(y => (
-            <option key={y} value={String(y)}>ปีงบประมาณ {y} ({thaiMonth(rg(y).from)} – {thaiMonth(rg(y).to)}){draft.byYear?.[String(y)] ? " ✓ ตั้งเอง" : " · ใช้ค่าตั้งต้น"}</option>))}
+            <option key={y} value={String(y)}>ปีงบประมาณ {y} ({thaiMonth(rg(y).from)} – {thaiMonth(rg(y).to)}){draft.byYear?.[String(y)] ? " ✓ ตั้งเอง" : " · ใช้ค่ามาตรฐาน"}</option>))}
         </select>
-        <span className="cf-scope-hint">เลือกปีก่อน แล้วแก้ในแท็บ 2–5 · แต่ละปีตั้งค่าไม่เหมือนกันได้ · ปีที่ไม่ได้ตั้งเองจะใช้ “ค่าตั้งต้น”</span>
-      </div>
+        <span className="cf-scope-hint">เลือกปีที่ต้องการแก้ แล้วปรับค่าในแท็บด้านล่าง · ปีที่ยังไม่ได้ตั้งเองจะใช้ “ค่ามาตรฐาน”</span>
+      </div>}
       <div className="cf-tabs" role="tablist">
-        {TABS.map((t, i) => (
+        {TABS.map((t, i) => t.key === "text" ? (
+          <button key={t.key} role="tab" aria-selected={tab === t.key} type="button" className={`cf-tab adv${tab === t.key ? " on" : ""}`} onClick={() => setTab(t.key)}>
+            {I.info}ขั้นสูง<small>ชื่อหัวข้อตาราง</small>{changed(t.key) && <span className="cf-dot" title="มีการแก้ไขที่ยังไม่บันทึก" />}
+          </button>
+        ) : (
           <button key={t.key} role="tab" aria-selected={tab === t.key} type="button" className={`cf-tab${tab === t.key ? " on" : ""}`} onClick={() => setTab(t.key)}>
             <span className="cf-n">{i + 1}</span>{t.label}{changed(t.key) && <span className="cf-dot" title="มีการแก้ไขที่ยังไม่บันทึก" />}
           </button>))}
@@ -106,19 +111,18 @@ export default function ConfigSettings() {
       <div className="cf-panel" role="tabpanel">
         {tab !== "fy" && (
           <div className={`cf-banner${scope === "base" ? " base" : hasOwn ? " own" : ""}`}>
-            <div><b>{scope === "base" ? "กำลังแก้: ค่าตั้งต้น (ใช้กับทุกปีที่ยังไม่ได้ตั้งเอง)" : `กำลังแก้: ปีงบประมาณ ${scope}`}</b>
-              <span>{scope === "base" ? "ปีที่ตั้งค่าเฉพาะไว้แล้วจะไม่ได้รับผลจากการแก้ตรงนี้" : hasOwn ? "ปีนี้มีค่าที่ตั้งเอง แก้ได้โดยไม่กระทบปีอื่น" : "ปีนี้ยังใช้ค่าตั้งต้นอยู่ — พอแก้อะไรก็ตาม ระบบจะสร้างค่าเฉพาะของปีนี้ให้ (ไม่กระทบปีอื่น)"}</span></div>
+            <div><b>{scope === "base" ? "กำลังแก้: ค่ามาตรฐาน (ใช้กับทุกปีที่ยังไม่ได้ตั้งเอง)" : `กำลังแก้: ปีงบประมาณ ${scope}`}</b>
+              <span>{scope === "base" ? "ปีที่ตั้งค่าเฉพาะไว้แล้วจะไม่ได้รับผลจากการแก้ตรงนี้" : hasOwn ? "ปีนี้มีค่าที่ตั้งเอง แก้ได้โดยไม่กระทบปีอื่น" : "ปีนี้ยังใช้ค่ามาตรฐานอยู่ — พอแก้อะไรก็ตาม ระบบจะสร้างค่าเฉพาะของปีนี้ให้ (ไม่กระทบปีอื่น)"}</span></div>
             {scope !== "base" && (
               <div className="cf-banner-act">
                 <select aria-label="คัดลอกการตั้งค่าจาก" className="ux-select" value={copyFrom} onChange={e => setCopyFrom(e.target.value)}>
-                  <option value="base">ค่าตั้งต้น</option>
+                  <option value="base">ค่ามาตรฐาน</option>
                   {Array.from(new Set([...Object.keys(draft.byYear ?? {}), ...draft.fiscalYears.map(d => String(d.fy))])).filter(y => y !== scope).sort().reverse().map(y => <option key={y} value={y}>ปีงบประมาณ {y}</option>)}
                 </select>
-                <button type="button" className="ux-btn line sm" onClick={async () => { if (await confirm(`คัดลอกการตั้งค่า (ช่องปุ๋ย ช่องหยุดเผา ตัวคูณ ชื่อหัวข้อ) จาก “${copyFrom === "base" ? "ค่าตั้งต้น" : "ปีงบประมาณ " + copyFrom}” มาใส่ปีงบประมาณ ${scope}?\nค่าเดิมของปีนี้จะถูกแทนที่ (ยังไม่บันทึกจนกว่าจะกดบันทึก)`)) { const src = clone(yearPart(effOf(draft, copyFrom)) as AppConfig); set(c => { Object.assign(c, src); }); } }}>คัดลอกมาใช้</button>
-                {hasOwn && <button type="button" className="ux-btn line sm danger" onClick={async () => { if (await confirm(`ล้างค่าที่ตั้งเองของปีงบประมาณ ${scope} แล้วกลับไปใช้ค่าตั้งต้น?`)) setG(d => { if (d.byYear) delete d.byYear[scope]; }); }}>ใช้ค่าตั้งต้นแทน</button>}
+                <button type="button" className="ux-btn line sm" onClick={async () => { if (await confirm(`คัดลอกการตั้งค่า (ช่องปุ๋ย ช่องหยุดเผา ตัวคูณ ชื่อหัวข้อ) จาก “${copyFrom === "base" ? "ค่ามาตรฐาน" : "ปีงบประมาณ " + copyFrom}” มาใส่ปีงบประมาณ ${scope}?\nค่าเดิมของปีนี้จะถูกแทนที่ (ยังไม่บันทึกจนกว่าจะกดบันทึก)`)) { const src = clone(yearPart(effOf(draft, copyFrom)) as AppConfig); set(c => { Object.assign(c, src); }); } }}>คัดลอกมาใช้</button>
+                {hasOwn && <button type="button" className="ux-btn line sm danger" onClick={async () => { if (await confirm(`ล้างค่าที่ตั้งเองของปีงบประมาณ ${scope} แล้วกลับไปใช้ค่ามาตรฐาน?`)) setG(d => { if (d.byYear) delete d.byYear[scope]; }); }}>ใช้ค่ามาตรฐานแทน</button>}
               </div>)}
           </div>)}
-        {tab === "fy" && <p className="ux-note" style={{ marginTop: 0 }}>แท็บนี้ใช้ร่วมกันทุกปี ไม่ขึ้นกับปีที่เลือกด้านบน</p>}
         {body[tab]}
       </div>
 
@@ -129,13 +133,13 @@ export default function ConfigSettings() {
           <table>
             <thead><tr><th>ปีงบประมาณ</th><th>รายการ</th><th>ค่าเดิม</th><th>ค่าใหม่</th></tr></thead>
             <tbody>{saveLog.items.map(it => (
-              <tr key={it.scope + it.label}><td>{it.scope === "base" ? "ค่าตั้งต้น" : `ปีงบประมาณ ${it.scope}`}</td><td>{it.label}</td>
+              <tr key={it.scope + it.label}><td>{it.scope === "base" ? "ค่ามาตรฐาน" : `ปีงบประมาณ ${it.scope}`}</td><td>{it.label}</td>
                 <td>{it.from.toLocaleString("th-TH")} {it.unit}</td><td><b>{it.to.toLocaleString("th-TH")} {it.unit}</b></td></tr>))}</tbody>
           </table>
         </section>)}
 
       <div className="ux-sticky-save">
-        <span>{msg ? <span className={`ux-toast${msg.bad ? " bad" : ""}`} role="status">{msg.t}</span> : <span className="ux-note">{dirty ? `มีการแก้ไขที่ยังไม่บันทึก (${changedScopes.map(sc => sc === "base" ? "ค่าตั้งต้น" : "ปีงบประมาณ " + sc).join(", ")}${changed("fy") ? ", รายการปีงบประมาณ" : ""})` : "ยังไม่มีการแก้ไข"}</span>}</span>
+        <span>{msg ? <span className={`ux-toast${msg.bad ? " bad" : ""}`} role="status">{msg.t}</span> : <span className="ux-note">{dirty ? `มีการแก้ไขที่ยังไม่บันทึก (${changedScopes.map(sc => sc === "base" ? "ค่ามาตรฐาน" : "ปีงบประมาณ " + sc).join(", ")}${changed("fy") ? ", รายการปีงบประมาณ" : ""})` : "ยังไม่มีการแก้ไข"}</span>}</span>
         <div style={{ display: "flex", gap: ".6rem", flexWrap: "wrap" }}>
           {dirty && <button className="ux-btn line" disabled={busy} onClick={async () => { if (await confirm("ยกเลิกการแก้ไขทั้งหมดที่ยังไม่บันทึก?")) { setDraft(clone(saved)); setMsg(null); } }}>ยกเลิกการแก้ไข</button>}
           <button className="ux-btn" disabled={busy || !dirty} onClick={save}>{I.save}{busy ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}</button>

@@ -15,7 +15,7 @@ export default function AreaConstTab({ draft, saved, view, scope, set, setScope 
       <p className="ux-note">{help}</p></div>);
   return (
     <>
-      <Tip title="ใช้ทำอะไร">ตัวเลขที่ระบบใช้คำนวณเป้าหมายพื้นที่ ปริมาณฟางข้าว มูลค่า และฟางก้อน จากไร่ที่อำเภอรายงาน · เปลี่ยนแล้วตัวเลขทุกหน้าคำนวณใหม่ทันที (รวมข้อมูลเก่า)</Tip>
+      <Tip title="ใช้ทำอะไร">(“ไถกลบ” คือการไถฟางข้าวลงดินแทนการเผา) ตัวเลขที่ระบบใช้คำนวณเป้าหมายพื้นที่ ปริมาณฟางข้าว มูลค่า และฟางก้อน จากไร่ที่อำเภอรายงาน · เปลี่ยนแล้วตัวเลขทุกหน้าคำนวณใหม่ทันที (รวมข้อมูลเก่า)</Tip>
       <div className="cf-cols">
         <div className="ux-two" style={{ alignContent: "start" }}>
           {numIn("targetPct", "เป้าหมายพื้นที่ไถกลบ", "%", "ร้อยละของพื้นที่ปลูกพืชทั้งหมดของอำเภอ")}
@@ -42,10 +42,10 @@ export default function AreaConstTab({ draft, saved, view, scope, set, setScope 
   );
 }
 
-// ตารางเปรียบเทียบค่าไถกลบฟางข้าวของทุกปีที่ตั้งเอง เทียบกับค่าตั้งต้น: ช่องที่ต่างจากค่าตั้งต้นจะเน้นสี และเตือนถ้าเป้าหมายร้อยละไม่เท่ากันระหว่างปี
+// ตารางเปรียบเทียบค่าไถกลบฟางข้าวของทุกปีที่ตั้งเอง เทียบกับค่ามาตรฐาน: ช่องที่ต่างจากค่ามาตรฐานจะเน้นสี และเตือนถ้าเป้าหมายร้อยละไม่เท่ากันระหว่างปี
 function AreaCompare({ draft, saved, scope, setScope }: { draft: TabProps["draft"]; saved: TabProps["saved"]; scope: string; setScope: (s: string) => void }) {
   const years = Object.keys(draft.byYear ?? {}).sort().reverse();
-  const rows = [{ sc: "base", name: "ค่าตั้งต้น" }, ...years.map(y => ({ sc: y, name: `ปีงบประมาณ ${y}` }))].map(r => ({ ...r, a: effOf(draft, r.sc).area, unsaved: JSON.stringify(effOf(draft, r.sc).area) !== JSON.stringify(effOf(saved, r.sc).area) }));
+  const rows = [{ sc: "base", name: "ค่ามาตรฐาน" }, ...years.map(y => ({ sc: y, name: `ปีงบประมาณ ${y}` }))].map(r => ({ ...r, a: effOf(draft, r.sc).area, unsaved: JSON.stringify(effOf(draft, r.sc).area) !== JSON.stringify(effOf(saved, r.sc).area) }));
   const base = rows[0].a;
   const pcts = rows.filter(r => r.sc !== "base").map(r => ({ name: r.name, v: r.a.targetPct }));
   const pctDiffer = new Set(pcts.map(p => p.v)).size > 1 || pcts.some(p => p.v !== base.targetPct);
@@ -67,7 +67,7 @@ function AreaCompare({ draft, saved, scope, setScope }: { draft: TabProps["draft
           </tbody>
         </table>
       </div>
-      <p className="ux-note">ช่องสีเหลืองคือค่าที่ต่างจากค่าตั้งต้น · ปีที่ไม่อยู่ในตารางใช้ค่าตั้งต้น · กดชื่อปีเพื่อไปแก้ไขปีนั้น · ป้าย “ยังไม่บันทึก” = แก้แล้วแต่ยังไม่กดบันทึก (Dashboard จะยังไม่เปลี่ยนจนกว่าจะบันทึก)</p>
+      <p className="ux-note">ช่องสีเหลืองคือค่าที่ต่างจากค่ามาตรฐาน · ปีที่ไม่อยู่ในตารางใช้ค่ามาตรฐาน · กดชื่อปีเพื่อไปแก้ไขปีนั้น · ป้าย “ยังไม่บันทึก” = แก้แล้วแต่ยังไม่กดบันทึก (Dashboard จะยังไม่เปลี่ยนจนกว่าจะบันทึก)</p>
     </section>
   );
 }

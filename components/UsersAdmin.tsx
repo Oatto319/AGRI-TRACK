@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import Skeleton from "@/components/Skeleton";
 import { DISTRICTS, thaiDateTime } from "@/lib/data";
 import { PageHead } from "@/components/Entry";
 import { useConfirm } from "@/components/ConfirmDialog";
@@ -74,7 +75,7 @@ export default function UsersAdmin() {
 
     <section className="ux-card">
       <div className="us-head"><h2>บัญชีทั้งหมด {users ? `(${users.length})` : ""}</h2><div className="ux-text-in" style={{ maxWidth: 260 }}><input aria-label="ค้นหาบัญชี" placeholder="ค้นหาชื่อผู้ใช้/อำเภอ" value={q} onChange={e => setQ(e.target.value)} /></div></div>
-      {!users && !err && <p className="ux-empty">กำลังโหลด…</p>}
+      {!users && !err && <Skeleton variant="list" />}
       {users && (
         <div className="us-wrap"><table className="us-tb">
           <thead><tr><th>ชื่อผู้ใช้</th><th>สิทธิ์</th><th>สถานะ</th><th>เข้าใช้ล่าสุด</th><th><span className="sr-only">จัดการ</span></th></tr></thead>

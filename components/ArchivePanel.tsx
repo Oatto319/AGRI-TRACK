@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
+import Skeleton from "@/components/Skeleton";
 import { thaiDateTime } from "@/lib/data";
 import { PageHead } from "@/components/Entry";
 import { RETENTION_REFRESH } from "@/components/RetentionBanner";
@@ -46,7 +47,7 @@ export default function ArchivePanel() {
       <PageHead title="สำรองข้อมูล" sub={st ? `ระบบเก็บข้อมูลย้อนหลัง ${st.retentionYears} ปีงบประมาณ (ปี ${st.oldestKeptFy}–${st.currentFy}) · ข้อมูลที่เก่ากว่านั้นต้อง export ก่อนจึงจะใช้งานต่อได้` : "ระบบเก็บข้อมูลย้อนหลัง 5 ปีงบประมาณ"} />
       {err && <p className="ux-toast bad" role="alert">{err}</p>}
       {ok && <p className="ux-toast" role="status">{ok}</p>}
-      {!st && !err && <p className="ux-empty">กำลังโหลด…</p>}
+      {!st && !err && <Skeleton variant="card" />}
       {st && <>
         <section className="ux-card">
           <h2>ข้อมูลตามปีงบประมาณ</h2>
@@ -62,8 +63,8 @@ export default function ArchivePanel() {
                     <td>{chip(it)}</td>
                     <td>{n(it.counts.reports)}</td><td>{n(it.counts.area)}</td><td>{n(it.counts.burn)}</td>
                     <td className="l">
-                      <a className="ux-btn sm line" href={`/api/archive/export?fy=${it.fy}&format=xlsx`} download onClick={afterDownload}>📥 Excel</a>{" "}
-                      <a className="ux-btn sm line" href={`/api/archive/export?fy=${it.fy}&format=json`} download onClick={afterDownload}>📦 JSON</a>
+                      <a className="ux-btn sm line" href={`/api/archive/export?fy=${it.fy}&format=xlsx`} download onClick={afterDownload}>ดาวน์โหลด Excel</a>{" "}
+                      <a className="ux-btn sm line" href={`/api/archive/export?fy=${it.fy}&format=json`} download onClick={afterDownload}>ดาวน์โหลด JSON</a>
                       <small style={{ display: "block", marginTop: ".25rem", color: "var(--muted)" }}>
                         Excel: {it.xlsxAt ? thaiDateTime(it.xlsxAt) : "ยังไม่ได้ export"} · JSON: {it.jsonAt ? thaiDateTime(it.jsonAt) : "ยังไม่ได้ export"}
                       </small>

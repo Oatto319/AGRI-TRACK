@@ -1,5 +1,6 @@
 "use client";
 import type { ReactNode } from "react";
+import Hint from "@/components/Hint";
 import { dueDateOf, thaiDate, thaiDateTime } from "@/lib/data";
 
 export const f2 = (v: number) => v.toLocaleString("th-TH", { maximumFractionDigits: 2 });
@@ -71,7 +72,7 @@ export function RoundTabs({ dueDays, month, rd, done, onPick }: { dueDays: numbe
   if (dueDays.length < 2 || !month) return null;
   return (
     <div style={{ marginTop: "1rem" }}>
-      <span className="ux-lbl" id="rl">รอบที่จะรายงาน</span>
+      <span className="ux-lbl"><span id="rl">รอบที่จะรายงาน</span><Hint term="รอบ">คือช่วงเวลาที่ต้องส่งรายงานในเดือนนั้น บางเดือนต้องส่งมากกว่า 1 ครั้ง แต่ละครั้งมีวันกำหนดส่งของตัวเอง</Hint></span>
       <div className="ux-tabs" role="group" aria-labelledby="rl">{dueDays.map((d, i) => (
         <button key={i} type="button" className="ux-tab" aria-pressed={rd === i + 1} onClick={() => onPick(i + 1)}>
           <b>รอบที่ {i + 1} {done(i + 1) && <span className="ok">✓ ส่งแล้ว</span>}</b><small>ส่งภายใน {thaiDate(dueDateOf(month, d))}</small>

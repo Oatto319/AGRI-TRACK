@@ -2,7 +2,7 @@
 import { createContext, startTransition, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import Shell from "./Shell";
-import PdfButton from "./PdfButton";
+import DownloadMenu from "./DownloadMenu";
 import RetentionBanner from "./RetentionBanner";
 import { DEFAULT_SETTINGS, cfgOf, cfgOfMonth, currentMonth, fiscalYearOptions, dueDaysFor, fiscalRange, fiscalYearOf, isFiscalRange, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings } from "@/lib/data";
 import { aggregate } from "@/lib/summary";
@@ -46,11 +46,11 @@ export function ProvinceFrame({ children }: { children: ReactNode }) {
     <div style={{ display: authed ? "contents" : "none" }}>{/* ยังไม่ยืนยันสิทธิ์ = ซ่อนไว้ (แต่ยังเรนเดอร์หน้าลูกตามปกติ เพื่อให้ Next.js ตรวจ instant navigation ได้) */}
     <C.Provider value={{ settings, setSettings, reports, area, burn, error, from, to, setFrom, setTo, valid, agg }}>
       <Shell org="สำนักงานเกษตรจังหวัดศรีสะเกษ" role="เจ้าหน้าที่จังหวัด" links={[
-        { href: "/province", label: "1. ภาพรวม (Dashboard)", hint: "กราฟและตัวเลขสำคัญ", icon: "home" },
-        { href: "/province/table", label: "2. ตารางข้อมูลรายอำเภอ", hint: "ดูรายละเอียด + ดาวน์โหลด Excel", icon: "table" },
-        { href: "/province/settings", label: "3. ตั้งค่า", hint: "รอบ กำหนดส่ง พื้นที่ปลูก ปีงบประมาณ ช่องข้อมูล หัวตาราง", icon: "gear" },
-        { href: "/province/users", label: "4. จัดการผู้ใช้", hint: "เพิ่มบัญชี รีเซ็ตรหัสผ่าน ปิด/เปิดการใช้งาน", icon: "user" },
-        { href: "/province/archive", label: "5. สำรองข้อมูล", hint: "เก็บย้อนหลัง 5 ปี · export ข้อมูลเก่า", icon: "table" }]}>
+        { href: "/province", label: "ภาพรวมจังหวัด", short: "ภาพรวม", group: "ข้อมูลและรายงาน", icon: "home" },
+        { href: "/province/table", label: "ตารางรายอำเภอ", short: "ตาราง", hint: "รวมการดาวน์โหลด Excel", group: "ข้อมูลและรายงาน", icon: "table" },
+        { href: "/province/settings", label: "ตั้งค่าระบบ", short: "ตั้งค่า", group: "ผู้ดูแลระบบ", icon: "gear" },
+        { href: "/province/users", label: "จัดการผู้ใช้", short: "ผู้ใช้", group: "ผู้ดูแลระบบ", icon: "user" },
+        { href: "/province/archive", label: "สำรองข้อมูล", group: "ผู้ดูแลระบบ", icon: "table" }]}>
         <RetentionBanner role="province" />
         {children}
       </Shell>
@@ -97,7 +97,6 @@ export function FilterBar({ download, pdf }: { download?: boolean; pdf?: boolean
   return (
     <div className="db-filter">
       <FiscalSelect />
-      {download && valid && <a className="btn go" href={`/api/export?from=${from}&to=${to}`} download>📥 ดาวน์โหลด Excel</a>}
-      {pdf && valid && <PdfButton fy={fiscalYearOf(to)} className="btn go" />}
+      {(download || pdf) && valid && <DownloadMenu from={from} to={to} fy={fiscalYearOf(to)} className="btn go" excel={!!download} pdf={!!pdf} />}
     </div>);
 }

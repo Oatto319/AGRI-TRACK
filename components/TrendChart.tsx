@@ -23,13 +23,13 @@ export default function TrendChart({ trend, unit, labelOf, title }: { trend: Tre
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`${title}: ${TREND_TEXT[trend.status]} สะสม ${f1(trend.total)} ${unit} จากเป้า ${f1(target)} ${unit}`} className="tc-svg">
         {ticks.map(t => <g key={t}><line x1={L} x2={W - R} y1={y(t)} y2={y(t)} stroke="#e4e9dd" /><text x={L - 8} y={y(t) + 4} textAnchor="end" className="tc-ax">{f0(t)}</text></g>)}
         {points.map((p, i) => i % step === 0 || i === n - 1 ? <text key={p.month} x={x(i)} y={H - 16} textAnchor="middle" className="tc-ax">{labelOf(p.month)}</text> : null)}
-        {target > 0 && <><line x1={L} x2={W - R} y1={y(target)} y2={y(target)} stroke="#b36a3c" strokeWidth="1.5" /><text x={W - R} y={y(target) - 6} textAnchor="end" className="tc-tg">เป้าหมาย {f0(target)} {unit}</text></>}
-        {target > 0 && <path d={path(points.map((p, i) => ({ i, v: p.pace })))} fill="none" stroke="#c09a3a" strokeWidth="2" strokeDasharray="7 5" />}
-        {proj.length > 1 && <path d={path(proj)} fill="none" stroke="#d9772b" strokeWidth="2.5" strokeDasharray="2 5" strokeLinecap="round" />}
-        {actual.length > 0 && <path d={path(actual)} fill="none" stroke="#297b48" strokeWidth="3" strokeLinejoin="round" />}
-        {actual.map(p => <circle key={p.i} cx={x(p.i)} cy={y(p.v)} r="4" fill="#fff" stroke="#297b48" strokeWidth="2.5"><title>{`${labelOf(points[p.i].month)}: สะสม ${f1(p.v)} ${unit}`}</title></circle>)}
+        {target > 0 && <><line x1={L} x2={W - R} y1={y(target)} y2={y(target)} stroke="#d97706" strokeWidth="1.5" /><text x={W - R} y={y(target) - 6} textAnchor="end" className="tc-tg">เป้าหมาย {f0(target)} {unit}</text></>}
+        {target > 0 && <path d={path(points.map((p, i) => ({ i, v: p.pace })))} fill="none" stroke="#d97706" strokeWidth="2" strokeDasharray="7 5" />}
+        {proj.length > 1 && <path d={path(proj)} fill="none" stroke="#0f766e" strokeWidth="2.5" strokeDasharray="2 5" strokeLinecap="round" />}
+        {actual.length > 0 && <path d={path(actual)} fill="none" stroke="#059669" strokeWidth="3" strokeLinejoin="round" />}
+        {actual.map(p => <circle key={p.i} cx={x(p.i)} cy={y(p.v)} r="4" fill="#fff" stroke="#059669" strokeWidth="2.5"><title>{`${labelOf(points[p.i].month)}: สะสม ${f1(p.v)} ${unit}`}</title></circle>)}
       </svg>
-      <p className="pv-lg tc-lg"><span><i style={{ background: "#297b48" }} />ยอดสะสมจริง</span><span><i className="ds" style={{ background: "#c09a3a" }} />ควรได้ตามแผน</span><span><i className="ds" style={{ background: "#d9772b" }} />คาดการณ์</span></p>
+      <p className="pv-lg tc-lg"><span><i style={{ background: "#059669" }} />ยอดสะสมจริง</span><span><i className="ds" style={{ background: "#d97706" }} />ควรได้ตามแผน</span><span><i className="ds" style={{ background: "#0f766e" }} />คาดการณ์</span></p>
       <p className={`tc-sum ${tone}`} role="status">
         <b>{TREND_TEXT[trend.status]}</b>
         {trend.status !== "no-data" && <> · สะสม {f1(trend.total)} {unit}{target > 0 && <> · ตามแผนควรได้ {f1(trend.expectedNow)} ({trend.gap >= 0 ? "นำ" : "ตามหลัง"} {f1(Math.abs(trend.gap))})</>}

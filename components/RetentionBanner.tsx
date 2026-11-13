@@ -24,7 +24,7 @@ export default function RetentionBanner({ role }: { role: "province" | "district
   if (!s || s.level === "ok" || (role === "district" && !locked)) return null;
   return (
     <p className={`ux-toast${locked ? " bad" : ""}`} role={locked ? "alert" : "status"} style={{ marginBottom: ".9rem" }}>
-      {locked ? "🔒 " : "⏰ "}{s.message}
+      {locked ? "ระบบล็อก: " : "แจ้งเตือน: "}{s.message}
       {role === "province" && !onArchive && <> <Link href={ARCHIVE_PATH}><b>ไปที่หน้าสำรองข้อมูล</b></Link></>}
     </p>
   );

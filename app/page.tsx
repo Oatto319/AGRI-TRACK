@@ -32,23 +32,15 @@ export default function Login() {
     <div className="lgx">
       <section className="lgx-art">
         <div className="lgx-logo">
-          <i><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 22V9" /><path d="M12 9c0-3 2-5 5-5 0 3-2 5-5 5z" /><path d="M12 13c0-3-2-5-5-5 0 3 2 5 5 5z" /><path d="M12 17c0-3 2-5 5-5 0 3-2 5-5 5z" /></svg></i>
-          <div><b>สำนักงานเกษตรจังหวัดศรีสะเกษ</b><small>AGRI-TRACK</small></div>
+          <i><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 22V9" /><path d="M12 9c0-3 2-5 5-5 0 3-2 5-5 5z" /><path d="M12 13c0-3-2-5-5-5 0 3 2 5 5 5z" /><path d="M12 17c0-3 2-5 5-5 0 3-2 5-5 5z" /></svg></i>
+          <div><b>สำนักงานเกษตรจังหวัดศรีสะเกษ</b><small>ระบบรายงานผลการดำเนินงานระดับอำเภอ (AGRI-TRACK)</small></div>
         </div>
-        <div>
-          <h1>รายงานผลการดำเนินงานระดับอำเภอ</h1>
-          <p>กรอกปริมาณปุ๋ยอินทรีย์ วัสดุอินทรีย์ และพื้นที่ไถกลบฟางข้าวได้ง่าย ๆ ในที่เดียว</p>
-        </div>
-        <ul className="lgx-feat">
-          <li><i><svg {...ic}><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" /></svg></i><div><b>เจ้าหน้าที่อำเภอ</b><span>กรอกรายงานรายเดือน ดูว่าต้องกรอกช่องไหนต่อ และติดตามผลงานของอำเภอ</span></div></li>
-          <li><i><svg {...ic}><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M3 10h18M9 4v16" /></svg></i><div><b>เจ้าหน้าที่จังหวัด</b><span>ดูภาพรวมทั้ง 22 อำเภอ ตั้งค่ารอบรายงาน และดาวน์โหลดเป็น Excel</span></div></li>
-        </ul>
       </section>
 
       <section className="lgx-form">
         <form className="lgx-card" onSubmit={submit} noValidate>
           <h2>เข้าสู่ระบบ</h2>
-          <p>เลือกหน่วยงาน แล้วกรอกรหัสผ่านที่ได้รับจากสำนักงาน</p>
+          <p>เลือกหน่วยงานของท่าน แล้วกรอกรหัสผ่านที่ได้รับจากสำนักงานเกษตรจังหวัด</p>
           <div className="lgx-f"><label htmlFor="account">อำเภอ / หน่วยงาน</label>
             <div className="lgx-in"><svg {...ic}><path d="M3 21h18M5 21V7l8-4v18M19 21V11l-6-4" /><path d="M9 9v.01M9 12v.01M9 15v.01M9 18v.01" /></svg>
               <select id="account" value={account} onChange={e => setAccount(e.target.value)} autoComplete="organization" required>
@@ -63,8 +55,8 @@ export default function Login() {
                 <svg {...ic}><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" />{show && <path d="M3 3l18 18" />}</svg></button></div></div>
           {error && <p className="lgx-err" role="alert">{error}</p>}
           <button className="ux-btn block" disabled={busy}>{busy ? "กำลังเข้าสู่ระบบ…" : "เข้าสู่ระบบ"}</button>
-          <p className="lgx-help">ลืมรหัสผ่าน หรือยังไม่มีบัญชี? ติดต่อสำนักงานเกษตรจังหวัดศรีสะเกษ</p>
-          <p className="lgx-help"><Link href="/public">ดูภาพรวมผลงานสำหรับประชาชน (ไม่ต้องเข้าสู่ระบบ)</Link></p>
+          <p className="lgx-help">ลืมรหัสผ่านหรือยังไม่มีบัญชี กรุณาติดต่อสำนักงานเกษตรจังหวัดศรีสะเกษ</p>
+          <p className="lgx-help"><Link href="/public">ดูสรุปผลการดำเนินงานสำหรับประชาชน (ไม่ต้องเข้าสู่ระบบ)</Link></p>
         </form>
       </section>
     </div>

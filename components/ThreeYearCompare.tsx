@@ -6,7 +6,7 @@ export default function ThreeYearCompare({ title, unit, data }: { title: string;
   const W = 320, H = 170, L = 12, R = 12, T = 26, B = 28, n = data.length;
   const max = Math.max(...data.map(d => d.value), 1);
   const slot = (W - L - R) / n, bw = Math.min(54, slot * 0.58);
-  const fills = ["#c4cfbd", "#5aa469", "#1f6b3f"];
+  const fills = ["#a7c4b8", "#34d399", "#047857"];
   const cur = data[n - 1]?.value ?? 0, prev = data[n - 2]?.value ?? 0;
   const change = prev > 0 ? ((cur - prev) / prev) * 100 : null;
   const note = change === null ? "ไม่มีข้อมูลปีก่อนเทียบ" : change > 0 ? `เพิ่มขึ้น ${change.toFixed(1)}% จากปีก่อน` : change < 0 ? `ลดลง ${Math.abs(change).toFixed(1)}% จากปีก่อน` : "เท่ากับปีก่อน";
@@ -21,7 +21,7 @@ export default function ThreeYearCompare({ title, unit, data }: { title: string;
           return (
             <g key={d.label}>
               <rect x={x} y={H - B - h} width={bw} height={h} rx="4" fill={fills[Math.min(i + (3 - n), 2)]} />
-              <text x={x + bw / 2} y={H - B - h - 6} textAnchor="middle" fontSize="12" fontWeight="700" fill={last ? "#1f6b3f" : "#334155"}>{fmt(d.value)}</text>
+              <text x={x + bw / 2} y={H - B - h - 6} textAnchor="middle" fontSize="12" fontWeight="700" fill={last ? "#047857" : "#334155"}>{fmt(d.value)}</text>
               <text x={x + bw / 2} y={H - 9} textAnchor="middle" fontSize="12" fontWeight={last ? 700 : 400} fill={last ? "#0f172a" : "#64748b"}>{d.label}</text>
             </g>
           );

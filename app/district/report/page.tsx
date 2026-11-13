@@ -1,7 +1,7 @@
-import DistrictReport from "@/components/DistrictReport";
+import ReportHub from "@/components/ReportHub";
 
 export const instant = false;
 
 export default function DistrictReportPage() {
-  return <DistrictReport />;
+  return <ReportHub initial="fert" />;
 }

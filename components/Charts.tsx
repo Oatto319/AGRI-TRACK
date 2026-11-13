@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { fmt } from "@/lib/summary";
 
-export const COLORS = ["#2f7d4f", "#6aa84f", "#e3a72f", "#3b8e8c", "#8a5a2b", "#b97d10", "#7a5ea8", "#c0504d"];
+export const COLORS = ["#059669", "#0f766e", "#f59e0b", "#34d399", "#065f46", "#2dd4bf", "#d97706", "#6ee7b7"];
 
 const TONES = { emerald: "#059669", amber: "#d97706", rose: "#e11d48", blue: "#39d776" };
 export function Kpi({ label, value, unit, color, pct, tone, note }: { label: string; value: string; unit?: string; color?: string; pct?: number; tone?: keyof typeof TONES; note?: string }) {

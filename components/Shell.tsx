@@ -1,10 +1,11 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import FontSize from "@/components/FontSize";
+import { Fragment, useEffect, useRef, useState, type ReactNode } from "react";
 
 export type NavIcon = "home" | "edit" | "leaf" | "table" | "gear" | "user";
-export interface NavLink { href: string; label: string; hint?: string; icon?: NavIcon; done?: boolean }
+export interface NavLink { href: string; label: string; hint?: string; icon?: NavIcon; done?: boolean; group?: string; short?: string }
 
 const p = { width: 20, height: 20, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round", "aria-hidden": true } as const;
 export const NavIcons: Record<NavIcon, ReactNode> = {
@@ -34,39 +35,58 @@ export default function Shell({ org, role, links, children }:
 
   return (
     <div className="app">
+      <a className="skip" href="#main">ข้ามไปยังเนื้อหาหลัก</a>
       <header className="tb">
         <button ref={burger} className="tb-btn" aria-label={open ? "ปิดเมนู" : "เปิดเมนู"} aria-expanded={open} aria-controls="sidebar" onClick={() => setOpenPath(current => current === path ? null : path)}>
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             {open ? <path d="M6 6l12 12M18 6L6 18" /> : <path d="M4 7h16M4 12h16M4 17h16" />}
           </svg>
         </button>
-        <div><b>{current || org}</b><small>{org}</small></div>
+        <div><b>{current || org}</b><small>{role} · {org}</small></div>
+        <FontSize />
+        <Link className="tb-out" href="/" onClick={() => { void fetch("/api/logout", { method: "POST" }); }}>ออกจากระบบ</Link>
       </header>
 
       <div className={`sb-scrim${open ? " open" : ""}`} onClick={() => { setOpenPath(null); burger.current?.focus(); }} aria-hidden="true" />
       <aside id="sidebar" className={`sb${open ? " open" : ""}`} aria-label="เมนู">
         <div className="sb-brand">
           <span className="sb-logo">{Logo}</span>
-          <div><b>ระบบรายงานปุ๋ยอินทรีย์</b><small>จังหวัดศรีสะเกษ</small></div>
+          <div><b>ระบบรายงานผลการดำเนินงาน</b><small>สำนักงานเกษตรจังหวัดศรีสะเกษ</small></div>
           <button className="sb-x" aria-label="ปิดเมนู" onClick={() => { setOpenPath(null); burger.current?.focus(); }}>✕</button>
         </div>
         <div className="sb-who"><small>{role}</small><b>{org}</b></div>
+        <div className="sb-fs"><span>ขนาดตัวอักษร</span><FontSize /></div>
         <nav className="sb-nav" aria-label="เมนูหลัก">
-          {links.map(l => (
-            <Link key={l.href} href={l.href} aria-current={path === l.href ? "page" : undefined} onClick={() => setOpenPath(null)}>
+          {links.map((l, i) => (
+            <Fragment key={l.href}>
+            {l.group && l.group !== links[i - 1]?.group && <p className="sb-grp">{l.group}</p>}
+            <Link href={l.href} aria-current={path === l.href ? "page" : undefined} onClick={() => setOpenPath(null)}>
               <span className="sb-ic">{NavIcons[l.icon ?? "home"]}</span>
               <span><b>{l.label}</b>{l.hint && <small>{l.hint}</small>}</span>
-            </Link>))}
+            </Link>
+            </Fragment>))}
         </nav>
         <Link className="sb-out" href="/change-password">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>เปลี่ยนรหัสผ่าน
         </Link>
-        <Link className="sb-out" href="/" onClick={() => { void fetch("/api/logout", { method: "POST" }); }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>ออกจากระบบ
-        </Link>
       </aside>
 
-      <div className="main-wrap"><main className="main">{children}</main></div>
+
+      <nav className="bn" aria-label="เมนูด่วน">
+        {links.slice(0, 4).map(l => {
+          const on = path === l.href || (l.href.split("/").length > 2 && path.startsWith(l.href + "/"));
+          return (
+            <Link key={l.href} href={l.href} aria-current={on ? "page" : undefined} onClick={() => setOpenPath(null)}>
+              {NavIcons[l.icon ?? "home"]}<span>{l.short ?? l.label}</span>
+            </Link>);
+        })}
+        <button type="button" aria-expanded={open} aria-controls="sidebar" onClick={() => setOpenPath(c => c === path ? null : path)}>
+          <svg {...p} aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg><span>เมนู</span>
+        </button>
+      </nav>
+
+      <div className="main-wrap"><main id="main" className="main">{children}</main>
+        <footer className="gv-foot">สำนักงานเกษตรจังหวัดศรีสะเกษ · ระบบรายงานผลการดำเนินงานระดับอำเภอ (AGRI-TRACK)</footer></div>
     </div>
   );
 }

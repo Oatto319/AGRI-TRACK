@@ -13,7 +13,7 @@ export default function ReportingSettings() {
   const [q, setQ] = useState("");
   const { settings, setSettings } = useProvince();
   const cfg = cfgOf(settings);
-  const pctOfFy = (fy: number) => cfgOf(settings, fy).area.targetPct; // เป้าหมายร้อยละของพื้นที่ปลูก แยกตามปีงบประมาณ (ปีที่ไม่ได้ตั้งเองใช้ค่าตั้งต้น)
+  const pctOfFy = (fy: number) => cfgOf(settings, fy).area.targetPct; // เป้าหมายร้อยละของพื้นที่ปลูก แยกตามปีงบประมาณ (ปีที่ไม่ได้ตั้งเองใช้ค่ามาตรฐาน)
   const [days, setDays] = useState<string[]>(["31"]);
   const [topic, setTopic] = useState<Topic>("area");
   const [fyIn, setFyIn] = useState<number | null>(null); // null = ปีงบประมาณปัจจุบัน

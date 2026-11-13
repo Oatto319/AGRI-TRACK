@@ -6,7 +6,7 @@ export interface MapDatum { name: string; /** ร้อยละที่ใช�
 
 // ระดับสี: <25 · <50 · <75 · <100 · ≥100 (% ของเป้าหมาย)
 const STEPS = [25, 50, 75, 100];
-const COLORS = ["#e3f1e7", "#b9dcc4", "#7cbf94", "#3f9e65", "#1f6b3f"];
+const COLORS = ["#d1fae5", "#a7f3d0", "#6ee7b7", "#10b981", "#047857"];
 const NONE = "#eceee8";
 const level = (v: number) => STEPS.findIndex(s => v < s) === -1 ? 4 : STEPS.findIndex(s => v < s);
 export const LEGEND = ["< 25%", "25–49%", "50–74%", "75–99%", "≥ 100%"];
@@ -27,7 +27,7 @@ export default function DistrictMap({ data, caption }: { data: MapDatum[]; capti
               onMouseEnter={() => setActive(name)} onFocus={() => setActive(name)} onClick={() => setActive(name)} onMouseLeave={() => setActive(null)} onBlur={() => setActive(null)} />);
         })}
         <g aria-hidden="true" className="dm-lb">
-          {Object.entries(SISAKET_MAP.districts).map(([name, g]) => { const d = by.get(name), dark = d?.value != null && level(d.value) >= 3; return <text key={name} x={g.cx} y={g.cy} textAnchor="middle" fill={dark ? "#fff" : "#1d261b"}>{name}</text>; })}
+          {Object.entries(SISAKET_MAP.districts).map(([name, g]) => { const d = by.get(name), dark = d?.value != null && level(d.value) >= 4; return <text key={name} x={g.cx} y={g.cy} textAnchor="middle" fill={dark ? "#fff" : "#1d261b"}>{name}</text>; })}
         </g>
       </svg>
       <div className="dm-info" aria-live="polite">{cur ? <><b>อำเภอ{cur.name}</b> · {cur.detail}</> : <span>เลื่อนเมาส์หรือแตะที่อำเภอเพื่อดูตัวเลข</span>}</div>

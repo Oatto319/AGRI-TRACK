@@ -19,7 +19,7 @@ export default function PdfButton({ fy, className, label = "ดาวน์โ�
   };
   return (
     <>
-      <button type="button" className={className} onClick={run} disabled={busy || !fy} aria-busy={busy}>{busy ? "กำลังสร้าง PDF…" : `📄 ${label}`}</button>
+      <button type="button" className={className} onClick={run} disabled={busy || !fy} aria-busy={busy}>{busy ? "กำลังสร้าง PDF…" : label}</button>
       {err && <span role="alert" style={{ color: "#be123c", fontSize: ".85rem", alignSelf: "center" }}>{err}</span>}
     </>);
 }

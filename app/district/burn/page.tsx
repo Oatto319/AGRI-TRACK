@@ -1,7 +1,7 @@
-import DistrictBurnReport from "@/components/DistrictBurnReport";
+import ReportHub from "@/components/ReportHub";
 
 export const instant = false;
 
 export default function DistrictBurnPage() {
-  return <DistrictBurnReport />;
+  return <ReportHub initial="burn" />;
 }

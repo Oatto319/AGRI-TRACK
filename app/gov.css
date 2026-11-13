@@ -1,0 +1,337 @@
+/* ===== ธีมแบบราชการ (โหลดหลัง globals.css และ ux.css จึงทับค่าเดิมได้) =====
+   หลักการ: พื้นขาว/เทาอ่อน · เขียวเข้มสีเดียวเป็นสีหลัก · เส้นขอบบาง ไม่มีเงา ไม่มีไล่สี
+   ตัวอักษรใหญ่ขึ้น คอนทราสต์สูง ปุ่มหลักมีปุ่มเดียวต่อหน้า (ตามแนวทาง WCAG 2.1 AA) */
+
+:root{
+  --brand:#14532d;--brand-d:#0f3f22;--brand-l:#eaf3ec;
+  --gold:#8a6a14;--gold-l:#f6efd9;
+  --ok:#166534;--ok-l:#e8f4ec;--warn:#8a4b08;--warn-l:#fdf3e1;--bad:#b91c1c;--bad-l:#fdecec;
+  --ink:#111827;--muted:#4b5563;--line:#cbd2d9;--bg:#f3f4f6;
+  --indigo:#14532d;--indigo2:#0f3f22;--paddy:#166534;--err:#b91c1c;
+  --sbw:272px;--gv-r:6px;
+}
+html{font-size:112.5%}               /* 18px: อ่านง่ายสำหรับทุกวัย */
+body{background:var(--bg);color:var(--ink);line-height:1.6}
+h1,h2,h3{font-family:var(--f-body),sans-serif;font-weight:700;color:var(--ink)}
+:focus-visible{outline:3px solid #1d4ed8;outline-offset:2px}
+.skip{position:absolute;left:-999px;top:0;background:#fff;color:var(--brand);padding:.6rem 1rem;z-index:100;font-weight:700}
+.skip:focus{left:.5rem;top:.5rem}
+
+/* ----- ตัดเงา/ไล่สี/มุมมนเกินจำเป็น ----- */
+.sb,.sb-logo,.sb-nav a,.sb-who,.tb-btn,.ux-card,.ux-step,.ux-sum,.ux-banner,.ux-btn,.ux-tab,.ux-grp,.ad-kpi,.ad-card,.ad-btn,.ad-banner,
+.pv-card,.pv-hero,.pv-kpi,.db-chip,.lgx-card,.lgx-art,.lgx-feat li,.msg,.ux-toast{background-image:none}
+.ux-card,.ux-step,.ux-banner,.ux-btn,.ux-tab,.ux-grp,.ux-num-in input,.ux-text-in input,.ux-select,.ad-kpi,.ad-card,.ad-btn,.ad-banner,
+.pv-card,.pv-hero,.pv-kpi,.lgx-card,.msg,.ux-toast,.sb-nav a,.sb-who,.tb-btn,.btn,input,select,textarea{border-radius:var(--gv-r)!important}
+.ux-card,.ux-step,.ad-kpi,.ad-card,.pv-card,.lgx-card{border:1px solid var(--line)}
+.ux-step>header{background:var(--brand-l);border-bottom:1px solid var(--line)}
+.ux-pill{border-radius:3px}
+
+/* ----- แถบบนแบบหน่วยงานราชการ (แสดงทุกขนาดจอ) ----- */
+.tb{display:flex!important;background:#fff;border-bottom:3px solid var(--brand);min-height:64px}
+.tb b{font-size:1.1rem}.tb small{color:var(--muted);font-size:.85rem}
+.tb-out{margin-left:auto;flex:none;text-decoration:none;color:var(--brand);font-weight:700;border:1.5px solid var(--brand);border-radius:var(--gv-r);padding:.5rem 1rem;min-height:44px;display:inline-flex;align-items:center;background:#fff}
+.tb-out:hover{background:var(--brand);color:#fff}
+@media(min-width:1024px){.tb{margin-left:var(--sbw)}.tb-btn{display:none}}
+
+/* ----- เมนูข้าง: พื้นเขียวเข้มเรียบ มีหัวข้อกลุ่ม ซ่อนคำอธิบายรอง ----- */
+.sb{background:var(--brand)!important;border-right:4px solid var(--gold)}
+.sb-logo{background:#fff;color:var(--brand)}
+.sb-brand b{font-size:1rem}
+.sb-who{background:rgba(255,255,255,.1);border-radius:var(--gv-r)}
+.sb-grp{margin:.9rem .4rem .15rem;font-size:.8rem;letter-spacing:.02em;color:#d1e4d6;font-weight:600;border-bottom:1px solid rgba(255,255,255,.25);padding-bottom:.25rem}
+.sb-nav{gap:.15rem}
+.sb-nav a{min-height:48px;padding:.5rem .7rem;color:#fff;border-left:4px solid transparent}
+.sb-nav a:hover{background:rgba(255,255,255,.12)}
+.sb-nav a[aria-current=page]{background:#fff;color:var(--brand-d);border-left-color:var(--gold)}
+.sb-nav b{font-size:1rem;font-weight:600}
+.sb-ic{background:transparent;width:28px;height:28px}
+.sb-nav a[aria-current=page] .sb-ic{background:transparent;color:var(--brand)}
+.sb-nav small{font-size:.78rem;opacity:.85}
+.sb-out{border-radius:var(--gv-r);border:1px solid rgba(255,255,255,.4);color:#fff}
+
+/* ----- พื้นที่เนื้อหา + ท้ายหน้า ----- */
+.main{max-width:1240px}
+.gv-foot{margin-top:2rem;padding:1rem clamp(.9rem,3vw,2rem);border-top:1px solid var(--line);color:var(--muted);font-size:.85rem;text-align:center;background:#fff}
+.ux-ph h1,.pv-head h1,.ad-title h1{font-size:1.55rem;font-weight:700;border-left:5px solid var(--brand);padding-left:.7rem}
+.ux-ph p,.ad-title p,.sub,.ux-note,.ux-hint,.hint{color:var(--muted)}
+
+/* ----- ปุ่ม: ปุ่มหลักเขียวทึบ ปุ่มรองเส้นขอบ ใหญ่ กดง่าย ----- */
+.btn,.ux-btn,.ad-btn{min-height:48px;font-size:1rem;font-weight:600;background:var(--brand);color:#fff;border:1.5px solid var(--brand);box-shadow:none}
+.btn:hover,.ux-btn:hover,.ad-btn:hover{background:var(--brand-d);border-color:var(--brand-d)}
+.ux-btn.gold,.btn.go{background:var(--brand);color:#fff}
+.btn.alt,.ux-btn.line,.ad-btn.line{background:#fff;color:var(--brand);border:1.5px solid var(--brand)}
+.btn.alt:hover,.ux-btn.line:hover,.ad-btn.line:hover{background:var(--brand-l)}
+.btn.warn{background:#fff;color:var(--bad);border:1.5px solid var(--bad)}
+.ux-btn.sm{min-height:40px;font-size:.9rem}
+.ux-tab{border:1.5px solid var(--line)}
+.ux-tab[aria-pressed=true]{border-color:var(--brand);background:var(--brand-l);box-shadow:none}
+
+/* ----- ช่องกรอก: ขอบชัด ตัวใหญ่ ----- */
+.ux-num-in input,.ux-text-in input,.ux-select,input[type=number],input[type=text],input[type=password],select,textarea{border:1.5px solid #6b7280;font-size:1.05rem;background:#fff}
+.ux-num-in input:focus,.ux-text-in input:focus,input:focus,select:focus,textarea:focus{border-color:var(--brand);box-shadow:0 0 0 3px rgba(29,78,216,.25)}
+.ux-num-in.filled input{border-color:var(--ok);background:#fff}
+.ux-lbl,label{font-weight:600;color:var(--ink)}
+
+/* ----- แจ้งเตือน/สถานะ: ใช้แถบสีด้านซ้าย + ข้อความ ไม่พึ่งสีอย่างเดียว ----- */
+.ux-banner,.ad-banner,.msg{border:1px solid var(--line);border-left:5px solid var(--brand);background:#fff;color:var(--ink)}
+.ux-banner.ok,.ad-banner.ok,.msg{border-left-color:var(--ok);background:var(--ok-l);color:#14401f}
+.ux-banner.warn,.ad-banner.warn{border-left-color:var(--warn);background:var(--warn-l);color:#5a3205}
+.ux-banner.bad,.msg.bad,.ux-toast.bad{border-left-color:var(--bad);background:var(--bad-l);color:#7f1d1d}
+
+/* ----- การ์ดสรุป (ฟอร์ม/แดชบอร์ด) ----- */
+.ux-sum,.pv-hero{background:var(--brand)!important;color:#fff}
+.ux-sum:after{display:none}
+.pv-kpi,.pv-kpi.teal,.pv-kpi.gold,.pv-kpi.navy{background:#fff!important;color:var(--ink);border:1px solid var(--line);border-top:4px solid var(--brand)}
+.pv-kpi.gold{border-top-color:var(--gold)}
+.pv-kpi small,.pv-kpi em,.pv-kpi span{color:var(--muted)}
+.pv-sec{font-size:1.2rem;border-bottom:2px solid var(--brand);padding-bottom:.35rem}
+.pv-card h2,.ux-card h2,.ad-card h2{font-size:1.1rem}
+
+/* ----- ตาราง: หัวตารางเข้ม เส้นแบ่งชัด แถวสลับสี ----- */
+.ux-table th{background:var(--brand);color:#fff;font-size:.88rem;border-bottom:0}
+.ux-table td{border-bottom:1px solid var(--line);font-size:.95rem}
+.ux-table tbody tr:nth-child(even) td{background:#f7f8f9}
+.ux-table td.sticky,.ux-table th.sticky{background:inherit}
+.ux-table tfoot td{background:var(--brand-l);color:var(--brand-d);border-top:2px solid var(--brand)}
+
+/* ----- รายละเอียดที่พับเก็บ (ลดความรกของหน้า) ----- */
+.gv-more{margin:1.4rem 0;border:1px solid var(--line);border-radius:var(--gv-r);background:#fff}
+.gv-more>summary{cursor:pointer;list-style:none;padding:.9rem 1.1rem;font-weight:700;color:var(--brand);min-height:48px;display:flex;align-items:center;gap:.6rem}
+.gv-more>summary::before{content:"+";display:grid;place-items:center;width:26px;height:26px;border:2px solid var(--brand);border-radius:var(--gv-r);font-weight:700;flex:none}
+.gv-more[open]>summary::before{content:"–"}
+.gv-more>summary::-webkit-details-marker{display:none}
+.gv-more[open]>summary{border-bottom:1px solid var(--line)}
+.gv-more>:not(summary){margin-left:1rem;margin-right:1rem}
+.gv-more>:last-child{margin-bottom:1rem}
+
+/* ----- หน้าเข้าสู่ระบบ: หัวหน่วยงาน + การ์ดกลางหน้าจอ ----- */
+.lgx{display:flex;flex-direction:column;background:var(--bg)}
+.lgx-art{background:var(--brand)!important;padding:1rem clamp(1rem,4vw,2.5rem);border-bottom:4px solid var(--gold);flex:none;display:block}
+.lgx-art:before,.lgx-art:after{display:none}
+.lgx-logo i{background:rgba(255,255,255,.15);border-radius:var(--gv-r);width:48px;height:48px;display:grid;place-items:center}
+.lgx-logo b{font-size:1.2rem}.lgx-logo small{display:block;color:#d1e4d6;font-size:.9rem}
+.lgx-form{flex:1;display:grid;place-items:center;padding:2rem 1rem}
+.lgx-card{width:min(460px,100%);background:#fff;padding:1.8rem;border:1px solid var(--line);border-top:5px solid var(--brand)}
+.lgx-card h2{font-size:1.5rem}
+.lgx-help{color:var(--muted);font-size:.9rem}
+
+/* ----- ลดการเคลื่อนไหว ----- */
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media print{.tb,.gv-foot,.skip{display:none!important}}
+
+/* ===== ชั้นปรับความสวย (polish) ===== */
+:root{--gv-shadow:0 1px 2px rgba(16,24,40,.06),0 2px 8px rgba(16,24,40,.04);--gv-shadow-h:0 4px 14px rgba(16,24,40,.10)}
+body{background:#eef1ef}
+/* การ์ด: เงาบาง + มุมโค้งนุ่ม */
+.ux-card,.ux-step,.ad-kpi,.ad-card,.pv-card,.gv-more,.lgx-card{border-radius:10px!important;border-color:#dfe4e1;box-shadow:var(--gv-shadow)!important}
+.ad-kpi,.pv-kpi{transition:box-shadow .15s,transform .15s}
+.ad-kpi:hover,.pv-kpi:hover{box-shadow:var(--gv-shadow-h)!important}
+.ux-step>header{background:linear-gradient(90deg,#eaf3ec,#f6faf7);border-radius:10px 10px 0 0}
+.ux-num{background:var(--brand);box-shadow:0 0 0 4px #dcebe0}
+.ux-step.done .ux-num{background:var(--ok)}
+/* ส่วนหัวหน้า: เส้นทองใต้ชื่อเรื่อง */
+.ux-ph h1,.pv-head h1,.ad-title h1{border-left:0;padding-left:0;position:relative;padding-bottom:.55rem}
+.ux-ph h1:after,.pv-head h1:after,.ad-title h1:after{content:"";position:absolute;left:0;bottom:0;width:64px;height:4px;border-radius:2px;background:linear-gradient(90deg,var(--brand),#b8963e)}
+/* แถบบน/เมนูข้าง */
+.tb{border-bottom:1px solid #dfe4e1;box-shadow:0 1px 0 #b8963e,0 4px 12px rgba(16,24,40,.05)}
+.sb{background:linear-gradient(180deg,#0f4a28,#14532d 55%,#1a6137)!important;border-right:0;box-shadow:2px 0 12px rgba(16,24,40,.12)}
+.sb-brand{border-bottom:1px solid rgba(255,255,255,.18);padding-bottom:.9rem}
+.sb-logo{border-radius:10px;box-shadow:0 0 0 3px rgba(184,150,62,.55)}
+.sb-who{border-left:3px solid #b8963e}
+.sb-nav a{border-radius:8px!important;border-left-width:0;transition:background .15s}
+.sb-nav a[aria-current=page]{box-shadow:inset 4px 0 0 #b8963e;font-weight:700}
+.sb-grp{color:#e2c97a;border-bottom-color:rgba(226,201,122,.35)}
+/* ปุ่ม */
+.btn,.ux-btn,.ad-btn{border-radius:8px!important;transition:background .15s,box-shadow .15s}
+.btn:hover,.ux-btn:hover,.ad-btn:hover{box-shadow:0 3px 10px rgba(20,83,45,.28)}
+.btn.alt:hover,.ux-btn.line:hover,.ad-btn.line:hover{box-shadow:none}
+.tb-out{border-radius:8px}
+/* ช่องกรอก */
+.ux-num-in input,.ux-text-in input,.ux-select,input[type=number],input[type=text],input[type=password],select,textarea{border-radius:8px!important;border-color:#8a949d}
+/* การ์ดสรุปเขียว */
+.pv-hero,.ux-sum{background:linear-gradient(135deg,#0f4a28,#1a6137)!important;border-radius:12px!important;border-bottom:4px solid #b8963e}
+.pv-kpi{border-radius:10px!important;border-top-width:4px}
+.pv-kpi b,.ad-kpi-v h2{font-size:1.9rem;letter-spacing:-.01em}
+/* ตาราง */
+.ux-table th{background:#14532d;font-weight:600}
+.ux-table th:first-child{border-top-left-radius:8px}.ux-table th:last-child{border-top-right-radius:8px}
+.ux-table tbody tr:hover td{background:#eef6f0}
+/* ป้ายสถานะ */
+.ux-pill{border-radius:999px;padding:.15rem .8rem;border:1px solid transparent}
+.ux-pill.ok{background:#e3f3e8;color:#14532d;border-color:#b9dcc4}
+.ux-pill.warn{background:#fbefd5;color:#7a4a05;border-color:#ecd49b}
+.ux-pill.bad{background:#fbe4e4;color:#8f1d1d;border-color:#efb9b9}
+.ux-pill.mute{background:#eceff1;color:#4b5563;border-color:#d5dadd}
+.db-chip{border-radius:999px!important}
+/* กล่องพับ */
+.gv-more>summary:hover{background:#f4f8f5;border-radius:10px}
+/* หน้าเข้าสู่ระบบ */
+.lgx{background:radial-gradient(1200px 500px at 50% -10%,#dcebe0,transparent 70%),#eef1ef}
+.lgx-art{background:linear-gradient(135deg,#0f4a28,#1a6137)!important}
+.lgx-logo i{border-radius:12px;box-shadow:0 0 0 3px rgba(184,150,62,.6)}
+.lgx-card{border-top:0!important;border-radius:14px!important;box-shadow:0 8px 30px rgba(16,24,40,.12)!important;position:relative;overflow:hidden}
+.lgx-card:before{content:"";position:absolute;inset:0 0 auto 0;height:5px;background:linear-gradient(90deg,#14532d,#b8963e)}
+.lgx-card h2{margin-top:.4rem}
+.gv-foot{background:transparent;border-top:1px solid #d9dfdb}
+
+/* =====================================================================
+   ชั้น "โมเดิร์น": สไตล์เว็บแอปยุคใหม่ (เมนูขาว การ์ดโค้งใหญ่ เงานุ่ม ไล่สีมรกต)
+   อยู่ท้ายสุดจึงทับชั้นก่อนหน้า · ลบทั้งบล็อกนี้ถ้าต้องการกลับไปแบบราชการเข้ม
+   ===================================================================== */
+:root{
+  --brand:#047857;--brand-d:#065f46;--brand-l:#ecfdf5;
+  --ink:#0f172a;--muted:#475569;--line:#e2e8f0;--bg:#f6f8fa;
+  --gold:#b45309;--gold-l:#fffbeb;
+  --gv-r:12px;--gv-grad:linear-gradient(135deg,#059669 0%,#047857 55%,#0f766e 100%);
+  --gv-shadow:0 1px 2px rgba(15,23,42,.04),0 8px 24px -12px rgba(15,23,42,.10);
+  --gv-shadow-h:0 2px 4px rgba(15,23,42,.05),0 16px 32px -14px rgba(15,23,42,.18);
+}
+body{background:var(--bg);-webkit-font-smoothing:antialiased}
+:focus-visible{outline:3px solid #34d399;outline-offset:2px}
+h1{font-size:1.8rem;letter-spacing:-.01em}
+
+/* ----- เมนูข้างสีขาว ----- */
+.sb{background:#fff!important;color:var(--ink);border-right:1px solid var(--line)!important;box-shadow:none!important}
+.sb.open{box-shadow:12px 0 40px rgba(15,23,42,.18)!important}
+.sb-brand{border-bottom:1px solid var(--line)}
+.sb-brand b{color:var(--ink)}.sb-brand small{color:var(--muted)}
+.sb-logo{background:var(--gv-grad)!important;color:#fff;border-radius:12px!important;box-shadow:0 6px 14px -4px rgba(4,120,87,.5)!important}
+.sb-x{color:var(--muted)}.sb-x:hover{background:#f1f5f9}
+.sb-who{background:#f8fafc;border:1px solid var(--line);border-left:1px solid var(--line);border-radius:12px!important}
+.sb-who small{color:var(--muted)}.sb-who b{color:var(--ink)}
+.sb-grp{color:#94a3b8;border:0;font-size:.78rem;font-weight:600;letter-spacing:.04em;margin:1.1rem .6rem .3rem}
+.sb-nav a{color:#334155;border-radius:12px!important;box-shadow:none!important}
+.sb-nav a:hover{background:#f1f5f9;color:var(--ink)}
+.sb-nav a[aria-current=page]{background:var(--brand-l);color:var(--brand-d);box-shadow:inset 3px 0 0 #059669!important}
+.sb-ic{background:#f1f5f9;color:#64748b;border-radius:10px;width:34px;height:34px}
+.sb-nav a:hover .sb-ic{background:#e2e8f0}
+.sb-nav a[aria-current=page] .sb-ic{background:#059669;color:#fff}
+.sb-nav small{color:var(--muted);opacity:1}
+.sb-out{color:#334155;border:1px solid var(--line);border-radius:12px!important;background:#fff}
+.sb-out:hover{background:#f1f5f9}
+
+/* ----- แถบบนโปร่งแสง ----- */
+.tb{background:rgba(255,255,255,.82);-webkit-backdrop-filter:saturate(180%) blur(12px);backdrop-filter:saturate(180%) blur(12px);border-bottom:1px solid var(--line);box-shadow:none}
+.tb-btn{border-radius:12px!important;border-color:var(--line);color:var(--brand-d)}
+.tb-out{background:#fff;color:#334155;border:1px solid var(--line);border-radius:999px;padding:.45rem 1.1rem;font-weight:600}
+.tb-out:hover{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+
+/* ----- หัวเรื่องหน้า: เรียบ ไม่มีเส้นตกแต่ง ----- */
+.ux-ph h1:after,.pv-head h1:after,.ad-title h1:after{display:none}
+.ux-ph h1,.pv-head h1,.ad-title h1{padding-bottom:0}
+
+/* ----- การ์ด ----- */
+.ux-card,.ux-step,.ad-kpi,.ad-card,.pv-card,.gv-more{background:#fff;border:1px solid #e8edf2;border-radius:16px!important;box-shadow:var(--gv-shadow)!important}
+.ad-kpi,.pv-kpi{transition:box-shadow .2s,transform .2s}
+.ad-kpi:hover,.pv-kpi:hover{box-shadow:var(--gv-shadow-h)!important;transform:translateY(-2px)}
+.ux-step>header{background:#fff;border-bottom:1px solid #eef2f6;border-radius:16px 16px 0 0}
+.ux-num{background:var(--gv-grad);box-shadow:0 4px 10px -2px rgba(4,120,87,.45)}
+.ux-step.done .ux-num{background:linear-gradient(135deg,#10b981,#059669)}
+.ux-grp{border-color:#e8edf2;border-radius:14px!important}
+
+/* ----- การ์ดสรุปไล่สี + KPI สีอ่อน ----- */
+.pv-hero,.ux-sum{background:var(--gv-grad)!important;border:0!important;border-radius:20px!important;box-shadow:0 18px 36px -18px rgba(4,120,87,.65)!important;position:relative;overflow:hidden}
+.pv-hero:after,.ux-sum:after{content:"";display:block;position:absolute;width:220px;height:220px;border-radius:50%;background:rgba(255,255,255,.10);right:-70px;top:-90px;pointer-events:none}
+.pv-kpi,.pv-kpi.teal{background:linear-gradient(160deg,#f0fdfa,#fff)!important;border:1px solid #ccfbf1;border-top:1px solid #ccfbf1;border-radius:16px!important}
+.pv-kpi.gold{background:linear-gradient(160deg,#fffbeb,#fff)!important;border-color:#fde68a}
+.pv-kpi b,.ad-kpi-v h2{font-size:2rem;letter-spacing:-.02em;color:var(--ink)}
+.pv-sec{border:0;font-size:1.25rem;padding-bottom:0;margin-top:2rem}
+
+/* ----- ปุ่ม ----- */
+.btn,.ux-btn,.ad-btn{border-radius:12px!important;border:0;background:var(--gv-grad);color:#fff;box-shadow:0 6px 14px -6px rgba(4,120,87,.6);font-weight:600}
+.btn:hover,.ux-btn:hover,.ad-btn:hover{background:var(--gv-grad);filter:brightness(1.07);box-shadow:0 10px 20px -8px rgba(4,120,87,.7);transform:translateY(-1px)}
+.btn:active,.ux-btn:active,.ad-btn:active{transform:none}
+.ux-btn.gold,.btn.go{background:var(--gv-grad)}
+.btn.alt,.ux-btn.line,.ad-btn.line{background:#fff;color:#0f172a;border:1px solid #cbd5e1;box-shadow:none;filter:none}
+.btn.alt:hover,.ux-btn.line:hover,.ad-btn.line:hover{background:#f8fafc;border-color:#94a3b8;box-shadow:none;transform:none}
+.btn.warn{background:#fff;color:#b91c1c;border:1px solid #fecaca;box-shadow:none}
+.btn:disabled,.ux-btn:disabled,.ad-btn:disabled{filter:grayscale(.4);box-shadow:none;transform:none}
+.ux-tab{border:1px solid #cbd5e1;border-radius:12px!important}
+.ux-tab[aria-pressed=true]{border-color:#059669;background:var(--brand-l);box-shadow:0 0 0 3px rgba(5,150,105,.15)}
+
+/* ----- ช่องกรอก ----- */
+.ux-num-in input,.ux-text-in input,.ux-select,input[type=number],input[type=text],input[type=password],select,textarea{border:1px solid #cbd5e1;border-radius:12px!important;background:#fff}
+.ux-num-in input:hover,.ux-text-in input:hover,select:hover{border-color:#94a3b8}
+.ux-num-in input:focus,.ux-text-in input:focus,input:focus,select:focus,textarea:focus{border-color:#059669;box-shadow:0 0 0 4px rgba(5,150,105,.18)}
+.ux-num-in.filled input{border-color:#6ee7b7;background:#f0fdf9}
+
+/* ----- แจ้งเตือน ----- */
+.ux-banner,.ad-banner,.msg{border:1px solid #bae6fd;border-left:1px solid #bae6fd;border-radius:14px!important;background:#f0f9ff;color:#0c4a6e}
+.ux-banner.ok,.ad-banner.ok,.msg{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+.ux-banner.warn,.ad-banner.warn{background:#fffbeb;border-color:#fde68a;color:#78350f}
+.ux-banner.bad,.msg.bad,.ux-toast.bad{background:#fef2f2;border-color:#fecaca;color:#991b1b}
+
+/* ----- ตารางโปร่ง ----- */
+.ux-table th{background:#f8fafc;color:#475569;font-weight:600;border-bottom:1px solid var(--line);border-radius:0!important}
+.ux-table td{border-bottom:1px solid #f1f5f9}
+.ux-table tbody tr:nth-child(even) td{background:transparent}
+.ux-table tbody tr:hover td{background:#f8fafc}
+.ux-table tfoot td{background:#f0fdf4;color:var(--brand-d);border-top:1px solid #bbf7d0}
+
+/* ----- ป้ายสถานะ/ชิป ----- */
+.ux-pill{border-radius:999px;font-weight:600}
+.ux-pill.ok{background:#dcfce7;color:#166534;border-color:#bbf7d0}
+.ux-pill.warn{background:#fef3c7;color:#92400e;border-color:#fde68a}
+.ux-pill.bad{background:#fee2e2;color:#991b1b;border-color:#fecaca}
+.ux-pill.mute{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
+
+/* ----- กล่องพับ ----- */
+.gv-more>summary{color:var(--ink);border-radius:16px}
+.gv-more>summary::before{background:var(--brand-l);border:0;color:var(--brand-d);border-radius:8px}
+.gv-more>summary:hover{background:#f8fafc}
+.gv-more[open]>summary{border-bottom:1px solid #eef2f6;border-radius:16px 16px 0 0}
+
+/* ----- หน้าเข้าสู่ระบบ ----- */
+.lgx{background:radial-gradient(900px 480px at 15% -5%,#d1fae5 0%,transparent 60%),radial-gradient(800px 420px at 95% 0%,#cffafe 0%,transparent 55%),#f6f8fa}
+.lgx-art{background:transparent!important;border-bottom:0;padding:1.4rem clamp(1rem,4vw,2.5rem)}
+.lgx-logo i{background:var(--gv-grad);border-radius:14px;box-shadow:0 8px 18px -6px rgba(4,120,87,.55)}
+.lgx-logo b{color:var(--ink)}.lgx-logo small{color:var(--muted)}
+.lgx-card{border:1px solid #e8edf2;border-radius:24px!important;box-shadow:0 30px 60px -24px rgba(15,23,42,.25)!important;padding:2.2rem}
+.lgx-card:before{height:0}
+.lgx-card h2{font-size:1.7rem;letter-spacing:-.01em}
+.lgx-in{border-radius:12px}
+.lgx-help a{color:var(--brand-d);font-weight:600}
+.gv-foot{color:#64748b}
+
+/* ===== หน้าตั้งค่า: แท็บ + กล่องเลือกปี + แท็บปีงบประมาณ ===== */
+.cf-scope{border:1px solid #e8edf2;border-radius:16px;box-shadow:var(--gv-shadow);padding:.8rem 1.1rem;margin-top:0}
+.cf-scope>label{margin:0;white-space:nowrap}
+.cf-scope .ux-select{min-height:46px}
+.cf-tabs{gap:.35rem;border-bottom:1px solid #e2e8f0;margin-top:1.1rem}
+.cf-tab{background:transparent;border-radius:12px 12px 0 0;color:#475569;min-height:46px}
+.cf-tab:hover{background:#f1f5f9}
+.cf-tab.on{background:#fff;color:var(--brand-d);box-shadow:inset 0 -3px 0 #059669,0 0 0 1px #e2e8f0}
+.cf-n{background:#cbd5e1}.cf-tab.on .cf-n{background:#059669}
+.cf-panel{border:1px solid #e2e8f0;border-top:0;border-radius:0 0 16px 16px;box-shadow:var(--gv-shadow);padding:1.3rem}
+.cf-tip{background:#f0f9ff;border-color:#bae6fd;border-radius:14px;color:#0c4a6e}.cf-tip-i{color:#0284c7}
+.cf-group,.cf-box{border-color:#e8edf2;background:#fff;border-radius:14px}
+.cf-h3{font-size:1.1rem;margin:0}
+
+.fy-intro{margin:0 0 1.1rem;padding:.8rem 1rem;border-radius:14px;background:#f0f9ff;border:1px solid #bae6fd;color:#0c4a6e}
+.fy-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;margin:0 0 .8rem}
+.fy-form{border:1px solid #a7f3d0;background:linear-gradient(180deg,#f0fdf9,#fff 60%);border-radius:16px;padding:1.2rem;margin-bottom:1.1rem;display:grid;gap:.9rem}
+.fy-form h3{font-size:1.1rem;margin:0}
+.fy-grid{display:grid;grid-template-columns:minmax(150px,.8fr) 1fr 1fr;gap:.8rem}
+@media(max-width:640px){.fy-grid{grid-template-columns:1fr}}
+.fy-preview{margin:0;padding:.55rem .9rem;border-radius:10px;background:#ecfdf5;color:#065f46}
+.fy-adv{border:1px dashed #cbd5e1;border-radius:12px;background:#fff}
+.fy-adv>summary{cursor:pointer;padding:.7rem 1rem;font-weight:600;min-height:44px;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap}
+.fy-adv>summary span{font-weight:400;color:var(--muted);font-size:.88rem}
+.fy-topics{display:grid;gap:.6rem;padding:.2rem 1rem 1rem}
+.fy-topic{display:grid;grid-template-columns:minmax(140px,1.1fr) minmax(150px,1fr) 2fr;gap:.6rem;align-items:center;padding:.5rem 0;border-top:1px solid #f1f5f9}
+.fy-topic-n{font-weight:600}
+.fy-topic-m{display:flex;gap:.5rem;align-items:center}.fy-topic-m .ux-select{flex:1;min-width:0}
+@media(max-width:760px){.fy-topic{grid-template-columns:1fr}}
+.fy-form-act{display:flex;gap:.6rem;flex-wrap:wrap}
+.fy-list{list-style:none;margin:0;padding:0;border:1px solid #e8edf2;border-radius:16px;overflow:hidden;background:#fff;box-shadow:var(--gv-shadow)}
+.fy-row{display:grid;grid-template-columns:minmax(170px,1fr) minmax(220px,1.4fr) minmax(160px,1.6fr) auto;gap:.4rem 1rem;align-items:center;padding:.85rem 1.1rem;border-bottom:1px solid #f1f5f9}
+.fy-row:last-child{border-bottom:0}.fy-row:hover{background:#f8fafc}.fy-row.on{background:#ecfdf5}
+.fy-main{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.fy-badge{background:#dcfce7;color:#166534;border-radius:999px;padding:.05rem .65rem;font-size:.78rem;font-weight:700}
+.fy-range{color:#0f172a}.fy-extra{color:var(--muted);font-size:.9rem}
+.fy-act{display:flex;gap:.5rem;align-items:center;justify-content:flex-end}
+.fy-del{border:0;background:none;color:#b91c1c;font:inherit;font-weight:600;cursor:pointer;min-height:40px;padding:0 .6rem;border-radius:10px}
+.fy-del:hover{background:#fef2f2}
+@media(max-width:860px){.fy-row{grid-template-columns:1fr}.fy-act{justify-content:flex-start}}
+.fy-empty{display:grid;gap:.25rem;padding:1.6rem;text-align:center;border:1px dashed #cbd5e1;border-radius:16px;background:#fff;color:var(--muted)}
+.fy-empty b{color:var(--ink);font-size:1.05rem}

@@ -1,7 +1,7 @@
 import { fmt } from "@/lib/summary";
 
 // สีของแต่ละชนิดในกราฟโดนัท (เรียงตาม FIELDS)
-export const PV_COLORS = ["#2f7d4f", "#c19a36", "#8a5a2b", "#5aa469", "#b36a3c", "#7a8f3a", "#3b8e8c", "#d9b45a"]; // โทนเกษตร: เขียวนาข้าว ทองรวงข้าว น้ำตาลดิน
+export const PV_COLORS = ["#059669", "#0f766e", "#f59e0b", "#34d399", "#065f46", "#2dd4bf", "#fbbf24", "#6ee7b7"]; // โทนมรกต + เหลืองอำพันเป็นสีเน้น
 
 /** วงแหวนเปอร์เซ็นต์ในการ์ด KPI (พื้นหลังสี) */
 export function Ring({ pct, label }: { pct: number; label: string }) {
@@ -34,8 +34,8 @@ export function BarChart({ data, unit }: { data: { label: string; value: number 
   return (
     <svg className="pv-bars" viewBox={`0 0 ${W} ${H}`} role="img" aria-label="ผลผลิตรายเดือน">
       <defs>
-        <linearGradient id="pvBarG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#36945a" /><stop offset="1" stopColor="#1b4a2e" /></linearGradient>
-        <linearGradient id="pvBarP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#e3bd55" /><stop offset="1" stopColor="#b08a2c" /></linearGradient>
+        <linearGradient id="pvBarG" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#10b981" /><stop offset="1" stopColor="#047857" /></linearGradient>
+        <linearGradient id="pvBarP" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#fbbf24" /><stop offset="1" stopColor="#d97706" /></linearGradient>
       </defs>
       {Array.from({ length: 6 }, (_, i) => {
         const y = T + ih - (i / 5) * ih;
@@ -52,14 +52,14 @@ export function BarChart({ data, unit }: { data: { label: string; value: number 
             {d.value > 0 && <>
               <path d={`M${x} ${T + ih}V${y + 6}Q${x} ${y} ${x + 6} ${y}H${x + bw - 6}Q${x + bw} ${y} ${x + bw} ${y + 6}V${T + ih}Z`} fill={i === peak ? "url(#pvBarP)" : "url(#pvBarG)"}>
                 <title>{`${d.label}: ${fmt(d.value)} ${unit}`}</title></path>
-              {data.length <= 14 && <text x={x + bw / 2} y={y - 5} textAnchor="middle" fontSize="10.5" fontWeight="600" fill={i === peak ? "#94701c" : "#56614f"}>{fmt(d.value)}</text>}
+              {data.length <= 14 && <text x={x + bw / 2} y={y - 5} textAnchor="middle" fontSize="10.5" fontWeight="600" fill={i === peak ? "#b45309" : "#56614f"}>{fmt(d.value)}</text>}
             </>}
             {i % every === 0 && <text x={L + band * i + band / 2} y={H - 9} textAnchor="middle" fontSize="11" fill="#76826d">{d.label}</text>}
           </g>);
       })}
       {withData.length > 1 && <g>
-        <line x1={L} x2={W - R} y1={yAvg} y2={yAvg} stroke="#b36a3c" strokeWidth="1.4" strokeDasharray="5 4" />
-        <text x={W - R} y={yAvg - 4} textAnchor="end" fontSize="10.5" fill="#b36a3c">{`เฉลี่ย ${fmt(avg)}`}</text>
+        <line x1={L} x2={W - R} y1={yAvg} y2={yAvg} stroke="#d97706" strokeWidth="1.4" strokeDasharray="5 4" />
+        <text x={W - R} y={yAvg - 4} textAnchor="end" fontSize="10.5" fill="#d97706">{`เฉลี่ย ${fmt(avg)}`}</text>
       </g>}
     </svg>);
 }
@@ -78,9 +78,9 @@ export function FertCompareBars({ data, prevLabel, curLabel, unit }: { data: { l
     <>
       <svg className="pv-bars" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`เปรียบเทียบรายเดือน ${prevLabel} กับ ${curLabel}`}>
         <defs>
-          <linearGradient id="fcEnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f7941d" /><stop offset=".55" stopColor="#fdd9a8" /><stop offset="1" stopColor="#fff" stopOpacity=".15" /></linearGradient>
-          <linearGradient id="fcPrev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#5f7494" /><stop offset=".45" stopColor="#35557f" /><stop offset="1" stopColor="#2e4a73" /></linearGradient>
-          <linearGradient id="fcCur" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#7cd0f0" /><stop offset="1" stopColor="#3db8ec" /></linearGradient>
+          <linearGradient id="fcEnv" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#f59e0b" /><stop offset=".55" stopColor="#fde68a" /><stop offset="1" stopColor="#fff" stopOpacity=".15" /></linearGradient>
+          <linearGradient id="fcPrev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2dd4bf" /><stop offset=".45" stopColor="#0f766e" /><stop offset="1" stopColor="#065f46" /></linearGradient>
+          <linearGradient id="fcCur" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#6ee7b7" /><stop offset="1" stopColor="#10b981" /></linearGradient>
         </defs>
         {Array.from({ length: 6 }, (_, i) => {
           const y = T + ih - (i / 5) * ih;
@@ -94,7 +94,7 @@ export function FertCompareBars({ data, prevLabel, curLabel, unit }: { data: { l
           const cx = L + band * i + band / 2, ex = cx - ew / 2, hi = Math.max(d.prev, d.cur), ey = yOf(hi);
           return (
             <g key={d.label + i}>
-              {hi > 0 && <path d={`M${ex} ${base}V${ey + 5}Q${ex} ${ey} ${ex + 5} ${ey}H${ex + ew - 5}Q${ex + ew} ${ey} ${ex + ew} ${ey + 5}V${base}Z`} fill="url(#fcEnv)" stroke="#dbe4ee" strokeWidth=".8" />}
+              {hi > 0 && <path d={`M${ex} ${base}V${ey + 5}Q${ex} ${ey} ${ex + 5} ${ey}H${ex + ew - 5}Q${ex + ew} ${ey} ${ex + ew} ${ey + 5}V${base}Z`} fill="url(#fcEnv)" stroke="#a7f3d0" strokeWidth=".8" />}
               {bar(cx - gap / 2 - bw, d.prev, "url(#fcPrev)", d.label, prevLabel)}
               {bar(cx + gap / 2, d.cur, "url(#fcCur)", d.label, curLabel)}
               {i % every === 0 && <text x={cx} y={H - 9} textAnchor="middle" fontSize="11" fill="#76826d">{d.label}</text>}
@@ -102,9 +102,9 @@ export function FertCompareBars({ data, prevLabel, curLabel, unit }: { data: { l
         })}
       </svg>
       <p className="pv-lg">
-        <span><i style={{ background: "#35557f" }} />{prevLabel}</span>
-        <span><i style={{ background: "#3db8ec" }} />{curLabel}</span>
-        <span><i style={{ background: "linear-gradient(#f7941d,#fdd9a8)" }} />ค่าสูงสุดของเดือน ({unit})</span>
+        <span><i style={{ background: "#0f766e" }} />{prevLabel}</span>
+        <span><i style={{ background: "#10b981" }} />{curLabel}</span>
+        <span><i style={{ background: "linear-gradient(#f59e0b,#fde68a)" }} />ค่าสูงสุดของเดือน ({unit})</span>
       </p>
     </>);
 }
@@ -183,23 +183,23 @@ export function AreaCombo({ data, target }: { data: { label: string; month: numb
           <g key={i}>
             <line x1={L} x2={W - R} y1={y} y2={y} stroke="#ebefe8" strokeWidth="1" />
             <text x={L - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#76826d">{(i * stepL).toLocaleString("th-TH")}</text>
-            <text x={W - R + 8} y={y + 4} fontSize="11" fill="#94701c">{(i * stepR).toLocaleString("th-TH")}</text>
+            <text x={W - R + 8} y={y + 4} fontSize="11" fill="#b45309">{(i * stepR).toLocaleString("th-TH")}</text>
           </g>);
       })}
       {data.map((d, i) => {
         const h = (d.month / topL) * ih, x = cx(i) - bw / 2;
         return (
           <g key={d.label + i}>
-            {d.month > 0 && <rect x={x} y={T + ih - h} width={bw} height={h} rx="3" fill="#297b48"><title>{`${d.label}: ${nf(d.month)} ไร่`}</title></rect>}
+            {d.month > 0 && <rect x={x} y={T + ih - h} width={bw} height={h} rx="3" fill="#059669"><title>{`${d.label}: ${nf(d.month)} ไร่`}</title></rect>}
             <text x={cx(i)} y={H - 9} textAnchor="middle" fontSize="11" fill="#76826d">{d.label}</text>
           </g>);
       })}
       {target > 0 && <g>
-        <line x1={L} x2={W - R} y1={cy(target)} y2={cy(target)} stroke="#b36a3c" strokeWidth="1.5" strokeDasharray="6 4" />
-        <text x={L + 4} y={cy(target) - 5} fontSize="11" fill="#b36a3c">{`เป้าหมาย ${nf(target)} ไร่`}</text>
+        <line x1={L} x2={W - R} y1={cy(target)} y2={cy(target)} stroke="#d97706" strokeWidth="1.5" strokeDasharray="6 4" />
+        <text x={L + 4} y={cy(target) - 5} fontSize="11" fill="#d97706">{`เป้าหมาย ${nf(target)} ไร่`}</text>
       </g>}
-      {data.length > 0 && <path d={line} fill="none" stroke="#c09a3a" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />}
-      {data.map((d, i) => <circle key={i} cx={cx(i)} cy={cy(d.cum)} r="4" fill="#fff" stroke="#c09a3a" strokeWidth="2.5"><title>{`สะสมถึง ${d.label}: ${nf(d.cum)} ไร่`}</title></circle>)}
+      {data.length > 0 && <path d={line} fill="none" stroke="#d97706" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />}
+      {data.map((d, i) => <circle key={i} cx={cx(i)} cy={cy(d.cum)} r="4" fill="#fff" stroke="#d97706" strokeWidth="2.5"><title>{`สะสมถึง ${d.label}: ${nf(d.cum)} ไร่`}</title></circle>)}
     </svg>);
 }
 
@@ -213,7 +213,7 @@ export function AreaHBars({ rows, highlight, unit = "ไร่" }: { rows: { nam
         <li key={r.name} className={r.name === highlight ? "me" : ""}>
           <span className="nm">{r.name}</span>
           <div className="tk" title={`${r.name}: สะสม ${nf(r.accum)} ${unit} · เป้าหมาย ${nf(r.target)} ${unit}`}>
-            <i style={{ width: `${(r.accum / max) * 100}%`, background: ok ? "#297b48" : "#c09a3a" }} />
+            <i style={{ width: `${(r.accum / max) * 100}%`, background: ok ? "#059669" : "#d97706" }} />
             {r.target > 0 && <u style={{ left: `${(r.target / max) * 100}%` }} />}
           </div>
           <b>{nf(r.accum)}</b>
@@ -241,8 +241,8 @@ export function Sparkline({ values }: { values: number[] }) {
   const line = pts.map(([x, y], i) => `${i ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join("");
   return (
     <svg className="pv-spark" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
-      <path d={`${line}L${W} ${H}L0 ${H}Z`} fill="#297b48" opacity=".14" />
-      <path d={line} fill="none" stroke="#297b48" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
+      <path d={`${line}L${W} ${H}L0 ${H}Z`} fill="#059669" opacity=".14" />
+      <path d={line} fill="none" stroke="#059669" strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" />
     </svg>);
 }
 

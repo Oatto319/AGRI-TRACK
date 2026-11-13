@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
+import Skeleton from "@/components/Skeleton";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { AREA_FIELDS, DEFAULT_SETTINGS, areaTotalsFor, cfgOf, cfgOfMonth, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, fiscalYearOptions, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings, type Topic } from "@/lib/data";
+import { AREA_FIELDS, DEFAULT_SETTINGS, bkkDate, areaTotalsFor, cfgOf, cfgOfMonth, currentMonth, dueDateOf, dueDaysFor, fiscalRange, fiscalYearOf, fiscalYearOptions, isAreaMonth, baleValue, strawBales, strawTons, strawValue, thaiDate, thaiDateTime, thaiMonth, type AreaReport, type BurnReport, type Report, type Settings, type Topic } from "@/lib/data";
 import { aggregate, aggregateArea, aggregateBurn, fmt, sumValues } from "@/lib/summary";
 import { AreaCombo, AreaHBars, BarChart, FertCompareBars, PV_COLORS, TypeDonut, cumulate, monthShort } from "@/components/ProvinceCharts";
 import { useDistrict } from "@/components/District";
@@ -12,7 +13,7 @@ type TabKey = "fert" | "area" | "burn";
 interface Task {
   key: TabKey; title: string; icon: ReactNode; color: string; sub: string;
   status?: string; late?: boolean; submittedAt?: string; done: number; total: number;
-  line: ReactNode; miss: ReactNode; href: string; cta: string; inactive?: boolean;
+  line: ReactNode; miss: ReactNode; href: string; cta: string; inactive?: boolean; due: string;
 }
 
 interface Row { key: string; topic: TabKey; topicLabel: string; month: string; round: number; due: string; submittedAt?: string; st: "submitted" | "late" | "draft" | "none" | "future"; href: string }
@@ -20,6 +21,9 @@ const TOPIC_LABEL: Record<TabKey, string> = { fert: "ปุ๋ยอินทร
 const ST_LABEL: Record<Row["st"], string> = { submitted: "ส่งแล้ว", late: "ส่งช้า", draft: "ร่าง", none: "ยังไม่ส่ง", future: "ยังไม่ถึงกำหนด" };
 const ST_CLASS: Record<Row["st"], string> = { submitted: "ok", late: "bad", draft: "warn", none: "bad", future: "mute" };
 const PAGE = 8;
+/** ลิงก์ไปฟอร์มกรอกรายงาน (หน้าเดียว สลับหัวข้อด้วยแท็บ) */
+const formHref = (topic: TabKey, month: string, round?: number) => `/district/report?topic=${topic}&month=${month}${round ? `&round=${round}` : ""}`;
+const TASK_ST: Record<"ok" | "late" | "todo" | "na", string> = { ok: "ส่งแล้ว", late: "เลยกำหนด", todo: "ยังไม่ส่ง", na: "ไม่ต้องส่งเดือนนี้" };
 
 /** ป้ายเปลี่ยนแปลงเทียบปีงบประมาณก่อนหน้า เป็นข้อความภาษาไทย (เขียว = เพิ่มขึ้น · แดง = ลดลง) */
 function Delta({ cur, prev }: { cur: number; prev: number }) {
@@ -41,7 +45,7 @@ export default function DistrictDashboard() {
   const [mainTab, setMainTab] = useState<TabKey>("fert"); // หมวดของกราฟหลัก
   const [burnKey, setBurnKey] = useState(""); // ช่องหยุดเผาที่แสดงในกราฟ
   const [cmpTab, setCmpTab] = useState<"fert" | "area">("fert"); // กราฟเปรียบเทียบย้อนหลัง 2 ปี
-  const [bannerOff, setBannerOff] = useState(false);
+  const [today, setToday] = useState(""); // วันที่ปัจจุบัน (เวลาไทย) อ่านหลัง mount เท่านั้น
   const [q, setQ] = useState(""); const [stF, setStF] = useState("ALL"); const [topicF, setTopicF] = useState("ALL"); const [page, setPage] = useState(0);
   const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
   const cfg = useMemo(() => cfgOfMonth(settings, to), [settings, to]), K = cfg.area, FIELDS = cfg.fertFields, BURN_FIELDS = cfg.burnFields;
@@ -53,7 +57,7 @@ export default function DistrictDashboard() {
         setSettings(st); setArea(ar); setBurn(bn);
         cfgOf(st); // โหลดช่วงเดือนของปีงบประมาณที่จังหวัดตั้งไว้ ก่อนคำนวณปีงบประมาณ
         const current = currentMonth();
-        setCur(current); setCm(current); setReports(all);
+        setCur(current); setCm(current); setToday(bkkDate()); setReports(all);
         const fr = fiscalRange(fiscalYearOf(current)); // ค่าเริ่มต้น = ปีงบประมาณของเดือนปัจจุบัน
         setFrom(fr.from); setTo(fr.to);
       })
@@ -128,7 +132,7 @@ export default function DistrictDashboard() {
       out.push({ key: "fert", title: "รายงานปุ๋ยอินทรีย์", icon: I.leaf, color: "#266a40", sub: `เดือน${thaiMonth(cm)}${nR("fert", cm) > 1 ? ` · รอบที่ ${rd}` : ""} · ส่งภายใน ${thaiDate(dueOf("fert", cm, rd))}`,
         status: r?.status, late: r?.late, submittedAt: r?.submittedAt, done, total: items.length, line: `กรอกแล้ว ${done} จาก ${items.length} ช่อง`,
         miss: miss.length ? <>ยังไม่ได้กรอก: <b>{miss.slice(0, 3).join(", ")}{miss.length > 3 ? ` และอีก ${miss.length - 3} ช่อง` : ""}</b></> : "กรอกครบทุกช่องแล้ว",
-        href: `/district/report?month=${cm}&round=${rd}`, cta: r?.status === "submitted" ? "ดู / แก้ไขรายงาน" : done ? "กรอกต่อ" : "เริ่มกรอกรายงานปุ๋ย" });
+        due: dueOf("fert", cm, rd), href: formHref("fert", cm, rd), cta: r?.status === "submitted" ? "ดู / แก้ไขรายงาน" : done ? "กรอกต่อ" : "เริ่มกรอกรายงานปุ๋ย" });
     }
     { // พื้นที่ไถกลบฟางข้าว
       const rd = rdOf("area"), ar = area.find(x => x.month === cm && x.round === rd), v = ar?.values.area;
@@ -137,7 +141,7 @@ export default function DistrictDashboard() {
         status: ar?.status, late: ar?.late, submittedAt: ar?.submittedAt, done: v !== undefined ? 1 : 0, total: 1,
         line: v !== undefined ? `กรอกแล้ว ${f2(v)} ไร่` : "ยังไม่ได้กรอกพื้นที่",
         miss: !isAreaMonth(cm) ? "เดือนนี้ไม่ต้องกรอก · รายงานเฉพาะช่วงปีงบประมาณ" : v !== undefined ? "ฟางข้าวและมูลค่าระบบคำนวณให้" : <>ยังไม่ได้กรอก: <b>{AREA_FIELDS[0].label}</b></>,
-        href: `/district/area?month=${cm}&round=${rd}`, cta: ar?.status === "submitted" ? "ดู / แก้ไขข้อมูล" : v !== undefined ? "กรอกต่อ" : "เริ่มกรอกพื้นที่" });
+        due: isAreaMonth(cm) ? dueOf("area", cm, rd) : "", href: formHref("area", cm, rd), cta: ar?.status === "submitted" ? "ดู / แก้ไขข้อมูล" : v !== undefined ? "กรอกต่อ" : "เริ่มกรอกพื้นที่" });
     }
     { // หยุดเผา
       const rd = rdOf("burn"), br = burn.find(x => x.month === cm && x.round === rd);
@@ -146,7 +150,7 @@ export default function DistrictDashboard() {
       out.push({ key: "burn", title: "การเรียนรู้/ประชาสัมพันธ์หยุดเผา", icon: I.alert, color: "#c2410c", sub: `เดือน${thaiMonth(cm)}${nR("burn", cm) > 1 ? ` · รอบที่ ${rd}` : ""} · ส่งภายใน ${thaiDate(dueOf("burn", cm, rd))}`,
         status: br?.status, late: br?.late, submittedAt: br?.submittedAt, done, total: items.length, line: `กรอกแล้ว ${done} จาก ${items.length} ช่อง`,
         miss: miss.length ? <>ยังไม่ได้กรอก: <b>{miss.slice(0, 2).map(m => m.label).join(", ")}{miss.length > 2 ? ` และอีก ${miss.length - 2} ช่อง` : ""}</b></> : "กรอกครบทุกช่องแล้ว",
-        href: `/district/burn?month=${cm}&round=${rd}`, cta: br?.status === "submitted" ? "ดู / แก้ไขข้อมูล" : done ? "กรอกต่อ" : "เริ่มกรอกข้อมูลหยุดเผา" });
+        due: dueOf("burn", cm, rd), href: formHref("burn", cm, rd), cta: br?.status === "submitted" ? "ดู / แก้ไขข้อมูล" : done ? "กรอกต่อ" : "เริ่มกรอกข้อมูลหยุดเผา" });
     }
     return out;
   })();
@@ -169,7 +173,7 @@ export default function DistrictDashboard() {
     const push = (topic: TabKey, m: string, rd: number, r?: { status: "draft" | "submitted"; late?: boolean; submittedAt?: string; dueDate?: string }) => {
       const st: Row["st"] = r ? (r.status === "submitted" ? (r.late ? "late" : "submitted") : "draft") : cur && m > cur ? "future" : "none";
       out.push({ key: `${topic}-${m}-${rd}`, topic, topicLabel: TOPIC_LABEL[topic], month: m, round: rd, due: r?.dueDate ?? dueOf(topic, m, rd), submittedAt: r?.submittedAt, st,
-        href: `/district/${topic === "fert" ? "report" : topic}?month=${m}&round=${rd}` });
+        href: formHref(topic, m, rd) });
     };
     d.agg.months.forEach(m => { for (let rd = 1; rd <= nR("fert", m); rd++) push("fert", m, rd, d.rec(m, rd)); });
     d.arMonths.forEach(m => { for (let rd = 1; rd <= nR("area", m); rd++) push("area", m, rd, area.find(x => x.month === m && x.round === rd)); });
@@ -187,8 +191,9 @@ export default function DistrictDashboard() {
     ...area.map(r => ({ t: "area" as TabKey, m: r.month, rd: r.round, st: r.status, late: r.late, ts: r.submittedAt ?? r.updatedAt })),
     ...burn.map(r => ({ t: "burn" as TabKey, m: r.month, rd: r.round, st: r.status, late: r.late, ts: r.submittedAt ?? r.updatedAt })),
   ].filter(x => x.ts).sort((a, b) => b.ts.localeCompare(a.ts)).slice(0, 5) : [];
-  const FEED_ICON: Record<TabKey, { ic: string; c: string }> = { fert: { ic: "🌱", c: "green" }, area: { ic: "🌾", c: "amber" }, burn: { ic: "🔥", c: "rose" } };
-  const pendingTitles = active.filter(t => t.status !== "submitted").map(t => t.title);
+  const FEED_ICON: Record<TabKey, { ic: string; c: string }> = { fert: { ic: "•", c: "green" }, area: { ic: "•", c: "amber" }, burn: { ic: "•", c: "rose" } };
+  const taskState = (t: Task): "ok" | "late" | "todo" | "na" =>
+    t.inactive ? "na" : t.status === "submitted" ? "ok" : today && t.due && today > t.due ? "late" : "todo";
 
   return (
     <div className="ad">
@@ -205,39 +210,53 @@ export default function DistrictDashboard() {
               {fyOptions.map(y => <option key={y} value={y}>ปีงบประมาณ {y}{y === curFy ? " (ปัจจุบัน)" : ""}</option>)}
             </select>
           </div>
-          <a className="ad-btn line" href="#ad-table">📋 ตารางรายการ</a>
-          {cm && <Link className="ad-btn" href={`/district/report?month=${cm}&round=${rdOf("fert")}`}>+ กรอกรายงานปุ๋ย</Link>}
         </div>
       </div>
       {loadError && <p className="ux-toast bad" role="alert">{loadError}</p>}
-      {!reports && !loadError && <p className="ux-empty">กำลังโหลด…</p>}
+      {!reports && !loadError && <Skeleton />}
 
       {d && <>
-        {/* ===== แบนเนอร์แจ้งเตือน (ปิดได้) ===== */}
-        {!bannerOff && (
-          <div className={`ad-banner ${pending ? "warn" : "ok"}`} role="status">
-            <span className="ic">{pending ? "⏰" : "🎉"}</span>
-            <span className="tx">{pending ? <>เดือน{thaiMonth(cm)} ยังมีงานที่ต้องส่งอีก <b>{pending}</b> รายการ: {pendingTitles.join(", ")}</> : <>เดือน{thaiMonth(cm)} ส่งรายงานครบทุกรายการแล้ว</>}</span>
-            <button type="button" aria-label="ปิดแจ้งเตือน" onClick={() => setBannerOff(true)}>✕</button>
+        {/* ===== งานที่ต้องทำ: การ์ดใหญ่ 3 ใบ บอกสถานะ + ปุ่มเดียวต่อใบ ===== */}
+        <section className="td" aria-labelledby="td-h">
+          <div className="td-h">
+            <h2 id="td-h">งานที่ต้องทำเดือน{thaiMonth(cm)}</h2>
+            <p className={pending ? "warn" : "ok"} role="status">{pending ? `ยังเหลือ ${pending} รายการที่ต้องส่ง` : "ส่งครบทุกรายการแล้ว ไม่มีงานค้าง"}</p>
           </div>
-        )}
+          <div className="td-grid">
+            {tasks.map(t => { const st = taskState(t);
+              return (
+                <article key={t.key} className={`td-card ${st}`} style={{ ["--tc" as string]: t.color }}>
+                  <header><span className="td-ic">{t.icon}</span><h3>{t.title}</h3></header>
+                  <span className={`td-st ${st}`}><i aria-hidden="true" />{TASK_ST[st]}</span>
+                  <p className="td-sub">{t.sub}</p>
+                  {st === "na" ? <p className="td-miss">{t.miss}</p> : <>
+                    <div className="td-bar" role="img" aria-label={`กรอกแล้ว ${t.done} จาก ${t.total} ช่อง`}><i style={{ width: `${t.total ? (t.done / t.total) * 100 : 0}%` }} /></div>
+                    <p className="td-line">{t.line}{st === "ok" && t.submittedAt ? ` · ส่งเมื่อ ${thaiDateTime(t.submittedAt)}${t.late ? " (ส่งช้า)" : ""}` : ""}</p>
+                    {st !== "ok" && <p className="td-miss">{t.miss}</p>}
+                    <Link className={`ux-btn${st === "ok" ? " line" : " gold"} block`} href={t.href}>{t.cta}</Link></>}
+                </article>); })}
+          </div>
+        </section>
 
+        {/* ===== กราฟ ตาราง และรายละเอียด: พับเก็บไว้ข้างล่าง ===== */}
+        <details className="td-more">
+          <summary><b>ดูภาพรวม กราฟ และรายการรายงานทั้งหมด</b><small>ผลงานสะสม เทียบปีก่อน สถานะรายเดือน</small></summary>
         {/* ===== การ์ด KPI 3 ใบ: ปุ๋ยอินทรีย์ · ไถกลบฟางข้าว · หยุดเผา (ใต้การ์ดมีสถานะการส่งรายงานของหัวข้อนั้น) ===== */}
         <div className="ad-kpis">
           <div className="ad-kpi">
-            <div className="ad-kpi-h"><span>ปุ๋ยอินทรีย์</span><i className="ic green">🌱</i></div>
+            <div className="ad-kpi-h"><span>ปุ๋ยอินทรีย์</span></div>
             <div className="ad-kpi-v"><h2>{fmt(d.me.total)} <small>ตัน</small></h2><Delta cur={d.me.total} prev={d.prev.total} /></div>
             <p>{d.pct}% ของเป้าหมาย {fmt(d.me.target)} ตัน{d.me.sent ? ` · อันดับที่ ${d.rank} จาก ${d.ranked.length} อำเภอ` : ""}</p>
             <p>ส่งรายงานแล้ว {d.me.sent}/{d.agg.months.length} เดือน{d.me.late ? ` · ส่งช้า ${d.me.late} ครั้ง` : " · ไม่มีส่งช้า"}</p>
           </div>
           <div className="ad-kpi">
-            <div className="ad-kpi-h"><span>ไถกลบฟางข้าว</span><i className="ic amber">🌾</i></div>
+            <div className="ad-kpi-h"><span>ไถกลบฟางข้าว</span></div>
             <div className="ad-kpi-v"><h2>{f2(d.ar.accum)} <small>ไร่</small></h2><Delta cur={d.ar.accum} prev={d.prev.accum} /></div>
             <p>{Math.round(d.ar.ofTarget)}% ของเป้าหมาย {f2(d.ar.target)} ไร่ · ฟางก้อน {fmt(strawBales(d.ar.accum, K))} ก้อน</p>
             <p>ส่งรายงานแล้ว {d.as.sent}/{d.as.months} เดือน{d.as.late ? ` · ส่งช้า ${d.as.late} ครั้ง` : " · ไม่มีส่งช้า"}</p>
           </div>
           <div className="ad-kpi">
-            <div className="ad-kpi-h"><span>หยุดเผา</span><i className="ic purple">🔥</i></div>
+            <div className="ad-kpi-h"><span>หยุดเผา</span></div>
             <div className="ad-kpi-v"><h2>{fmt(d.bn.act)} <small>ครั้ง</small></h2><Delta cur={d.bn.act} prev={d.bn.prevAct} /></div>
             <p>ชุมชน {fmt(d.bn.vil)} แห่ง · เกษตรกร/ผู้เข้าร่วม {fmt(d.bn.par)} ราย</p>
             <p>ส่งรายงานแล้ว {d.bn.sent}/{d.bn.months} เดือน{d.bn.late ? ` · ส่งช้า ${d.bn.late} ครั้ง` : " · ไม่มีส่งช้า"}</p>
@@ -336,7 +355,7 @@ export default function DistrictDashboard() {
         <section className="ad-card">
           <div className="ad-card-h"><div><h3>สถานะการส่งรายงานปุ๋ยรายเดือน</h3><p>เขียว = ส่งครบ · เหลือง = ส่งบางรอบ/ร่าง · แดง = ยังไม่ส่ง · กดเพื่อกรอกหรือแก้ไข</p></div></div>
           <div className="db-chips">{d.agg.months.map(m => { const s = d.mstat(m), g = d.me.got[m] ?? 0;
-            return <Link key={m} href={`/district/report?month=${m}`} className={`db-chip ${s}`}>{thaiMonth(m)}{nR("fert", m) > 1 && s === "warn" ? ` (${g}/${nR("fert", m)})` : ""}{d.mlate(m) ? " · ส่งช้า" : ""}</Link>; })}</div>
+            return <Link key={m} href={formHref("fert", m)} className={`db-chip ${s}`}>{thaiMonth(m)}{nR("fert", m) > 1 && s === "warn" ? ` (${g}/${nR("fert", m)})` : ""}{d.mlate(m) ? " · ส่งช้า" : ""}</Link>; })}</div>
         </section>
 
         <details className="db-more">
@@ -348,7 +367,7 @@ export default function DistrictDashboard() {
                   <td><span className={`pill ${r ? (r.status === "submitted" ? (r.late ? "no" : "ok") : "warn") : "no"}`}>{r ? (r.status === "submitted" ? (r.late ? "ส่งช้า" : "ส่งแล้ว") : "ร่าง") : "ยังไม่ส่ง"}</span></td>
                   <td>{thaiDate(due)}</td><td>{r?.submittedAt ? thaiDateTime(r.submittedAt) : "–"}</td>
                   {FIELDS.map(f => <td key={f.key}>{r ? fmt(r.values[f.key] ?? 0) : "–"}</td>)}<td><b>{r ? fmt(sumValues(r.values, FIELDS)) : "–"}</b></td>
-                  <td><Link className="btn alt" href={`/district/report?month=${m}&round=${rd}`}>{r ? "แก้ไข" : "กรอก"}</Link></td></tr>); }))}</tbody></table></div></section>
+                  <td><Link className="btn alt" href={formHref("fert", m, rd)}>{r ? "แก้ไข" : "กรอก"}</Link></td></tr>); }))}</tbody></table></div></section>
           <section className="db-card" style={{ marginTop: "1rem" }}><h2>รายละเอียดรายเดือน · พื้นที่และฟางข้าว</h2>
             <div className="tw2"><table className="dt plain"><thead><tr><th>เดือน</th><th>รอบ</th><th>สถานะ</th><th>กำหนดส่ง</th><th>ส่งเมื่อ</th><th>พื้นที่เดือนนี้ (ไร่)</th><th>ฟางข้าว (ตัน)</th><th>มูลค่า (บาท)</th><th>ฟางก้อน (ก้อน)</th><th>ราคาฟางก้อน (บาท)</th><th></th></tr></thead>
               <tbody>{[...d.arMonths].reverse().flatMap(m => Array.from({ length: nR("area", m) }, (_, i) => i + 1).map(rd => { const r = area.find(x => x.month === m && x.round === rd); const due = r?.dueDate ?? dueOf("area", m, rd); return (
@@ -356,7 +375,8 @@ export default function DistrictDashboard() {
                   <td><span className={`pill ${r ? (r.status === "submitted" ? (r.late ? "no" : "ok") : "warn") : "no"}`}>{r ? (r.status === "submitted" ? (r.late ? "ส่งช้า" : "ส่งแล้ว") : "ร่าง") : "ยังไม่ส่ง"}</span></td>
                   <td>{thaiDate(due)}</td><td>{r?.submittedAt ? thaiDateTime(r.submittedAt) : "–"}</td>
                   <td>{r ? f2(r.values.area ?? 0) : "–"}</td><td>{r ? f2(strawTons(r.values.area ?? 0, K)) : "–"}</td><td>{r ? f2(strawValue(r.values.area ?? 0, K)) : "–"}</td><td>{r ? f2(strawBales(r.values.area ?? 0, K)) : "–"}</td><td>{r ? f2(baleValue(r.values.area ?? 0, K)) : "–"}</td>
-                  <td><Link className="btn alt" href={`/district/area?month=${m}&round=${rd}`}>{r ? "แก้ไข" : "กรอก"}</Link></td></tr>); }))}</tbody></table></div></section>
+                  <td><Link className="btn alt" href={formHref("area", m, rd)}>{r ? "แก้ไข" : "กรอก"}</Link></td></tr>); }))}</tbody></table></div></section>
+        </details>
         </details>
       </>}
     </div>

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import Skeleton from "@/components/Skeleton";
 import { useMemo, useState } from "react";
 import { areaTotalsFor, cfgOf, cfgOfMonth, dueDaysFor, fiscalRange, fiscalYearOf, thaiMonth } from "@/lib/data";
 import { aggregate, aggregateArea, fmt } from "@/lib/summary";
@@ -80,12 +81,12 @@ export default function ProvinceDashboard() {
   return (
     <div className="pv">
       <div className="pv-head">
-        <h1>แดชบอร์ดข้อมูลจังหวัด</h1>
+        <h1>ภาพรวมผลการดำเนินงานของจังหวัด</h1>
         <FilterBar pdf />
       </div>
 
       {error && <p className="msg bad" role="alert">{error}</p>}
-      {!reports && !area && !error && <p className="pv-load">กำลังโหลดข้อมูล...</p>}
+      {!reports && !area && !error && <Skeleton />}
       {((reports && !valid) || (area && !valid)) && <p className="msg bad" role="alert">เลือกช่วงเดือนให้ถูกต้อง</p>}
 
       {agg && (
@@ -119,6 +120,8 @@ export default function ProvinceDashboard() {
             ...(ar ? [{ key: "area", label: "ไถกลบฟางข้าว", unit: "ไร่", note: `พื้นที่สะสมเทียบเป้าร้อยละ ${AREA_TARGET_PCT} ของพื้นที่ปลูกพืชทั้งหมด · อำเภอที่ยังไม่ตั้งพื้นที่ปลูกจะแสดงว่ายังไม่ตั้งเป้า`, rows: ar.rows.map(r => ({ name: r.name, value: r.accum, target: r.target, hasTarget: r.assigned })) }] : []),
           ]} />
 
+          <details className="gv-more">
+            <summary>แผนที่ กราฟ และอันดับรายอำเภอ (กดเพื่อดูรายละเอียด)</summary>
           {/* แผนที่รายอำเภอเทียบเป้าหมาย */}
           <h2 className="pv-sec">แผนที่เทียบเป้าหมายและเปรียบเทียบ 3 ปี · {yearTxt}</h2>
           <div className="pv-trend">
@@ -189,6 +192,8 @@ export default function ProvinceDashboard() {
               </div>
             </>
           )}
+
+          </details>
 
           {/* พื้นที่และฟางข้าว + สถานะการส่งข้อมูล */}
           <div className="pv-bottom">
